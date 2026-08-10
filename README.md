@@ -1,12 +1,189 @@
-# 项目结构说明
+# CampusMate AI
 
-# 本地运行
-## 运行流程
-bash scripts/local_run.sh -m flow
+> A trustworthy AI-powered campus team-matching platform that helps university students go from "want to participate" to "actually forming a team."
 
-## 运行节点
-bash scripts/local_run.sh -m node -n node_name
+CampusMate AI 不只是一个带 AI 审核的校园论坛，而是由智能体负责理解需求、合理分类、补全信息、匹配队友、辅助沟通并推动团队真正组建的可信组队平台。
 
-# 启动HTTP服务
-bash scripts/http_run.sh -m http -p 5000
+## ✨ 核心功能
 
+- **AI 对话式发帖**：用户输入一句话，AI 追问缺失信息并生成结构化组队帖
+- **智能分类与审核**：AI 自动分类、打标签、风险分级，规则引擎 + 语义判断双重审核
+- **队友匹配与推荐**：确定性筛选 + 语义匹配，输出可解释的推荐理由
+- **申请与临时聊天**：申请加入 → 发布者接受 → 平台内安全聊天
+- **双向确认成队**：双方确认后创建团队并解锁联系方式
+- **AI 成队规划**：自动生成分工建议、首次会议议程、任务清单和风险提醒
+
+## 🛠 技术栈
+
+| 层 | 技术 | 说明 |
+|----|------|------|
+| 前端 | React / Vue（响应式 Web + PWA） | Windows 桌面端与手机端共用 |
+| 后端 | Node.js / FastAPI | 用户、帖子、聊天、安全、Coze 调用 |
+| 智能体 | Coze 工作流 | 5 个核心工作流 |
+| 数据库 | PostgreSQL / MySQL | 用户、帖子、申请、聊天、团队 |
+
+## 📁 仓库结构
+
+```
+campusmate/
+├── apps/
+│   ├── web/              # 前端：响应式界面
+│   └── server/           # 后端 API
+├── packages/
+│   └── shared/           # 前后端共享类型、接口 schema、常量
+├── coze/                 # Coze 工作流说明、输入输出样例、Prompt 版本
+├── docs/                 # 产品文档、接口文档、测试记录、答辩材料
+│   ├── prd.md            # 产品需求文档
+│   ├── user-flow.md      # 用户主流程
+│   ├── pages.md          # 页面定义与验收标准
+│   ├── demo-script.md    # 演示故事线
+│   ├── test-cases.md     # 测试用例
+│   └── review-notes.md   # 走查记录
+├── scripts/              # 初始化数据、演示数据、检查脚本
+└── README.md
+```
+
+## 👥 团队分工
+
+| 成员 | 角色 | 职责 |
+|------|------|------|
+| 洪昱童 | A - 产品与设计 | PRD、用户流程、页面定义、原型、演示故事线 |
+| 李金泽 | B - 前端开发 | Windows/手机端界面、状态管理、聊天界面 |
+| 李雨桐 | C - 后端与安全 | API、数据库、认证、Coze 封装、安全规则 |
+| 裴斐 | D - 智能体与算法 | Coze 工作流、Prompt、分类/匹配/审核、评测集 |
+
+## 🚀 快速开始
+
+### 环境要求
+
+- Node.js >= 18 / Python >= 3.10
+- Git
+- 包管理器：npm / pnpm / uv（按子项目选择）
+
+### 克隆仓库
+
+```bash
+git clone <仓库地址>
+cd campusmate
+git checkout dev
+git pull origin dev
+```
+
+### 环境变量
+
+复制 `.env.example` 并填写配置：
+
+```bash
+cp .env.example .env
+```
+
+```env
+DATABASE_URL=
+JWT_SECRET=
+COZE_API_TOKEN=
+COZE_WORKFLOW_POST_DRAFT=
+COZE_WORKFLOW_CLASSIFY_REVIEW=
+COZE_WORKFLOW_MATCH=
+COZE_WORKFLOW_ACTIVITY_EXTRACT=
+COZE_WORKFLOW_TEAM_PLAN=
+```
+
+### 启动开发
+
+```bash
+# 前端
+cd apps/web
+npm install
+npm run dev
+
+# 后端
+cd apps/server
+npm install
+npm run dev
+```
+
+## 🔀 Git 协作规范
+
+### 分支结构
+
+```
+main        # 稳定演示版本，只接受修复和文档更新
+  └── dev   # 日常集成分支
+       ├── feat/a-*    # 角色A的工作分支
+       ├── feat/b-*    # 角色B的工作分支
+       ├── feat/c-*    # 角色C的工作分支
+       └── feat/d-*    # 角色D的工作分支
+```
+
+### 日常工作流程
+
+```bash
+# 1. 每天开始：拉取最新代码
+git checkout dev
+git pull origin dev
+
+# 2. 创建工作分支
+git checkout -b feat/your-task-name
+
+# 3. 完成功能后提交
+git add .
+git commit -m "feat(server): add application accept API"
+git push origin feat/your-task-name
+
+# 4. 发起 PR → 目标分支 dev，至少一人 review
+```
+
+### 提交信息格式
+
+```
+类型(范围): 简短描述
+```
+
+| 类型 | 说明 | 示例 |
+|------|------|------|
+| `feat` | 新功能 | `feat(frontend): add post detail page` |
+| `fix` | 修复 | `fix(auth): handle expired token` |
+| `docs` | 文档 | `docs(prd): update MVP scope` |
+| `chore` | 杂项 | `chore(repo): add environment example` |
+
+### 合并规则
+
+1. **不直接向 main 推送**
+2. **每个 PR 只做一个清晰任务**
+3. **至少一名非作者成员 review**
+4. **合并前必须能本地运行**
+5. **接口变更时同步更新 `packages/shared` 和 `docs/api.md`**
+
+## 📌 MVP 范围
+
+### 首期支持
+
+- [x] 用户认证与基础资料
+- [x] 活动/组队帖浏览
+- [x] AI 对话式发帖
+- [x] 分类、标签和安全审核
+- [x] 队友匹配与推荐理由
+- [x] 申请加入与临时聊天
+- [x] 双向确认成队与联系方式解锁
+- [x] AI 生成分工与第一次会议计划
+
+### 暂缓
+
+- 支付、押金、复杂信用评分
+- 全校官网自动抓取
+- 语音视频通话
+- 跨校组队（首期限南京大学校内）
+- iOS/Android 原生 App
+
+## 📄 相关文档
+
+- [产品需求文档](docs/prd.md)
+- [用户主流程](docs/user-flow.md)
+- [页面定义与验收标准](docs/pages.md)
+- [演示故事线](docs/demo-script.md)
+- [测试用例](docs/test-cases.md)
+- [走查记录](docs/review-notes.md)
+
+## 📜 License
+
+MIT
