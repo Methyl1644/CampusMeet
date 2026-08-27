@@ -1,0 +1,63 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "campusmate/coze/schemas/team_plan.input.json",
+  "title": "TeamPlanInput",
+  "description": "工作流④ 成队规划的输入。对应后端工具 ai_team_plan，双向确认成队后由后端触发。",
+  "type": "object",
+  "required": ["team_info", "activity_info", "members", "deadline", "member_skills", "member_availability"],
+  "additionalProperties": false,
+  "properties": {
+    "team_info": {
+      "type": "object",
+      "description": "团队基本信息",
+      "additionalProperties": false,
+      "properties": {
+        "team_id": { "type": "string" },
+        "team_name": { "type": ["string", "null"] },
+        "post_id": { "type": ["string", "null"], "description": "来源帖子 ID" },
+        "goal": { "type": ["string", "null"], "description": "组队目标，如 美赛冲奖" }
+      }
+    },
+    "activity_info": {
+      "type": "object",
+      "description": "活动信息",
+      "additionalProperties": false,
+      "properties": {
+        "activity_name": { "type": "string" },
+        "category": { "type": "string" },
+        "activity_time": { "type": ["string", "null"], "description": "活动举行时间，如 2026-09" },
+        "requirements": { "type": ["string", "null"], "description": "活动对队伍的要求，如 3人一队、需提交英文论文" }
+      }
+    },
+    "members": {
+      "type": "array",
+      "minItems": 2,
+      "description": "团队成员列表（已脱敏，不含联系方式）",
+      "items": {
+        "type": "object",
+        "required": ["user_id"],
+        "additionalProperties": false,
+        "properties": {
+          "user_id": { "type": "string" },
+          "nickname": { "type": "string" },
+          "major": { "type": ["string", "null"] },
+          "grade": { "type": ["string", "null"] }
+        }
+      }
+    },
+    "deadline": { "type": ["string", "null"], "description": "最近的关键截止日期（如报名截止）YYYY-MM-DD" },
+    "member_skills": {
+      "type": "object",
+      "description": "成员技能表，key 为 user_id",
+      "additionalProperties": {
+        "type": "array",
+        "items": { "type": "string" }
+      }
+    },
+    "member_availability": {
+      "type": "object",
+      "description": "成员每周可投入时间，key 为 user_id，如 \"10h/周\"",
+      "additionalProperties": { "type": "string" }
+    }
+  }
+}
