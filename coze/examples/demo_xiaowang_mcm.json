@@ -1,0 +1,227 @@
+{
+  "scenario": "小王参加美赛完整链路",
+  "description": "对应 docs/demo-script.md 的演示故事线：小王发美赛招募帖 → AI 分类审核 → 小李匹配申请 → 双向确认成队（小王+小李+小张）→ AI 成队规划。所有数据已脱敏，联系方式为占位假数据，仅用于演示双向确认后的解锁效果。",
+  "official_activity": {
+    "activity_id": "act_001",
+    "activity_name": "美国大学生数学建模竞赛（MCM/ICM）",
+    "organizer": "COMAP",
+    "category": "竞赛与项目",
+    "signup_deadline": "2026-08-15",
+    "activity_time": "2026-09",
+    "team_size": "3人一队",
+    "source": "官方录入",
+    "source_type": "official"
+  },
+  "users": [
+    {
+      "user_id": "u_001",
+      "nickname": "小王",
+      "role_in_demo": "发帖者",
+      "major": "数学系",
+      "grade": "大三",
+      "school": "南京大学",
+      "skills": ["Python", "数学建模"],
+      "auth_level": "campus_verified",
+      "campus_email": "wang@nju.edu.cn",
+      "contact_after_unlock": { "phone": "138****0001", "wechat": "wang_mcm" }
+    },
+    {
+      "user_id": "u_002",
+      "nickname": "小李",
+      "role_in_demo": "申请者（英文写作）",
+      "major": "外语系",
+      "grade": "大二",
+      "school": "南京大学",
+      "skills": ["英语写作", "论文排版"],
+      "experience": "有 EI 会议论文英文写作与排版经验",
+      "auth_level": "campus_verified",
+      "campus_email": "li@nju.edu.cn",
+      "contact_after_unlock": { "phone": "138****0002", "wechat": "li_yuyan" }
+    },
+    {
+      "user_id": "u_003",
+      "nickname": "小张",
+      "role_in_demo": "队员（编程）",
+      "major": "计算机系",
+      "grade": "大二",
+      "school": "南京大学",
+      "skills": ["Python", "C++", "算法"],
+      "experience": "ACM 校队成员",
+      "auth_level": "campus_verified",
+      "campus_email": "zhang@nju.edu.cn",
+      "contact_after_unlock": { "phone": "138****0003", "wechat": "zhang_code" }
+    },
+    {
+      "user_id": "u_004",
+      "nickname": "小陈",
+      "role_in_demo": "其他活动用户（篮球搭子发帖者，可作备选）",
+      "major": "体育部",
+      "grade": "大一",
+      "school": "南京大学",
+      "skills": ["篮球"],
+      "auth_level": "campus_verified",
+      "campus_email": "chen@nju.edu.cn",
+      "contact_after_unlock": { "phone": "138****0004", "wechat": "chen_hoops" }
+    }
+  ],
+  "posts": [
+    {
+      "post_id": "post_001",
+      "author_id": "u_001",
+      "title": "美赛队伍招募编程和英文写作队友",
+      "source_type": "user",
+      "main_category": "竞赛与项目",
+      "tags": ["数学建模", "美赛", "Python", "英文写作", "冲奖"],
+      "activity_name": "美国大学生数学建模竞赛（MCM/ICM）",
+      "current_members": 1,
+      "target_members": 3,
+      "needed_roles": ["编程", "英文写作"],
+      "skills_required": ["Python", "英语写作"],
+      "time_commitment": "10h/周",
+      "location_scope": "南京大学优先",
+      "deadline": "2026-08-15",
+      "goal": "冲奖",
+      "description": "2026 年美赛组队。我是数学系大三，会 Python 和数学建模，负责建模与代码。还缺两名队友：一名编程能力强（负责算法实现与数据处理），一名英文写作好（负责论文写作）。目标冲奖，每周投入约 10 小时，南大同学优先。",
+      "risk_level": "low",
+      "status": "recruiting"
+    },
+    {
+      "post_id": "post_002",
+      "author_id": "org_tuanwei",
+      "title": "挑战杯乡村振兴调研项目招募设计队友",
+      "source_type": "official",
+      "main_category": "竞赛与项目",
+      "tags": ["挑战杯", "乡村振兴", "数据可视化"],
+      "activity_name": "挑战杯全国大学生课外学术科技作品竞赛",
+      "current_members": 2,
+      "target_members": 3,
+      "needed_roles": ["数据可视化"],
+      "time_commitment": "8h/周",
+      "location_scope": "南京大学",
+      "deadline": "2026-09-01",
+      "goal": "冲击省赛",
+      "description": "校团委立项的挑战杯调研项目，已有社会学系 2 名成员负责调研与写作，招募 1 名擅长数据可视化的同学负责成果展示。",
+      "risk_level": "low",
+      "status": "recruiting"
+    },
+    {
+      "post_id": "post_003",
+      "author_id": "org_cs_club",
+      "title": "数据结构课程大作业组队",
+      "source_type": "org",
+      "main_category": "学习与科研",
+      "tags": ["课程作业", "数据结构", "报告撰写"],
+      "activity_name": "数据结构课程大作业",
+      "current_members": 1,
+      "target_members": 3,
+      "needed_roles": ["报告撰写"],
+      "time_commitment": "4h/周",
+      "location_scope": "线上即可",
+      "deadline": "2026-09-10",
+      "goal": "高质量完成作业",
+      "description": "数据结构大作业组队，发帖同学负责编程实现，缺一名擅长学术写作的同学负责实验报告。",
+      "risk_level": "low",
+      "status": "recruiting"
+    },
+    {
+      "post_id": "post_004",
+      "author_id": "u_004",
+      "title": "仙林校区周末篮球3v3",
+      "source_type": "user",
+      "main_category": "体育与健身",
+      "tags": ["篮球", "周末", "仙林校区", "线下"],
+      "activity_name": "周末篮球3v3",
+      "current_members": 1,
+      "target_members": 6,
+      "needed_roles": ["球友"],
+      "time_commitment": "周末下午",
+      "location_scope": "仙林校区",
+      "deadline": null,
+      "goal": "锻炼身体",
+      "description": "仙林校区周末下午篮球场半场 3v3，目前 1 人，凑 5 个球友，水平不限，打完可以一起食堂吃饭。",
+      "risk_level": "low",
+      "status": "recruiting"
+    }
+  ],
+  "applications": [
+    {
+      "application_id": "app_001",
+      "post_id": "post_001",
+      "applicant_id": "u_002",
+      "role_wanted": "英文写作",
+      "experience": "有 EI 会议论文英文写作与排版经验",
+      "available_time": "每周6小时",
+      "reason": "希望参加美赛并冲奖",
+      "questions": ["是否每周线下讨论？"],
+      "status": "accepted",
+      "match_result": {
+        "score": 87,
+        "acceptability": "recommended",
+        "hard_conflicts": [],
+        "matched_reasons": [
+          "对方需要英文写作成员，小李有 EI 会议论文英文写作与排版经验",
+          "双方目标均为冲奖",
+          "技能与现有成员（数学建模/Python）互补"
+        ],
+        "potential_risks": [
+          "小李每周可投入 6h，低于帖子期望的 10h"
+        ],
+        "suggested_questions": [
+          "每周投入时间能否接近 10h？",
+          "是否接受每周一次线下讨论？"
+        ],
+        "summary": "英文写作经验直接对口，目标一致，建议先沟通投入时间。"
+      }
+    }
+  ],
+  "team": {
+    "team_id": "team_001",
+    "team_name": "2026 美赛冲奖队",
+    "post_id": "post_001",
+    "activity_id": "act_001",
+    "goal": "美赛冲奖",
+    "members": [
+      { "user_id": "u_001", "nickname": "小王", "confirmed_role": "建模与代码" },
+      { "user_id": "u_002", "nickname": "小李", "confirmed_role": "论文写作与排版" },
+      { "user_id": "u_003", "nickname": "小张", "confirmed_role": "编程实现与数据处理" }
+    ],
+    "formed_via": "双向确认（小王与小李先后点击'愿意组队'，小张随后加入确认）",
+    "contact_unlocked": true,
+    "created_at": "2026-08-10"
+  },
+  "ai_team_plan": {
+    "role_assignments": [
+      { "user_id": "u_001", "nickname": "小王", "suggested_role": "建模与代码", "reason": "具备 Python 与数学建模技能，适合负责模型建立与求解" },
+      { "user_id": "u_002", "nickname": "小李", "suggested_role": "论文写作与排版", "reason": "具备英语写作与论文排版技能，有 EI 会议论文经验" },
+      { "user_id": "u_003", "nickname": "小张", "suggested_role": "编程实现与数据处理", "reason": "具备 Python/C++ 与算法能力，ACM 校队经验" }
+    ],
+    "first_meeting_agenda": [
+      { "topic": "确认比赛目标与期望", "detail": "对齐'冲奖'目标，明确各自期望（奖项等级、可接受的工作量）", "duration_min": 10 },
+      { "topic": "确认分工", "detail": "基于 AI 建议分工讨论调整，确认每人职责边界", "duration_min": 15 },
+      { "topic": "确认时间表与沟通机制", "detail": "固定每周例会时间；重点沟通小李每周投入能否从 6h 提升到接近 10h", "duration_min": 15 },
+      { "topic": "确认报名事项", "detail": "核对报名流程、费用与 08-15 截止时间，指定报名负责人", "duration_min": 10 }
+    ],
+    "first_week_tasks": [
+      { "task": "完成报名信息整理并在官网确认报名", "owner_id": "u_001", "due": "2026-08-15" },
+      { "task": "收集近三年美赛真题与优秀论文（O奖论文优先）", "owner_id": "u_002", "due": "2026-08-18" },
+      { "task": "搭建代码环境、Git 仓库与 LaTeX 论文模板", "owner_id": "u_003", "due": "2026-08-18" }
+    ],
+    "milestones": [
+      { "name": "完成报名", "date": "2026-08-15" },
+      { "name": "完成第一次模拟赛（选一套真题演练）", "date": "2026-08-29" },
+      { "name": "确定比赛选题策略与分工预案", "date": "2026-09-05" },
+      { "name": "正式比赛与论文提交", "date": "2026-09-20" }
+    ],
+    "risk_reminders": [
+      "报名截止日期 2026-08-15 需要再次确认，建议提前 2 天完成",
+      "小李每周可投入 6h，低于备赛强度需求，建议第一次会议沟通是否能阶段性增加投入",
+      "英文论文是美赛提交的核心产物，建议小李尽早建立论文模板与术语库"
+    ],
+    "missing_roles": [],
+    "next_actions": [
+      "召开第一次线上会议，确认分工与时间表",
+      "小王在 08-15 前完成报名并向队友同步凭证",
+      "会后一周内完成第一次模拟选题讨论"
+    ]
+  }
+}

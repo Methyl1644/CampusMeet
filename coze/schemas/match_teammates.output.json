@@ -1,0 +1,54 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "campusmate/coze/schemas/match_teammates.output.json",
+  "title": "MatchTeammatesOutput",
+  "description": "工作流③ 智能匹配的输出。每个候选人一条结果，必须可解释：为什么推荐、哪里有风险、建议沟通什么问题。不允许只输出分数。",
+  "type": "object",
+  "required": ["matches"],
+  "additionalProperties": false,
+  "properties": {
+    "matches": {
+      "type": "array",
+      "description": "按 score 降序排列的匹配结果",
+      "items": {
+        "type": "object",
+        "required": [
+          "candidate_id", "score", "acceptability",
+          "matched_reasons", "potential_risks", "suggested_questions", "summary"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "candidate_id": { "type": "string" },
+          "score": { "type": "integer", "minimum": 0, "maximum": 100, "description": "综合匹配分数 0-100" },
+          "acceptability": {
+            "type": "string",
+            "enum": ["recommended", "conditional", "not_recommended"],
+            "description": "可接受性：推荐 / 有条件推荐（有硬条件待确认）/ 不推荐（硬条件冲突）"
+          },
+          "hard_conflicts": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "硬条件冲突列表，如 [\"招募已截止\", \"不接受跨校\"]，无冲突为空数组"
+          },
+          "matched_reasons": {
+            "type": "array",
+            "items": { "type": "string" },
+            "minItems": 1,
+            "description": "推荐理由，必须具体引用技能/经验/目标/时间，如 \"对方有英文论文经验，匹配英文写作角色\""
+          },
+          "potential_risks": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "潜在风险或不确定点，如 \"对方每周投入 6h 低于帖子要求的 10h\""
+          },
+          "suggested_questions": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "建议双方沟通确认的问题，如 \"是否接受每周一次线下讨论？\""
+          },
+          "summary": { "type": "string", "description": "一句话总结，展示在帖子卡片/推荐位" }
+        }
+      }
+    }
+  }
+}

@@ -1,6 +1,13 @@
 [project]
+sub_id = "7e6f3812"
+name = "EL_CampusMate"
 entrypoint = "src/main.py"
 requires = ["python-3.12"]
+project_type = "backend"
+version = "0.0.35"
+
+[preview]
+preview_enable = "disabled"
 
 [dev]
 build = ["bash", "scripts/setup.sh"]
@@ -9,4 +16,14 @@ pack = ["bash", "scripts/pack.sh"]
 
 [deploy]
 build = ["bash", "scripts/setup.sh"]
-run = ["bash", "scripts/http_run.sh"]
+run = ["bash", "scripts/http_run.sh", "-p", "5000"]
+
+[deploy.profile]
+kind = "service"
+flavor = "agent"
+
+[deploy.backend]
+enabled = true
+
+[subprojects]
+path = ["."]
