@@ -1,55 +1,40 @@
-node_modules
-dist
+# Dependencies
+node_modules/
+apps/web/node_modules/
+apps/server/node_modules/
+
+# Build output
+dist/
+build/
+
+# Environment
+.env
+.env.local
+*.local
+
+# IDE
+.vscode/
+.idea/
+
+# OS
 .DS_Store
-*.swp
-.git/*
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+
+# Cache
+.cache/
+.parcel-cache/
+.eslintcache
+
+# Python
 __pycache__/
 *.pyc
-.venv
-*.o
-*.a
-/vendor
-*.egg-info/
-/.env
-.env
+*.pyo
+
+# TypeScript build info
+*.tsbuildinfo
 .cozeproj/reduction
-
-# 视频文件
-*.mp4
-*.avi
-*.mov
-*.wmv
-*.flv
-*.mkv
-*.webm
-*.m4v
-*.mpeg
-*.mpg
-*.3gp
-*.f4v
-*.rmvb
-*.vob
-
-# 归档文件
-*.iso
-*.dmg
-*.rar
-*.zip
-*.gz
-
-# 文档类也默认加入
-*.pdf
-*.docx
-*.doc
-*.xlsx
-*.xls
-*.ppt
-*.pptx
-*.xlsx
-*.csv
-
-# Preview files
-.preview
-
-# CodeGraph index
 .codegraph

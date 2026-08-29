@@ -45,14 +45,14 @@ COZE_API_TOKEN=<在 Coze 后台创建的个人访问令牌>
 COZE_API_BASE_URL=https://api.coze.cn
 
 # 4 个工作流 ID（在 Coze 后台发布工作流后获得）
-# 注意：变量名不带 _ID 后缀，与 src/tools/ai_tools.py 和 .env.example 一致
-COZE_WORKFLOW_POST_DRAFT=
-COZE_WORKFLOW_CLASSIFY_REVIEW=
-COZE_WORKFLOW_MATCH=
-COZE_WORKFLOW_TEAM_PLAN=
+# 注意：变量名带 _ID 后缀，与 src/tools/ai_tools.py 和 .env.example 一致
+COZE_WORKFLOW_POST_DRAFT_ID=
+COZE_WORKFLOW_CLASSIFY_REVIEW_ID=
+COZE_WORKFLOW_MATCH_TEAMMATES_ID=
+COZE_WORKFLOW_TEAM_PLAN_ID=
 
 # 可选（P1）
-COZE_WORKFLOW_ACTIVITY_EXTRACT=
+COZE_WORKFLOW_OFFICIAL_ACTIVITY_EXTRACT_ID=
 ```
 
 配置步骤：
@@ -116,7 +116,7 @@ else:
 | 5 | 风险等级 / 审核结论枚举 | `risk_level`: low/medium/high；`audit_result`: approve/modify/manual_review/reject | C 的 `security.py` |
 | 6 | 敏感信息检测口径 | `prompts/safety_rules.md` §1 的 6 类（身份证号/手机号/微信/QQ/精确住址/违禁词）与风险升级矩阵 | C 的 `security.py` 正则与违禁词表 |
 | 7 | 匹配输出字段 | `score`/`hard_conflicts`/`matched_reasons`/`potential_risks`/`suggested_questions` vs user-flow 示例的 `score`/`hard_conflicts`/`reasons`/`reminders`——字段名若以前端 `types.ts` 为准需做一次映射 | B、C |
-| 8 | 环境变量名 | `COZE_API_TOKEN` / `COZE_API_BASE_URL` / 4 个 `COZE_WORKFLOW_*`（不带 `_ID` 后缀） | C 的 `.env.example` |
+| 8 | 环境变量名 | `COZE_API_TOKEN` / `COZE_API_BASE_URL` / 4 个 `COZE_WORKFLOW_*_ID` | C 的 `.env.example` |
 | 9 | fallback 行为 | 未配置 ID → LLM fallback → 再失败按 user-flow §4.1 兜底 | C 的 `ai_tools.py` 实现 |
 
 核对完成后：在本表"待核对方"列填确认人，把结论记到 `docs/review-notes.md` 走查记录。
