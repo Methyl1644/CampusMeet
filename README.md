@@ -18,7 +18,7 @@ CampusMate AI 不只是一个带 AI 审核的校园论坛，而是由智能体�
 | 层 | 技术 | 说明 |
 |----|------|------|
 | 前端 | React / Vue（响应式 Web + PWA） | Windows 桌面端与手机端共用 |
-| 后端 | Node.js / FastAPI | 用户、帖子、聊天、安全、Coze 调用 |
+| 后端 | Python 3.12 + FastAPI + LangGraph + SQLAlchemy | 用户、帖子、聊天、安全、Coze 调用，`src/` |
 | 智能体 | Coze 工作流 | 5 个核心工作流 |
 | 数据库 | PostgreSQL / MySQL | 用户、帖子、申请、聊天、团队 |
 
@@ -27,19 +27,18 @@ CampusMate AI 不只是一个带 AI 审核的校园论坛，而是由智能体�
 ```
 campusmate/
 ├── apps/
-│   ├── web/              # 前端：响应式界面
-│   └── server/           # 后端 API
+│   └── web/              # 前端：React + Vite 响应式界面
 ├── packages/
 │   └── shared/           # 前后端共享类型、接口 schema、常量
+├── src/                  # 后端：FastAPI + LangGraph
+│   ├── main.py           # FastAPI 入口
+│   ├── api.py            # /api/* REST 路由（接前端）
+│   ├── agents/           # LangGraph agent 定义
+│   └── tools/            # 业务工具（认证/帖子/申请/消息/团队/AI/安全）
 ├── coze/                 # Coze 工作流说明、输入输出样例、Prompt 版本
+├── scripts/              # 初始化数据、演示数据、运行脚本
+│   └── seed.py           # 灌入演示数据
 ├── docs/                 # 产品文档、接口文档、测试记录、答辩材料
-│   ├── prd.md            # 产品需求文档
-│   ├── user-flow.md      # 用户主流程
-│   ├── pages.md          # 页面定义与验收标准
-│   ├── demo-script.md    # 演示故事线
-│   ├── test-cases.md     # 测试用例
-│   └── review-notes.md   # 走查记录
-├── scripts/              # 初始化数据、演示数据、检查脚本
 └── README.md
 ```
 
@@ -69,8 +68,13 @@ cp .env.example .env
 ```
 
 ```env
-DATABASE_URL=
+# 数据库连接（变量名必须是 DATABASE_URL）
+DATABASE_URL=postgresql://用户名:密码@localhost:5432/campusmate
+
+# JWT 密钥
 JWT_SECRET=
+
+# Coze 工作流（可选，未配置时后端走 LLM 兜底，不影响演示）
 COZE_API_TOKEN=
 COZE_WORKFLOW_POST_DRAFT=
 COZE_WORKFLOW_CLASSIFY_REVIEW=
@@ -82,16 +86,16 @@ COZE_WORKFLOW_TEAM_PLAN=
 ### 启动开发
 
 ```bash
+# 后端（端口 3000，前端 vite 已把 /api 代理到此）
+python src/main.py -m http -p 3000
+
 # 前端
 cd apps/web
 npm install
 npm run dev
-
-# 后端
-cd apps/server
-npm install
-npm run dev
 ```
+
+> 后端首次启动会自动建表。建表后另开终端运行 `python scripts/seed.py` 灌入演示数据。
 
 ## 🔀 Git 协作规范
 

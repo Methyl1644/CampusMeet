@@ -4,20 +4,22 @@
 
 CampusMate AI：面向高校学生的可信 AI 组队平台（不是普通论坛）。核心闭环：官方活动发现 → AI 需求整理 → 结构化组队帖 → 分类审核 → 队友匹配 → 申请沟通 → 双向确认成队 → AI 成队规划。
 
-团队分工：A=产品文档（已完成，见 `docs/`）、B=前端（React+Vite，`apps/web` + `packages/shared`，**代码尚未推送到仓库**）、C=后端与安全（FastAPI + LangGraph + 安全规则引擎，**业务代码尚未推送到仓库**）、D=智能体与算法（Coze 工作流/Prompt/Schema/评测集，交付物在 `coze/`）。
+团队分工：A=产品文档（见 `docs/`）、B=前端（React+Vite，`apps/web` + `packages/shared`）、C=后端与安全（FastAPI + LangGraph + 安全规则引擎，`src/`）、D=智能体与算法（Coze 工作流/Prompt/Schema/评测集，`coze/`）。
+
+> **当前状态（2026-08-29）**：A/B/C/D 四方交付物均已推送到 main。当前唯一阻塞项是**前后端协议未对接**——前端调 `/api/*` REST 接口，后端 `src/main.py` 是 Coze 模板 runtime（只有 `/run` `/stream_run`），没有 `/api/*` 路由。解决方案见 `docs/api-alignment.md`，核心是新增 `src/api.py` 路由层把 tool 包装成 REST 接口。
 
 ## 技术栈
 
-- 后端：Python 3.12 + FastAPI + LangGraph + SQLAlchemy，`uv` 管理依赖（`pyproject.toml` / `uv.lock`）
-- 前端（未到位）：React 18 + Vite + TypeScript + Tailwind + Zustand + Axios
-- 智能体：Coze 工作流（4 个 P0 工作流 + 1 个 P1），后端通过 `src/tools/ai_tools.py` 调用，未配置工作流 ID 时走 LLM fallback
+- 后端：Python 3.12 + FastAPI + LangGraph + SQLAlchemy，`uv` 管理依赖（`pyproject.toml` / `uv.lock`）。Windows 开发需先从 `pyproject.toml` 删除 `pycairo` / `dbus-python` / `PyGObject` 三个 Linux 专属依赖（业务代码未使用）。
+- 前端：React 18 + Vite + TypeScript + Tailwind + Zustand + Axios，`apps/web`
+- 智能体：Coze 工作流（4 个 P0 + 1 个 P1），后端通过 `src/tools/ai_tools.py` 调用，未配置工作流 ID 时走 LLM fallback
 
 ## 目录结构
 
 - `docs/`：A 的产品文档（prd / user-flow / pages / demo-script / test-cases / review-notes），**契约权威来源**
-- `src/`：后端。当前仓库内只有 Coze LangGraph 模板脚手架（`main.py` 为通用 graph 运行时，`storage/` 为模板基础设施）；C 的业务代码（`tools/ai_tools.py`、`utils/security.py`、`agents/agent.py`、8 张业务表）尚未推送
+- `src/`：后端。`main.py` 为 FastAPI 入口，`api.py` 为 `/api/*` REST 路由层（接前端），`tools/` 为业务工具，`agents/agent.py` 为 LangGraph agent 定义（当前演示路径不走 agent，走 REST 路由直调 tool）
 - `coze/`：D 的交付物。`workflows/` 工作流设计、`prompts/` 提示词、`schemas/` 输入输出 JSON Schema、`evals/` 评测集（JSONL）、`examples/` 演示数据、`INTEGRATION.md` 集成说明
-- `scripts/`：模板自带的运行脚本（setup / http_run / local_run / pack）
+- `scripts/`：`setup.sh` / `http_run.sh` 为 Coze 模板自带运行脚本；`seed.py` 为演示数据灌入脚本
 
 ## 关键入口 / 核心模块
 
@@ -28,9 +30,9 @@ CampusMate AI：面向高校学生的可信 AI 组队平台（不是普通论坛
 
 ## 运行与预览
 
-- `project_type = "backend"`，不可预览（preview_enable = disabled）
-- 运行：`bash scripts/setup.sh` 后 `bash scripts/http_run.sh`（模板 HTTP 服务，入口 `src/main.py`）
-- 环境：Python 3.12 + uv 虚拟环境；数据库连接走 `PGDATABASE_URL`
+- 后端：`python src/main.py -m http -p 3000`（端口 3000，前端 vite 已把 `/api` 代理到此）
+- 环境：Python 3.12；数据库连接走环境变量 `DATABASE_URL`（**不是** `PGDATABASE_URL`，`db.py` 已兼容两者但优先读 `DATABASE_URL`）
+- 首次启动自动建表；建表后跑 `python scripts/seed.py` 灌入演示数据
 
 ## 用户偏好与长期约束
 
@@ -40,5 +42,6 @@ CampusMate AI：面向高校学生的可信 AI 组队平台（不是普通论坛
 
 ## 常见问题和预防
 
-- **B/C 代码未推送**：当前仓库无 `apps/web`、`packages/shared`、`src/tools/ai_tools.py` 等。凡涉及前后端字段契约的内容，以 `docs/` + 任务说明字段清单为准，并在 `coze/INTEGRATION.md` 的"待对账清单"登记，代码到位后逐条核对
+- **Windows 装包失败**：`pyproject.toml` 含 `pycairo` / `dbus-python` / `PyGObject` 三个 Linux 专属依赖，Windows 上装不上。删除这三行后 `pip install -e .` 即可。
+- **前后端协议**：前端走 `/api/*` REST（见 `packages/shared/src/constants.ts`），后端 `src/api.py` 提供对应路由。字段对账见 `docs/api-alignment.md`。
 - 评测集 JSONL 每行必须是合法 JSON，修改后用 `python -m json.tool` 逐行校验
