@@ -77,6 +77,7 @@ export interface LoginRequest {
 export interface RegisterRequest {
   account: string;
   code: string;
+  password?: string;
   nickname: string;
   major: string;
   grade: string;

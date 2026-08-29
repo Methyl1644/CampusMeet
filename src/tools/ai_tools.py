@@ -77,7 +77,7 @@ def ai_post_draft(message: str, draft: str = "", user_skills: str = "") -> str:
 
     # 先尝试 Coze 工作流
     coze_params = {"message": message, "draft": draft, "user_skills": user_skills}
-    coze_result = _try_coze_workflow("COZE_WORKFLOW_POST_DRAFT", coze_params)
+    coze_result = _try_coze_workflow("COZE_WORKFLOW_POST_DRAFT_ID", coze_params)
     if coze_result:
         return json.dumps(coze_result, ensure_ascii=False)
 
@@ -133,7 +133,7 @@ def ai_classify_review(post_title: str, post_description: str) -> str:
 
     # 先尝试 Coze 工作流
     coze_params = {"title": post_title, "description": post_description}
-    coze_result = _try_coze_workflow("COZE_WORKFLOW_CLASSIFY_REVIEW", coze_params)
+    coze_result = _try_coze_workflow("COZE_WORKFLOW_CLASSIFY_REVIEW_ID", coze_params)
     if coze_result:
         return json.dumps(coze_result, ensure_ascii=False)
 
@@ -185,7 +185,7 @@ def ai_match_teammates(post_id: str) -> str:
 
     # 先尝试 Coze 工作流
     coze_params = {"post_id": post_id}
-    coze_result = _try_coze_workflow("COZE_WORKFLOW_MATCH", coze_params)
+    coze_result = _try_coze_workflow("COZE_WORKFLOW_MATCH_TEAMMATES_ID", coze_params)
     if coze_result:
         return json.dumps(coze_result, ensure_ascii=False)
 
@@ -269,7 +269,7 @@ def ai_team_plan(team_id: str) -> str:
 
     # 先尝试 Coze 工作流
     coze_params = {"team_id": team_id}
-    coze_result = _try_coze_workflow("COZE_WORKFLOW_TEAM_PLAN", coze_params)
+    coze_result = _try_coze_workflow("COZE_WORKFLOW_TEAM_PLAN_ID", coze_params)
     if coze_result:
         return json.dumps(coze_result, ensure_ascii=False)
 

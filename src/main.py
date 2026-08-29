@@ -35,6 +35,12 @@ from coze_coding_utils.async_tasks import config as async_task_config
 from coze_coding_utils.async_tasks.headers import HEADER_X_RUN_ID as _ASYNC_HEADER_X_RUN_ID
 from coze_coding_utils.runtime_ctx.context import new_context as _new_async_ctx
 from sqlalchemy import event
+from api.agent import router as agent_router
+from api.applications import router as applications_router
+from api.auth import router as auth_router
+from api.messages import router as messages_router
+from api.posts import router as posts_router
+from api.teams import router as teams_router
 
 setup_logging(
     log_file=LOG_FILE,
@@ -285,6 +291,12 @@ async def lifespan(app: FastAPI):
         await async_runtime.shutdown()
 
 app = FastAPI(lifespan=lifespan)
+app.include_router(auth_router, prefix="/api")
+app.include_router(posts_router, prefix="/api")
+app.include_router(agent_router, prefix="/api")
+app.include_router(applications_router, prefix="/api")
+app.include_router(messages_router, prefix="/api")
+app.include_router(teams_router, prefix="/api")
 
 # OpenAI 兼容接口处理器
 openai_handler = OpenAIChatHandler(service)
