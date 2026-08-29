@@ -1,0 +1,232 @@
+"""帖子工具：创建、列表、详情、我的帖子"""
+import json
+import logging
+from langchain.tools import tool
+from sqlalchemy import select, desc, asc, or_
+from coze_coding_utils.log.write_log import request_context
+from coze_coding_utils.runtime_ctx.context import new_context
+from storage.database.db import get_session
+from storage.database.models.user import User
+from storage.database.models.post import Post
+from utils.security import screen_post_content
+from tools.auth_tools import _user_brief
+
+logger = logging.getLogger(__name__)
+
+
+def _post_to_dict(post: Post, author: User | None = None) -> dict:
+    """将 Post 对象转为字典"""
+    data = {
+        "id": str(post.id),
+        "title": post.title,
+        "description": post.description,
+        "source_type": post.source_type,
+        "main_category": post.main_category,
+        "tags": post.tags or [],
+        "activity_name": post.activity_name,
+        "current_members": post.current_members,
+        "target_members": post.target_members,
+        "needed_roles": post.needed_roles or [],
+        "weekly_hours": post.weekly_hours,
+        "school_scope": post.school_scope,
+        "deadline": post.deadline,
+        "risk_level": post.risk_level,
+        "status": post.status,
+        "author_id": str(post.author_id),
+        "created_at": post.created_at.isoformat() if post.created_at else None,
+    }
+    if author:
+        data["author"] = _user_brief(author)
+    return data
+
+
+@tool
+def create_post(
+    user_id: str,
+    title: str,
+    description: str,
+    main_category: str,
+    activity_name: str,
+    target_members: int,
+    needed_roles: str,
+    weekly_hours: str = "",
+    school_scope: str = "",
+    deadline: str = "",
+) -> str:
+    """创建组队帖。user_id 为用户ID，title 为标题，description 为描述，main_category 为主分类，activity_name 为活动名称，target_members 为目标人数，needed_roles 为所需角色(逗号分隔)，weekly_hours 为每周时长，school_scope 为学校范围，deadline 为截止日期。"""
+    ctx = request_context.get() or new_context(method="create_post")
+    try:
+        session = get_session()
+        try:
+            uid = int(user_id)
+            user = session.execute(select(User).where(User.id == uid)).scalar_one_or_none()
+            if not user:
+                return json.dumps({"success": False, "message": "用户不存在"}, ensure_ascii=False)
+            if user.auth_status == "unverified":
+                return json.dumps({"success": False, "message": "请先完成校园邮箱认证"}, ensure_ascii=False)
+
+            # 安全规则引擎: 内容审核初筛
+            screen = screen_post_content(title, description)
+            if screen.has_violations:
+                return json.dumps({
+                    "success": False,
+                    "message": "内容审核未通过",
+                    "violations": screen.violations,
+                    "suggestions": screen.suggestions,
+                }, ensure_ascii=False)
+
+            roles = [r.strip() for r in needed_roles.split(",") if r.strip()] if needed_roles else []
+            post = Post(
+                title=title,
+                description=description,
+                source_type="user",
+                main_category=main_category,
+                activity_name=activity_name,
+                target_members=target_members,
+                needed_roles=roles,
+                weekly_hours=weekly_hours or None,
+                school_scope=school_scope or None,
+                deadline=deadline or None,
+                risk_level=screen.risk_level,
+                status="recruiting",
+                author_id=uid,
+            )
+            session.add(post)
+            session.flush()
+
+            # 更新用户发帖数
+            user.post_count = (user.post_count or 0) + 1
+            session.commit()
+
+            return json.dumps({
+                "success": True,
+                "post": _post_to_dict(post, user),
+                "risk_level": screen.risk_level,
+                "risk_factors": screen.risk_factors,
+                "message": "帖子发布成功" + (f"，风险等级: {screen.risk_level}" if screen.risk_level != "low" else ""),
+            }, ensure_ascii=False)
+        finally:
+            session.close()
+    except Exception as e:
+        logger.error(f"create_post error: {e}")
+        return json.dumps({"success": False, "message": f"发布失败: {str(e)}"}, ensure_ascii=False)
+
+
+@tool
+def list_posts(
+    tab: str = "recommend",
+    page: int = 1,
+    page_size: int = 10,
+    category: str = "",
+    tags: str = "",
+    keyword: str = "",
+    sort: str = "latest",
+) -> str:
+    """浏览帖子列表。tab 为标签页(recommend/recruiting/official/hot)，page 为页码，page_size 为每页数量，category 为主分类筛选，tags 为标签筛选(逗号分隔)，keyword 为搜索关键词，sort 为排序方式(latest/hot/deadline)。"""
+    ctx = request_context.get() or new_context(method="list_posts")
+    try:
+        session = get_session()
+        try:
+            query = select(Post)
+
+            # Tab 筛选
+            if tab == "recruiting":
+                query = query.where(Post.status == "recruiting")
+            elif tab == "official":
+                query = query.where(Post.source_type == "official")
+            elif tab == "hot":
+                query = query.where(Post.status == "recruiting")
+
+            # 分类筛选
+            if category:
+                query = query.where(Post.main_category == category)
+
+            # 关键词搜索
+            if keyword:
+                kw = f"%{keyword}%"
+                query = query.where(
+                    or_(Post.title.ilike(kw), Post.description.ilike(kw), Post.activity_name.ilike(kw))
+                )
+
+            # 标签筛选
+            if tags:
+                tag_list = [t.strip() for t in tags.split(",") if t.strip()]
+                for tag in tag_list:
+                    query = query.where(Post.tags.contains([tag]))
+
+            # 排序
+            if sort == "deadline":
+                query = query.order_by(asc(Post.deadline))
+            else:
+                query = query.order_by(desc(Post.created_at))
+
+            # 分页
+            offset = (page - 1) * page_size
+            query = query.offset(offset).limit(page_size)
+
+            results = session.execute(query).scalars().all()
+
+            # 获取作者信息
+            author_ids = list({p.author_id for p in results})
+            authors = {}
+            if author_ids:
+                author_results = session.execute(select(User).where(User.id.in_(author_ids))).scalars().all()
+                authors = {a.id: a for a in author_results}
+
+            posts = [_post_to_dict(p, authors.get(p.author_id)) for p in results]
+            return json.dumps({
+                "success": True,
+                "list": posts,
+                "total": len(posts),
+                "page": page,
+                "page_size": page_size,
+            }, ensure_ascii=False)
+        finally:
+            session.close()
+    except Exception as e:
+        logger.error(f"list_posts error: {e}")
+        return json.dumps({"success": False, "message": f"获取帖子列表失败: {str(e)}"}, ensure_ascii=False)
+
+
+@tool
+def get_post_detail(post_id: str) -> str:
+    """获取帖子详情。post_id 为帖子ID。"""
+    ctx = request_context.get() or new_context(method="get_post_detail")
+    try:
+        session = get_session()
+        try:
+            pid = int(post_id)
+            post = session.execute(select(Post).where(Post.id == pid)).scalar_one_or_none()
+            if not post:
+                return json.dumps({"success": False, "message": "帖子不存在"}, ensure_ascii=False)
+
+            author = session.execute(select(User).where(User.id == post.author_id)).scalar_one_or_none()
+            return json.dumps({
+                "success": True,
+                "post": _post_to_dict(post, author),
+            }, ensure_ascii=False)
+        finally:
+            session.close()
+    except Exception as e:
+        logger.error(f"get_post_detail error: {e}")
+        return json.dumps({"success": False, "message": f"获取详情失败: {str(e)}"}, ensure_ascii=False)
+
+
+@tool
+def get_my_posts(user_id: str) -> str:
+    """获取我发布的帖子。user_id 为用户ID。"""
+    ctx = request_context.get() or new_context(method="get_my_posts")
+    try:
+        session = get_session()
+        try:
+            uid = int(user_id)
+            results = session.execute(
+                select(Post).where(Post.author_id == uid).order_by(desc(Post.created_at))
+            ).scalars().all()
+            posts = [_post_to_dict(p) for p in results]
+            return json.dumps({"success": True, "list": posts, "total": len(posts)}, ensure_ascii=False)
+        finally:
+            session.close()
+    except Exception as e:
+        logger.error(f"get_my_posts error: {e}")
+        return json.dumps({"success": False, "message": f"获取我的帖子失败: {str(e)}"}, ensure_ascii=False)
