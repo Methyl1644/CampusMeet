@@ -207,11 +207,22 @@ def screen_content(text: str) -> ScreenResult:
     wechats = detect_wechat(text)
     if wechats:
         violations.append(f"检测到微信号({len(wechats)}处)，请在双向确认成队后再交换联系方式")
+        for wechat in wechats:
+            result.cleaned_text = result.cleaned_text.replace(wechat, "[联系方式已隐藏]")
 
     # 4. 检测QQ号
     qqs = detect_qq(text)
     if qqs:
         violations.append(f"检测到QQ号({len(qqs)}处)，请在双向确认成队后再交换联系方式")
+        for qq in qqs:
+            result.cleaned_text = result.cleaned_text.replace(qq, "[联系方式已隐藏]")
+
+    # 4.5 检测邮箱
+    emails = EMAIL_PATTERN.findall(text)
+    if emails:
+        violations.append(f"检测到邮箱({len(emails)}处)，公开帖不允许暴露联系方式")
+        for email in emails:
+            result.cleaned_text = result.cleaned_text.replace(email, "[联系方式已隐藏]")
 
     # 5. 检测精确住址
     addresses = detect_address(text)

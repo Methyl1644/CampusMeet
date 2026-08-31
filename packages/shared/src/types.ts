@@ -122,6 +122,23 @@ export interface PostDraftResponse {
   is_complete: boolean;
 }
 
+export interface MatchResult {
+  user_id?: string;
+  candidate_id?: string;
+  score: number;
+  reason?: string;
+  summary?: string;
+  acceptability?: 'recommended' | 'conditional' | 'not_recommended';
+  hard_conflicts?: string[];
+  matched_reasons?: string[];
+  potential_risks?: string[];
+  suggested_questions?: string[];
+}
+
+export interface MatchResponse {
+  matches: MatchResult[];
+}
+
 /** 申请结构 */
 export interface Application {
   id: string;

@@ -1,6 +1,14 @@
 import { post } from './client'
 import { API_PATHS } from '@shared/constants'
-import type { PostDraftRequest, PostDraftResponse, Post } from '@shared/types'
+import type {
+  AgendaItem,
+  DivisionItem,
+  MatchResponse,
+  Post,
+  PostDraftRequest,
+  PostDraftResponse,
+  TaskItem,
+} from '@shared/types'
 
 /** AI 对话式发帖 — 发送消息获取草稿/追问 */
 export function postDraft(data: PostDraftRequest) {
@@ -19,19 +27,15 @@ export function classifyReview(postData: Partial<Post>) {
 
 /** AI 智能匹配 */
 export function matchPosts(postId: string) {
-  return post<Array<{
-    post_id: string
-    score: number
-    reason: string
-  }>>(API_PATHS.agent.match, { post_id: postId })
+  return post<MatchResponse>(API_PATHS.agent.match, { post_id: postId })
 }
 
 /** AI 成队规划 */
 export function generateTeamPlan(teamId: string) {
   return post<{
-    division_of_labor: Array<{ role: string; responsibilities: string }>
-    meeting_agenda: string[]
-    task_list: Array<{ title: string; deadline?: string }>
+    division_of_labor: DivisionItem[]
+    meeting_agenda: AgendaItem[]
+    task_list: TaskItem[]
     risk_reminders: string[]
   }>(API_PATHS.agent.teamPlan, { team_id: teamId })
 }

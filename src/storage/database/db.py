@@ -16,7 +16,7 @@ except Exception:
 
 def get_db_url() -> str:
     """Build database URL from environment."""
-    url = os.getenv("PGDATABASE_URL") or os.getenv("DATABASE_URL") or ""
+    url = os.getenv("DATABASE_URL") or os.getenv("PGDATABASE_URL") or ""
     if url is not None and url != "":
         return url
     from coze_workload_identity import Client
