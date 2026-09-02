@@ -32,7 +32,7 @@ campusmate/
 │   └── shared/           # 前后端共享类型、接口 schema、常量
 ├── src/                  # 后端：FastAPI + LangGraph
 │   ├── main.py           # FastAPI 入口
-│   ├── api.py            # /api/* REST 路由（接前端）
+│   ├── api/              # /api/* REST 模块化路由（接前端）
 │   ├── agents/           # LangGraph agent 定义
 │   └── tools/            # 业务工具（认证/帖子/申请/消息/团队/AI/安全）
 ├── coze/                 # Coze 工作流说明、输入输出样例、Prompt 版本
@@ -88,7 +88,7 @@ COZE_API_TOKEN=
 COZE_WORKFLOW_POST_DRAFT=
 COZE_WORKFLOW_CLASSIFY_REVIEW=
 COZE_WORKFLOW_MATCH=
-COZE_WORKFLOW_ACTIVITY_EXTRACT=
+COZE_WORKFLOW_OFFICIAL_ACTIVITY_EXTRACT=
 COZE_WORKFLOW_TEAM_PLAN=
 ```
 

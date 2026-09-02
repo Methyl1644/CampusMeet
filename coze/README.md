@@ -40,16 +40,16 @@ coze/
 
 | 工作流 | 后端工具 | 前端触点 | 环境变量 |
 |--------|---------|---------|---------|
-| ① AI 对话式发帖 | `ai_post_draft` | `POST /api/agent/post-draft` | `COZE_WORKFLOW_POST_DRAFT_ID` |
-| ② 分类与审核 | `ai_classify_review` | `POST /api/agent/classify-review` | `COZE_WORKFLOW_CLASSIFY_REVIEW_ID` |
-| ③ 智能匹配 | `ai_match_teammates` | 首页推荐 / 帖子详情匹配度 | `COZE_WORKFLOW_MATCH_TEAMMATES_ID` |
-| ④ 成队规划 | `ai_team_plan` | 成队页 `/teams/:id` | `COZE_WORKFLOW_TEAM_PLAN_ID` |
+| ① AI 对话式发帖 | `ai_post_draft` | `POST /api/agent/post-draft` | `COZE_WORKFLOW_POST_DRAFT` |
+| ② 分类与审核 | `ai_classify_review` | `POST /api/agent/classify-review` | `COZE_WORKFLOW_CLASSIFY_REVIEW` |
+| ③ 智能匹配 | `ai_match_teammates` | `POST /api/agent/match` | `COZE_WORKFLOW_MATCH` |
+| ④ 成队规划 | `ai_team_plan` | `POST /api/agent/team-plan` | `COZE_WORKFLOW_TEAM_PLAN` |
 
 ## 契约权威来源与当前状态
 
-字段契约的优先级：**`coze/schemas/`（本目录）≈ `docs/prd.md`、`docs/user-flow.md` > 任务说明字段清单**。
+应用层契约的优先级：**`packages/shared/src/types.ts` + `src/api/agent.py` + `docs/d-ai-contract.md` > Coze 内部丰富 Schema**。Coze 可以在内部使用更多推理字段，但入口和出口必须转换为已冻结的应用契约。
 
-⚠️ **当前状态**：B（前端 `packages/shared`）和 C（后端 `src/tools/ai_tools.py`）的代码尚未推送到仓库。本目录的 schema 以 A 的产品文档 + 任务说明字段清单为基准定义，已在 `INTEGRATION.md` §7「待对账清单」登记需与真实代码逐条核对的点。**B/C 代码推送后，先做对账再上线联调。**
+**当前状态（2026-09-02）**：B 的 React 前端和 C 的 FastAPI 路由/安全引擎已上传 `main`；D 已完成四接口对账和 fallback 自动化验证。Coze workflow ID 仍可留空，不影响演示。匹配工作流在受控上下文查询完成前应继续使用后端 fallback。
 
 ## 评测集说明
 

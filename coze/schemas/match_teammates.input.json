@@ -2,75 +2,15 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "campusmate/coze/schemas/match_teammates.input.json",
   "title": "MatchTeammatesInput",
-  "description": "工作流③ 智能匹配的输入。对应后端工具 ai_match_teammates。候选人资料均已脱敏，不含联系方式。",
+  "description": "工作流③智能匹配的外部输入。与后端 ai_match_teammates 完全一致：调用方只传 post_id。候选人资料由工作流通过受控后端接口获取；接口未就绪时不得配置 COZE_WORKFLOW_MATCH，应使用后端数据库 + LLM fallback。",
   "type": "object",
-  "required": ["post_requirements", "candidate_profiles", "current_team_members", "hard_filters"],
+  "required": ["post_id"],
   "additionalProperties": false,
   "properties": {
-    "post_requirements": {
-      "type": "object",
-      "description": "帖子的组队需求",
-      "additionalProperties": false,
-      "properties": {
-        "post_id": { "type": "string" },
-        "activity_name": { "type": "string" },
-        "category": { "type": "string" },
-        "needed_roles": { "type": "array", "items": { "type": "string" } },
-        "skills_required": { "type": "array", "items": { "type": "string" } },
-        "time_commitment": { "type": ["string", "null"], "description": "每周投入要求，如 10h/周" },
-        "location_scope": { "type": ["string", "null"] },
-        "deadline": { "type": ["string", "null"], "description": "截止日期 YYYY-MM-DD" },
-        "goal": { "type": ["string", "null"], "description": "组队目标，如 冲奖" }
-      }
-    },
-    "candidate_profiles": {
-      "type": "array",
-      "minItems": 1,
-      "description": "候选队友资料列表（已脱敏）",
-      "items": {
-        "type": "object",
-        "required": ["candidate_id"],
-        "additionalProperties": false,
-        "properties": {
-          "candidate_id": { "type": "string" },
-          "nickname": { "type": "string" },
-          "major": { "type": "string" },
-          "grade": { "type": "string" },
-          "skills": { "type": "array", "items": { "type": "string" } },
-          "experience": { "type": ["string", "null"], "description": "相关经验自述" },
-          "weekly_hours": { "type": ["string", "null"], "description": "每周可投入时间，如 6h/周" },
-          "location": { "type": ["string", "null"], "description": "所在校区/地点" },
-          "accept_cross_school": { "type": "boolean", "description": "是否接受跨校" },
-          "preferred_role": { "type": ["string", "null"], "description": "期望承担的角色" },
-          "goal": { "type": ["string", "null"], "description": "参与目标，如 冲奖 / 学习为主" },
-          "communication_style": { "type": ["string", "null"], "description": "沟通偏好，如 线上为主 / 只接受线下讨论" }
-        }
-      }
-    },
-    "current_team_members": {
-      "type": "array",
-      "description": "现有成员（含发帖者）的技能与角色，用于能力互补分析",
-      "items": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "user_id": { "type": "string" },
-          "role": { "type": ["string", "null"] },
-          "skills": { "type": "array", "items": { "type": "string" } }
-        }
-      }
-    },
-    "hard_filters": {
-      "type": "object",
-      "description": "第一层确定性筛选的硬条件",
-      "additionalProperties": false,
-      "properties": {
-        "max_team_size": { "type": ["integer", "null"], "description": "队伍总人数上限" },
-        "current_date": { "type": "string", "description": "调用当天日期 YYYY-MM-DD，用于判断截止是否已过" },
-        "location_required": { "type": ["string", "null"], "description": "必须满足的地点，如 南京大学仙林校区" },
-        "cross_school_allowed": { "type": "boolean", "description": "是否允许跨校" },
-        "must_have_skills": { "type": "array", "items": { "type": "string" }, "description": "必须具备的技能" }
-      }
+    "post_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "待匹配组队帖 ID。工作流必须经受控接口换取已脱敏的帖子、现有成员和候选用户上下文。"
     }
   }
 }

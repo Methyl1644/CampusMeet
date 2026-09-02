@@ -5,7 +5,7 @@
 | 工作流名（Coze 后台） | `campusmate_classify_review` |
 | 对应后端工具 | `ai_classify_review`（`src/tools/ai_tools.py`） |
 | 对应前端接口 | `POST /api/agent/classify-review` |
-| 环境变量 | `COZE_WORKFLOW_CLASSIFY_REVIEW_ID` |
+| 环境变量 | `COZE_WORKFLOW_CLASSIFY_REVIEW` |
 | 输入 Schema | `coze/schemas/classify_review.input.json` |
 | 输出 Schema | `coze/schemas/classify_review.output.json` |
 | Prompt | `coze/prompts/classify_review_prompt.md`（前置拼接 `system_rules.md` + `safety_rules.md`） |

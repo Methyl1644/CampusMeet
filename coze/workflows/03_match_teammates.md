@@ -5,7 +5,7 @@
 | 工作流名（Coze 后台） | `campusmate_match_teammates` |
 | 对应后端工具 | `ai_match_teammates`（`src/tools/ai_tools.py`） |
 | 对应前端接口 | 首页"为你推荐"与帖子详情页的匹配度/推荐理由（P1，对应功能 F13） |
-| 环境变量 | `COZE_WORKFLOW_MATCH_TEAMMATES_ID` |
+| 环境变量 | `COZE_WORKFLOW_MATCH` |
 | 输入 Schema | `coze/schemas/match_teammates.input.json` |
 | 输出 Schema | `coze/schemas/match_teammates.output.json` |
 | Prompt | `coze/prompts/match_teammates_prompt.md`（前置拼接 `system_rules.md` + `safety_rules.md`） |
@@ -16,6 +16,8 @@
 给候选队友生成匹配分数和**可解释**推荐理由：为什么推荐、哪里有风险、建议双方沟通什么。禁止只输出"匹配度 92%"。
 
 ## 2. 两层匹配架构
+
+对外输入只有 `post_id`。后端当前会按 `{"post_id": post_id}` 调用 Coze，因此工作流需在进入两层匹配前，通过受控后端接口换取已脱敏的 `post_requirements`、`candidate_profiles`、`current_team_members` 和 `hard_filters`。该接口尚未接入时，`COZE_WORKFLOW_MATCH` 必须留空，由后端 fallback 直接查库。
 
 ```
 第一层：确定性筛选（代码节点，不用 LLM）
@@ -36,7 +38,8 @@
 
 | 节点 | 类型 | 说明 |
 |------|------|------|
-| 开始 | Start | 输入：`post_requirements`(Object)、`candidate_profiles`(Array<Object>)、`current_team_members`(Array<Object>)、`hard_filters`(Object) |
+| 开始 | Start | 输入：`post_id`(String) |
+| 受控上下文查询 | HTTP/插件 | 使用 `post_id` 查询已脱敏的帖子需求、候选人、现有成员与硬条件；不返回联系方式、认证材料或密码 |
 | 硬筛选 | Code | 逐候选人执行第一层 6 条规则；产出 `passed[]` 与 `rejected[]`（含 `hard_conflicts`） |
 | LLM：语义匹配 | LLM | 仅处理 `passed[]`；System = system_rules + safety_rules + match_teammates_prompt；JSON 输出 |
 | 合并与校验 | Code | 合并 passed 评分与 rejected 结果；校验 score∈[0,100]、matched_reasons≥1、按 score 降序；LLM 对某候选人失败时该候选人降级为 `conditional` + 模板化理由 |
@@ -54,7 +57,7 @@
 | 候选人为空 | 直接返回 `matches: []` |
 | LLM 超时/失败 | 已硬筛通过者返回 `conditional` + 基础匹配条件说明；前端提示"暂时无法生成推荐理由，可查看基础匹配条件"（user-flow §4.1） |
 | 单个候选人评分异常 | 仅该候选人降级，不影响其他候选人 |
-| 未配置工作流 ID | 后端切 LLM fallback，再失败只展示基础匹配条件 |
+| 未配置工作流 ID / 受控查询未就绪 | 后端切 LLM + 数据库 fallback，再失败只展示基础匹配条件 |
 
 ## 6. 测试样例
 
