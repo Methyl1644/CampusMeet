@@ -6,7 +6,7 @@ CampusMate AI：面向高校学生的可信 AI 组队平台（不是普通论坛
 
 团队分工：A=产品文档（见 `docs/`）、B=前端（React+Vite，`apps/web` + `packages/shared`）、C=后端与安全（FastAPI + LangGraph + 安全规则引擎，`src/`）、D=智能体与算法（Coze 工作流/Prompt/Schema/评测集，`coze/`）。
 
-> **当前状态（2026-08-29）**：A/B/C/D 四方交付物均已推送到 main。当前唯一阻塞项是**前后端协议未对接**——前端调 `/api/*` REST 接口，后端 `src/main.py` 是 Coze 模板 runtime（只有 `/run` `/stream_run`），没有 `/api/*` 路由。解决方案见 `docs/api-alignment.md`，核心是新增 `src/api.py` 路由层把 tool 包装成 REST 接口。
+> **当前状态（2026-09-02）**：A/B/C 和 D 的基础资产已推送到 `main`。B 的 React 前端可完成生产构建，C 已在 `src/api/` 实现 `/api/*` REST 路由并通过后端测试；D 的四接口契约、Coze 配置统一和 fallback 自动化验证在 `feat/d-final-integration` 完成，待 PR。真正启用 `COZE_WORKFLOW_MATCH` 前仍需实现受控上下文查询；未启用时由 fallback 保证演示不受影响。
 
 ## 技术栈
 
@@ -17,7 +17,7 @@ CampusMate AI：面向高校学生的可信 AI 组队平台（不是普通论坛
 ## 目录结构
 
 - `docs/`：A 的产品文档（prd / user-flow / pages / demo-script / test-cases / review-notes），**契约权威来源**
-- `src/`：后端。`main.py` 为 FastAPI 入口，`api.py` 为 `/api/*` REST 路由层（接前端），`tools/` 为业务工具，`agents/agent.py` 为 LangGraph agent 定义（当前演示路径不走 agent，走 REST 路由直调 tool）
+- `src/`：后端。`main.py` 为 FastAPI 入口，`api/` 为 `/api/*` REST 路由层（接前端），`tools/` 为业务工具，`agents/agent.py` 为 LangGraph agent 定义（当前演示路径走 REST 路由直调 tool）
 - `coze/`：D 的交付物。`workflows/` 工作流设计、`prompts/` 提示词、`schemas/` 输入输出 JSON Schema、`evals/` 评测集（JSONL）、`examples/` 演示数据、`INTEGRATION.md` 集成说明
 - `scripts/`：`setup.sh` / `http_run.sh` 为 Coze 模板自带运行脚本；`seed.py` 为演示数据灌入脚本
 
@@ -42,6 +42,6 @@ CampusMate AI：面向高校学生的可信 AI 组队平台（不是普通论坛
 
 ## 常见问题和预防
 
-- **Windows 装包失败**：`pyproject.toml` 含 `pycairo` / `dbus-python` / `PyGObject` 三个 Linux 专属依赖，Windows 上装不上。删除这三行后 `pip install -e .` 即可。
-- **前后端协议**：前端走 `/api/*` REST（见 `packages/shared/src/constants.ts`），后端 `src/api.py` 提供对应路由。字段对账见 `docs/api-alignment.md`。
+- **Windows 装包**：`pyproject.toml` 已移除 `pycairo` / `dbus-python` / `PyGObject` 三个 Linux 专属依赖，当前可直接安装。
+- **前后端协议**：前端走 `/api/*` REST（见 `packages/shared/src/constants.ts`），后端 `src/api/` 提供对应路由。字段对账见 `docs/api-alignment.md`。
 - 评测集 JSONL 每行必须是合法 JSON，修改后用 `python -m json.tool` 逐行校验

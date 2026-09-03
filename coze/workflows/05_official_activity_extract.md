@@ -4,7 +4,7 @@
 |----|------|
 | 工作流名（Coze 后台） | `campusmate_official_activity_extract` |
 | 对应后端能力 | 官方活动录入辅助（F14）；首期官方活动以人工录入为主，本工作流仅做格式化辅助，**不阻塞 P0** |
-| 环境变量 | `COZE_WORKFLOW_OFFICIAL_ACTIVITY_EXTRACT_ID`（可选） |
+| 环境变量 | `COZE_WORKFLOW_OFFICIAL_ACTIVITY_EXTRACT`（可选） |
 | 优先级 | P1 |
 
 ## 1. 目标
