@@ -191,7 +191,7 @@ git commit -m "feat: build login and registration prototype"
 - Consumes: state transitions and `derivePermissions(state)` from Task 1.
 - Produces: campus verification, three-level identity center, organization application review simulator, and owner invitation acceptance flow.
 
-- [ ] **Step 1: Add failing validation and permission tests**
+- [x] **Step 1: Add failing validation and permission tests**
 
 ```javascript
 test('campus verification rejects an unapproved email domain', () => {
@@ -205,17 +205,17 @@ test('an accepted invite grants only its organization-scoped role', () => {
 });
 ```
 
-- [ ] **Step 2: Run tests and verify RED**
+- [x] **Step 2: Run tests and verify RED**
 
 Run: `node --test .superpowers/brainstorm/1261-1788787885/content/auth-state.test.cjs`
 
 Expected: FAIL on domain rejection or organization scope until both behaviors exist.
 
-- [ ] **Step 3: Implement verification views**
+- [x] **Step 3: Implement verification views**
 
 Render campus email verification with code-sent/error/success states; render identity center with separate campus, organization, and role status sections; render organization type/name/school/official-page/responsible-person forms; render a non-reading file chooser placeholder; render reviewing/approved/rejected simulations; and render owner-only member/publisher invites with organization and expiry shown before acceptance.
 
-- [ ] **Step 4: Rebuild and run tests**
+- [x] **Step 4: Rebuild and run tests**
 
 Run: `node .superpowers/brainstorm/1261-1788787885/content/build-auth-prototype.cjs`
 
@@ -223,7 +223,7 @@ Run: `node --test .superpowers/brainstorm/1261-1788787885/content/auth-state.tes
 
 Expected: build exits 0 and ten tests pass.
 
-- [ ] **Step 5: Commit verification flows**
+- [x] **Step 5: Commit verification flows**
 
 ```bash
 git add .superpowers/brainstorm/1261-1788787885/content/auth-state.cjs .superpowers/brainstorm/1261-1788787885/content/auth-state.test.cjs .superpowers/brainstorm/1261-1788787885/content/auth.template .superpowers/brainstorm/1261-1788787885/content/auth-ui.css .superpowers/brainstorm/1261-1788787885/content/auth-ui.js .superpowers/brainstorm/1261-1788787885/content/auth-prototype.html

@@ -115,3 +115,10 @@ test('registration rejects a weak password', () => {
     password: '123456'
   }), /密码至少 8 位/);
 });
+
+test('campus verification rejects an unapproved email domain', () => {
+  assert.throws(
+    () => sendCampusCode(registeredState(), 'student@gmail.com'),
+    /校园邮箱/
+  );
+});
