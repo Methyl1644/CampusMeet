@@ -1,0 +1,532 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CampusMate | 注册、登录与认证草图</title>
+<style>
+:root{--ink:#202725;--muted:#6e7772;--line:#dfe5e1;--soft:#f5f7f6;--green:#18755a;--green-soft:#eaf4ef;--blue:#2f6f9f;--blue-soft:#edf4fa;--purple:#765287;--purple-soft:#f3eef6;--amber:#8b6627;--amber-soft:#fbf4e6;--red:#a5413d;--red-soft:#faeeee;--white:#fff}
+*{box-sizing:border-box;letter-spacing:0}html{background:#fff}body{margin:0;color:var(--ink);font:14px/1.6 "Microsoft YaHei","PingFang SC",system-ui,sans-serif;background:#fff}button,input,select,textarea{font:inherit;color:inherit}button{cursor:pointer}button:disabled{cursor:default;opacity:.62}a{color:var(--green)}h1,h2,h3,p{margin:0}h1{font-size:28px;line-height:1.35}h2{font-size:20px;line-height:1.45}h3{font-size:15px;line-height:1.5}small{font-size:12px}.muted{color:var(--muted)}[hidden]{display:none!important}svg{display:block;width:18px;height:18px;stroke-width:1.8}.wrap{width:min(1180px,calc(100% - 48px));margin:auto}.prototype-bar{border-bottom:1px solid #d5e2db;background:#edf4f0;color:#496257}.prototype-row{min-height:40px;display:flex;align-items:center;gap:14px;font-size:12px}.prototype-row strong{color:#315848}.demo-controls{margin-left:auto;display:flex;align-items:center;gap:9px}.demo-controls select{height:30px;border:1px solid #c8d8cf;background:white;border-radius:5px;padding:0 28px 0 8px;font-size:12px}.icon-button{width:32px;height:32px;border:1px solid var(--line);border-radius:6px;background:#fff;display:grid;place-items:center;padding:0}.site-header{border-bottom:1px solid var(--line)}.header-row{height:70px;display:flex;align-items:center;gap:18px}.brand{display:flex;align-items:center;gap:9px;font-size:21px;font-weight:800;color:var(--ink);text-decoration:none}.brand-mark{width:30px;height:30px;border-radius:6px;background:var(--green);color:white;display:grid;place-items:center}.header-note{margin-left:auto;display:flex;align-items:center;gap:7px;color:var(--muted);font-size:12px}.auth-shell{display:grid;grid-template-columns:245px minmax(0,1fr);gap:70px;padding:48px 0 64px;min-height:calc(100vh - 148px)}.journey{border-right:1px solid var(--line);padding-right:28px}.journey-title{font-weight:700;margin-bottom:18px}.journey-list{list-style:none;padding:0;margin:0;display:grid;gap:5px}.journey-step{display:grid;grid-template-columns:30px 1fr;gap:10px;align-items:start;padding:10px 8px;border-radius:6px;color:#7a837e}.journey-step .step-dot{width:26px;height:26px;border:1px solid #cfd7d2;border-radius:50%;display:grid;place-items:center;font-size:11px;background:white}.journey-step strong{display:block;font-size:13px}.journey-step small{display:block;line-height:1.45}.journey-step.active{background:var(--green-soft);color:#28674f}.journey-step.active .step-dot{background:var(--green);border-color:var(--green);color:white}.journey-step.done{color:#3f6252}.journey-step.done .step-dot{border-color:#80af98;color:var(--green)}.privacy-note{margin-top:24px;padding-top:20px;border-top:1px solid var(--line);display:flex;gap:8px;color:var(--muted);font-size:11px}.privacy-note svg{flex:0 0 auto;margin-top:2px}.auth-main{width:min(100%,700px)}.page-head{margin-bottom:28px}.page-head .eyebrow{display:flex;align-items:center;gap:7px;color:var(--green);font-size:12px;font-weight:700;margin-bottom:7px}.page-head p{margin-top:9px;color:var(--muted);max-width:610px}.form{display:grid;gap:18px}.field{display:grid;gap:7px}.field-row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}.field label,.field-label{font-size:13px;font-weight:700}.optional{font-size:11px;color:var(--muted);font-weight:400}.control{width:100%;min-height:44px;border:1px solid #cbd5cf;border-radius:6px;background:white;padding:9px 11px;outline:0}.control:focus{border-color:var(--green);box-shadow:0 0 0 3px #dcede5}.control::placeholder{color:#9ba29e}.control-area{min-height:86px;resize:vertical}.input-action{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:9px}.segmented{display:grid;grid-template-columns:1fr 1fr;background:#f0f3f1;padding:3px;border-radius:6px;margin-bottom:21px}.segment{border:0;background:transparent;border-radius:4px;padding:9px;font-weight:600;color:#69726d}.segment.active{background:white;color:var(--green);box-shadow:0 1px 4px #22372c14}.button{min-height:42px;padding:8px 15px;border-radius:6px;border:1px solid var(--line);background:white;display:inline-flex;align-items:center;justify-content:center;gap:7px;font-weight:700;font-size:13px;text-decoration:none}.button.primary{background:var(--green);border-color:var(--green);color:white}.button.secondary{border-color:#adcabc;color:#28674f}.button.text{border:0;padding-left:5px;padding-right:5px;color:var(--green)}.button.danger{color:var(--red);border-color:#e6c3c1}.actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding-top:5px}.actions .push{margin-left:auto}.form-note{padding:11px 13px;border-left:3px solid #7aa98f;background:#f1f6f3;color:#4d6659;font-size:12px}.demo-credentials{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;padding:13px 15px;background:var(--soft);border-radius:6px;font-size:12px}.demo-credentials dt{font-weight:700}.demo-credentials dd{margin:0;color:var(--muted)}.error-box,.success-box,.warning-box{display:flex;gap:9px;padding:11px 13px;border-radius:6px;font-size:12px}.error-box{background:var(--red-soft);color:var(--red)}.success-box{background:var(--green-soft);color:#28674f}.warning-box{background:var(--amber-soft);color:var(--amber)}.choice-row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.choice{border:1px solid var(--line);border-radius:7px;background:white;padding:16px;text-align:left;display:flex;gap:12px}.choice:hover{border-color:#9ebcad}.choice .choice-icon{width:34px;height:34px;border-radius:6px;background:var(--green-soft);color:var(--green);display:grid;place-items:center;flex:0 0 auto}.choice p{font-size:12px;color:var(--muted);margin-top:3px}.status-band{display:flex;align-items:center;gap:12px;padding:15px 0 22px;border-bottom:1px solid var(--line);margin-bottom:4px}.status-band .avatar{width:44px;height:44px;border-radius:50%;display:grid;place-items:center;background:var(--green-soft);color:var(--green);font-weight:800}.status-band .account-meta{min-width:0}.status-band .account-meta p{font-size:12px;color:var(--muted);overflow-wrap:anywhere}.status-band .status-chip{margin-left:auto}.status-chip{display:inline-flex;align-items:center;gap:5px;border-radius:4px;padding:4px 8px;font-size:11px;background:var(--soft);color:#68716c;white-space:nowrap}.status-chip.green{background:var(--green-soft);color:var(--green)}.status-chip.blue{background:var(--blue-soft);color:var(--blue)}.status-chip.purple{background:var(--purple-soft);color:var(--purple)}.status-chip.amber{background:var(--amber-soft);color:var(--amber)}.status-chip.red{background:var(--red-soft);color:var(--red)}.identity-sections{display:grid}.identity-section{display:grid;grid-template-columns:165px minmax(0,1fr);gap:26px;padding:24px 0;border-bottom:1px solid var(--line)}.identity-section:last-child{border-bottom:0}.section-label p{font-size:12px;color:var(--muted);margin-top:4px}.section-body{min-width:0}.section-head{display:flex;align-items:center;gap:10px;margin-bottom:8px}.section-body>p{color:var(--muted);font-size:13px;margin-bottom:13px}.permission-list{display:flex;gap:7px;flex-wrap:wrap}.permission{border:1px solid var(--line);border-radius:4px;padding:4px 7px;font-size:11px;color:#747d78}.permission.on{border-color:#b7d4c5;background:#eef6f2;color:#28674f}.review-meta{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px 18px;padding:13px;background:var(--soft);border-radius:6px;margin:12px 0}.review-meta div{min-width:0}.review-meta small{display:block;color:var(--muted)}.review-meta strong{display:block;overflow-wrap:anywhere;font-size:12px}.file-placeholder{border:1px dashed #bcc9c1;border-radius:6px;padding:15px;display:flex;gap:10px;align-items:center;color:var(--muted);font-size:12px;background:#fafbfa}.simulator{margin-top:14px;padding:13px;border-left:3px solid #9e8aac;background:#f6f2f8}.simulator strong{font-size:12px}.simulator p{font-size:11px;color:var(--muted);margin:3px 0 8px}.invite-preview{padding:14px;border:1px solid #cfddd5;border-radius:6px;background:#f7faf8;margin-top:12px}.invite-preview h3{margin-bottom:6px}.invite-preview dl{display:grid;grid-template-columns:85px 1fr;gap:4px 10px;margin:0;font-size:12px}.invite-preview dt{color:var(--muted)}.invite-preview dd{margin:0;font-weight:600}.public-screen{padding:34px 0}.public-screen .public-icon{width:50px;height:50px;border-radius:8px;background:var(--green-soft);color:var(--green);display:grid;place-items:center;margin-bottom:16px}.public-screen .public-icon svg{width:26px;height:26px}.public-screen p{color:var(--muted);max-width:560px;margin:10px 0 22px}.footer{border-top:1px solid var(--line);padding:16px 0;color:#8a928e;font-size:11px}.footer-row{display:flex;justify-content:space-between;gap:18px}.toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:#263a2d;color:white;border-radius:6px;padding:10px 15px;font-size:12px;box-shadow:0 5px 18px #0002;z-index:20;max-width:calc(100vw - 32px)}
+</style>
+<style>@media(max-width:820px){
+  .wrap{width:min(100% - 32px,700px)}
+  .prototype-row{min-height:46px;flex-wrap:wrap;padding:7px 0;gap:5px 10px}
+  .prototype-row>span{display:none}
+  .demo-controls{width:100%;margin-left:0}
+  .demo-controls select{flex:1;min-width:0}
+  .header-row{height:60px}.brand{font-size:18px}.header-note span:last-child{display:none}
+  .auth-shell{display:block;padding:24px 0 42px;min-height:calc(100vh - 164px)}
+  .journey{border:0;border-bottom:1px solid var(--line);padding:0 0 17px;margin-bottom:26px;overflow:hidden}
+  .journey-title,.privacy-note{display:none}
+  .journey-list{display:flex;gap:0;overflow-x:auto;padding-bottom:2px}
+  .journey-step{display:flex;align-items:center;gap:6px;min-width:max-content;padding:7px 9px;background:white!important}
+  .journey-step small{display:none}.journey-step .step-dot{width:23px;height:23px}
+  .page-head{margin-bottom:22px}.page-head h1{font-size:24px}.page-head p{font-size:13px}
+  .field-row,.choice-row{grid-template-columns:1fr}.actions{align-items:stretch}.actions .push{margin-left:0}.actions .button{flex:1}
+  .identity-section{grid-template-columns:1fr;gap:12px;padding:20px 0}.section-label{display:flex;align-items:center;justify-content:space-between;gap:12px}.section-label p{margin:0}
+  .review-meta{grid-template-columns:1fr}.footer-row{display:block}.footer-row span{display:block}.footer-row span+span{margin-top:3px}
+}
+@media(max-width:430px){
+  .wrap{width:calc(100% - 28px)}.demo-controls label{display:none}.prototype-row strong{font-size:11px}.header-row{gap:10px}
+  .field{min-width:0}.input-action{grid-template-columns:1fr}.input-action .button{width:100%}
+  .status-band{align-items:flex-start}.status-band .status-chip{margin-left:0}.status-band{flex-wrap:wrap}.status-band .account-meta{flex:1}
+  .choice{padding:13px}.actions .button{width:100%;flex:auto}.status-chip{white-space:normal}
+}
+@media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div class="prototype-bar"><div class="wrap prototype-row"><strong>注册与认证交互草图</strong><span>本地模拟，请勿输入真实凭据</span><div class="demo-controls"><label for="demo-state">快速体验</label><select id="demo-state"><option value="visitor">游客</option><option value="unverified">未认证账号</option><option value="verified">校园已认证</option><option value="reviewing">组织审核中</option><option value="owner">组织负责人</option></select><button class="icon-button" id="reset-demo" type="button" title="重置演示" aria-label="重置演示"><span data-icon="RotateCcw"></span></button></div></div></div>
+<header class="site-header"><div class="wrap header-row"><a class="brand" href="#"><span class="brand-mark" data-icon="Users"></span>CampusMate</a><div class="header-note"><span data-icon="ShieldCheck"></span><span>账号、校园身份和组织权限分层管理</span></div></div></header>
+<main class="wrap auth-shell"><aside class="journey" aria-label="认证步骤"><div class="journey-title">账号与身份</div><ol class="journey-list" id="journey-list"></ol><div class="privacy-note"><span data-icon="LockKeyhole"></span><span>认证材料仅供审核使用，不进入公开资料，也不交给 AI 处理。</span></div></aside><section class="auth-main" id="auth-root" aria-live="polite"></section></main>
+<footer class="footer"><div class="wrap footer-row"><span>CampusMate · 认证体验草图</span><span>虚构数据 · 不连接真实接口 · 不上传文件</span></div></footer>
+<div class="toast" id="toast" role="status" hidden></div>
+<script>window.ICONS = {"Users":"<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"lucide lucide-users\" aria-hidden=\"true\"><path d=\"M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2\"></path><circle cx=\"9\" cy=\"7\" r=\"4\"></circle><path d=\"M22 21v-2a4 4 0 0 0-3-3.87\"></path><path d=\"M16 3.13a4 4 0 0 1 0 7.75\"></path></svg>","ShieldCheck":"<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"lucide lucide-shield-check\" aria-hidden=\"true\"><path d=\"M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z\"></path><path d=\"m9 12 2 2 4-4\"></path></svg>","LockKeyhole":"<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"lucide lucide-lock-keyhole\" aria-hidden=\"true\"><circle cx=\"12\" cy=\"16\" r=\"1\"></circle><rect x=\"3\" y=\"10\" width=\"18\" height=\"12\" rx=\"2\"></rect><path d=\"M7 10V7a5 5 0 0 1 10 0v3\"></path></svg>","RotateCcw":"<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"lucide lucide-rotate-ccw\" aria-hidden=\"true\"><path d=\"M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8\"></path><path d=\"M3 3v5h5\"></path></svg>","LogIn":"<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"lucide lucide-log-in\" aria-hidden=\"true\"><path d=\"M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4\"></path><polyline points=\"10 17 15 12 10 7\"></polyline><line x1=\"15\" x2=\"3\" y1=\"12\" y2=\"12\"></line></svg>","UserPlus":"<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"lucide lucide-user-plus\" aria-hidden=\"true\"><path d=\"M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2\"></path><circle cx=\"9\" cy=\"7\" r=\"4\"></circle><line x1=\"19\" x2=\"19\" y1=\"8\" y2=\"14\"></line><line x1=\"22\" x2=\"16\" y1=\"11\" y2=\"11\"></line></svg>","Mail":"<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"lucide lucide-mail\" aria-hidden=\"true\"><rect width=\"20\" height=\"16\" x=\"2\" y=\"4\" rx=\"2\"></rect><path d=\"m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7\"></path></svg>","KeyRound":"<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"lucide lucide-key-round\" aria-hidden=\"true\"><path d=\"M2.586 17.414A2 2 0 0 0 2 18.828V21a1 1 0 0 0 1 1h3a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h1a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h.172a2 2 0 0 0 1.414-.586l.814-.814a6.5 6.5 0 1 0-4-4z\"></path><circle cx=\"16.5\" cy=\"7.5\" r=\".5\" fill=\"currentColor\"></circle></svg>","ArrowRight":"<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"lucide lucide-arrow-right\" aria-hidden=\"true\"><path d=\"M5 12h14\"></path><path d=\"m12 5 7 7-7 7\"></path></svg>","ArrowLeft":"<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"lucide lucide-arrow-left\" aria-hidden=\"true\"><path d=\"m12 19-7-7 7-7\"></path><path d=\"M19 12H5\"></path></svg>","Check":"<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"lucide lucide-check\" aria-hidden=\"true\"><path d=\"M20 6 9 17l-5-5\"></path></svg>","Circle":"<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"lucide lucide-circle\" aria-hidden=\"true\"><circle cx=\"12\" cy=\"12\" r=\"10\"></circle></svg>","BadgeCheck":"<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"lucide lucide-badge-check\" aria-hidden=\"true\"><path d=\"M3.85 8.62a4 4 0 0 1 4.78-4.77 4 4 0 0 1 6.74 0 4 4 0 0 1 4.78 4.78 4 4 0 0 1 0 6.74 4 4 0 0 1-4.77 4.78 4 4 0 0 1-6.75 0 4 4 0 0 1-4.78-4.77 4 4 0 0 1 0-6.76Z\"></path><path d=\"m9 12 2 2 4-4\"></path></svg>","Building2":"<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"lucide lucide-building2\" aria-hidden=\"true\"><path d=\"M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z\"></path><path d=\"M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2\"></path><path d=\"M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2\"></path><path d=\"M10 6h4\"></path><path d=\"M10 10h4\"></path><path d=\"M10 14h4\"></path><path d=\"M10 18h4\"></path></svg>","GraduationCap":"<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"lucide lucide-graduation-cap\" aria-hidden=\"true\"><path d=\"M21.42 10.922a1 1 0 0 0-.019-1.838L12.83 5.18a2 2 0 0 0-1.66 0L2.6 9.08a1 1 0 0 0 0 1.832l8.57 3.908a2 2 0 0 0 1.66 0z\"></path><path d=\"M22 10v6\"></path><path d=\"M6 12.5V16a6 3 0 0 0 12 0v-3.5\"></path></svg>","Send":"<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"lucide lucide-send\" aria-hidden=\"true\"><path d=\"M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.496.496 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11z\"></path><path d=\"m21.854 2.147-10.94 10.939\"></path></svg>","FileText":"<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"lucide lucide-file-text\" aria-hidden=\"true\"><path d=\"M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z\"></path><path d=\"M14 2v4a2 2 0 0 0 2 2h4\"></path><path d=\"M10 9H8\"></path><path d=\"M16 13H8\"></path><path d=\"M16 17H8\"></path></svg>","Clock3":"<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"lucide lucide-clock3\" aria-hidden=\"true\"><circle cx=\"12\" cy=\"12\" r=\"10\"></circle><polyline points=\"12 6 12 12 16.5 12\"></polyline></svg>","CircleAlert":"<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"lucide lucide-circle-alert\" aria-hidden=\"true\"><circle cx=\"12\" cy=\"12\" r=\"10\"></circle><line x1=\"12\" x2=\"12\" y1=\"8\" y2=\"12\"></line><line x1=\"12\" x2=\"12.01\" y1=\"16\" y2=\"16\"></line></svg>","ExternalLink":"<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"lucide lucide-external-link\" aria-hidden=\"true\"><path d=\"M15 3h6v6\"></path><path d=\"M10 14 21 3\"></path><path d=\"M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6\"></path></svg>","UserCog":"<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"lucide lucide-user-cog\" aria-hidden=\"true\"><circle cx=\"18\" cy=\"15\" r=\"3\"></circle><circle cx=\"9\" cy=\"7\" r=\"4\"></circle><path d=\"M10 15H6a4 4 0 0 0-4 4v2\"></path><path d=\"m21.7 16.4-.9-.3\"></path><path d=\"m15.2 13.9-.9-.3\"></path><path d=\"m16.6 18.7.3-.9\"></path><path d=\"m19.1 12.2.3-.9\"></path><path d=\"m19.6 18.7-.4-1\"></path><path d=\"m16.8 12.3-.4-1\"></path><path d=\"m14.3 16.6 1-.4\"></path><path d=\"m20.7 13.8 1-.4\"></path></svg>","CheckCircle2":"<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"lucide lucide-circle-check\" aria-hidden=\"true\"><circle cx=\"12\" cy=\"12\" r=\"10\"></circle><path d=\"m9 12 2 2 4-4\"></path></svg>","XCircle":"<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"lucide lucide-circle-x\" aria-hidden=\"true\"><circle cx=\"12\" cy=\"12\" r=\"10\"></circle><path d=\"m15 9-6 6\"></path><path d=\"m9 9 6 6\"></path></svg>","Eye":"<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"lucide lucide-eye\" aria-hidden=\"true\"><path d=\"M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0\"></path><circle cx=\"12\" cy=\"12\" r=\"3\"></circle></svg>","Compass":"<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"lucide lucide-compass\" aria-hidden=\"true\"><path d=\"m16.24 7.76-1.804 5.411a2 2 0 0 1-1.265 1.265L7.76 16.24l1.804-5.411a2 2 0 0 1 1.265-1.265z\"></path><circle cx=\"12\" cy=\"12\" r=\"10\"></circle></svg>","Info":"<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"lucide lucide-info\" aria-hidden=\"true\"><circle cx=\"12\" cy=\"12\" r=\"10\"></circle><path d=\"M12 16v-4\"></path><path d=\"M12 8h.01\"></path></svg>"};</script>
+<script>(function attachAuthPrototypeState(root) {
+  const DEMO_CODE = '246810';
+  const VALID_ROLES = new Set(['member', 'publisher']);
+
+  const createAuthState = () => ({
+    authView: 'login',
+    loginMode: 'password',
+    accountStatus: 'visitor',
+    campusVerification: 'idle',
+    organizationApplication: 'none',
+    organizationRole: 'none',
+    account: null,
+    profile: null,
+    campusEmail: '',
+    organizationApplicationData: null,
+    organizationId: null,
+    pendingInvite: null
+  });
+
+  const requireText = (value, message) => {
+    const normalized = String(value || '').trim();
+    if (!normalized) throw new Error(message);
+    return normalized;
+  };
+
+  const isCampusEmail = email => /^[^\s@]+@[^\s@]+\.edu\.cn$/i.test(email);
+
+  const derivePermissions = state => ({
+    canBrowse: true,
+    canCreateStudentPost: state.accountStatus === 'campus_verified',
+    canApplyToTeam: state.accountStatus === 'campus_verified',
+    canViewContact: state.accountStatus === 'campus_verified',
+    canApplyForOrganization: state.accountStatus === 'campus_verified',
+    canPublishOrganizationTopic: state.organizationRole === 'publisher' || state.organizationRole === 'owner',
+    canInviteOrganizationRoles: state.organizationRole === 'owner'
+  });
+
+  const setLoginMode = (state, loginMode) => {
+    if (!['password', 'code'].includes(loginMode)) throw new Error('不支持的登录方式');
+    return { ...state, loginMode };
+  };
+
+  const registerAccount = (state, payload) => {
+    const account = requireText(payload && payload.account, '请输入手机号或邮箱');
+    const code = requireText(payload && payload.code, '请输入验证码');
+    const password = requireText(payload && payload.password, '请输入密码');
+    if (code !== DEMO_CODE) throw new Error('演示验证码为 246810');
+    if (password.length < 8 || !/[A-Za-z]/.test(password) || !/\d/.test(password)) {
+      throw new Error('密码至少 8 位，并同时包含字母和数字');
+    }
+    return {
+      ...state,
+      authView: 'register_profile',
+      accountStatus: 'unverified',
+      account: { account }
+    };
+  };
+
+  const completeProfile = (state, payload) => {
+    if (state.accountStatus === 'visitor') throw new Error('请先创建账号');
+    const nickname = requireText(payload && payload.nickname, '请输入昵称');
+    return {
+      ...state,
+      authView: 'campus_verify',
+      profile: {
+        nickname,
+        major: String(payload.major || '').trim(),
+        grade: String(payload.grade || '').trim(),
+        skills: String(payload.skills || '').trim()
+      }
+    };
+  };
+
+  const sendCampusCode = (state, email) => {
+    if (state.accountStatus === 'visitor') throw new Error('请先登录或注册');
+    const normalized = requireText(email, '请输入校园邮箱');
+    if (!isCampusEmail(normalized)) throw new Error('请输入以 .edu.cn 结尾的校园邮箱');
+    return {
+      ...state,
+      authView: 'campus_verify',
+      campusVerification: 'code_sent',
+      campusEmail: normalized
+    };
+  };
+
+  const verifyCampus = (state, code) => {
+    if (state.campusVerification !== 'code_sent') throw new Error('请先向校园邮箱发送验证码');
+    if (String(code || '').trim() !== DEMO_CODE) throw new Error('演示验证码为 246810');
+    return {
+      ...state,
+      authView: 'identity_center',
+      accountStatus: 'campus_verified',
+      campusVerification: 'verified'
+    };
+  };
+
+  const skipCampusVerification = state => ({ ...state, authView: 'public_browse' });
+
+  const submitOrganizationApplication = (state, payload) => {
+    if (state.accountStatus !== 'campus_verified') throw new Error('完成校园认证后才能申请组织认证');
+    const data = {
+      type: requireText(payload && payload.type, '请选择组织类型'),
+      name: requireText(payload && payload.name, '请输入组织标准名称'),
+      school: requireText(payload && payload.school, '请输入学校归属'),
+      officialPage: requireText(payload && payload.officialPage, '请输入官方页面'),
+      responsiblePerson: requireText(payload && payload.responsiblePerson, '请输入负责人姓名')
+    };
+    return {
+      ...state,
+      authView: 'identity_center',
+      organizationApplication: 'reviewing',
+      organizationApplicationData: data
+    };
+  };
+
+  const reviewOrganizationApplication = (state, decision) => {
+    if (state.organizationApplication !== 'reviewing') throw new Error('当前没有待审核的组织申请');
+    if (!['approved', 'rejected'].includes(decision)) throw new Error('审核结果无效');
+    return {
+      ...state,
+      authView: 'identity_center',
+      organizationApplication: decision,
+      organizationId: decision === 'approved' ? 'org-cs' : null,
+      organizationRole: 'none'
+    };
+  };
+
+  const createRoleInvite = (state, payload) => {
+    if (state.organizationRole !== 'owner') throw new Error('只有已核验负责人可以邀请组织角色');
+    const role = requireText(payload && payload.role, '请选择邀请角色');
+    if (!VALID_ROLES.has(role)) throw new Error('只能邀请成员或发布者');
+    const organizationId = requireText(payload && payload.organizationId, '邀请必须指定组织');
+    if (state.organizationId && state.organizationId !== organizationId) throw new Error('负责人只能管理自己所属的组织');
+    return {
+      ...state,
+      pendingInvite: {
+        account: requireText(payload && payload.account, '请输入受邀人的校园账号'),
+        role,
+        organizationId,
+        expiresAt: requireText(payload && payload.expiresAt, '请选择权限有效期')
+      }
+    };
+  };
+
+  const acceptRoleInvite = state => {
+    if (!state.pendingInvite) throw new Error('当前没有待接受的邀请');
+    return {
+      ...state,
+      organizationRole: state.pendingInvite.role,
+      organizationId: state.pendingInvite.organizationId,
+      pendingInvite: null
+    };
+  };
+
+  const resetAuthState = () => createAuthState();
+
+  const api = {
+    DEMO_CODE,
+    createAuthState,
+    derivePermissions,
+    setLoginMode,
+    registerAccount,
+    completeProfile,
+    sendCampusCode,
+    verifyCampus,
+    skipCampusVerification,
+    submitOrganizationApplication,
+    reviewOrganizationApplication,
+    createRoleInvite,
+    acceptRoleInvite,
+    resetAuthState
+  };
+
+  if (typeof module !== 'undefined' && module.exports) module.exports = api;
+  if (root) root.AuthPrototypeState = api;
+})(typeof window !== 'undefined' ? window : globalThis);
+</script>
+<script>
+const $ = id => document.getElementById(id);
+const icon = name => window.ICONS[name] || '';
+const escapeHTML = value => String(value == null ? '' : value).replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
+const hydrateIcons = root => (root || document).querySelectorAll('[data-icon]').forEach(node => { node.innerHTML = icon(node.dataset.icon); });
+</script>
+<script>const Auth = window.AuthPrototypeState;
+let state = Auth.createAuthState();
+let panel = 'main';
+let errorMessage = '';
+let countdown = 0;
+let countdownTimer = null;
+
+const destinationHref = () => window.location.pathname.toLowerCase().includes('campusmate-auth-prototype')
+  ? 'CampusMate-interactive-prototype.html'
+  : 'topic-and-invitation.html';
+
+const steps = [
+  { key: 'account', label: '账号', note: '登录或注册' },
+  { key: 'profile', label: '资料', note: '完善基本信息' },
+  { key: 'campus', label: '校园认证', note: '解锁学生权限' },
+  { key: 'identity', label: '认证中心', note: '组织与角色' }
+];
+
+const stageIndex = () => {
+  if (state.authView === 'login' || state.authView === 'register_account') return 0;
+  if (state.authView === 'register_profile') return 1;
+  if (state.authView === 'campus_verify') return 2;
+  return 3;
+};
+
+const setState = next => {
+  state = next;
+  errorMessage = '';
+  renderAuthApp();
+};
+
+const attempt = action => {
+  try {
+    setState(action());
+  } catch (error) {
+    errorMessage = error.message;
+    renderAuthApp();
+  }
+};
+
+const showToast = message => {
+  const toast = $('toast');
+  toast.textContent = message;
+  toast.hidden = false;
+  clearTimeout(showToast.timer);
+  showToast.timer = setTimeout(() => { toast.hidden = true; }, 2600);
+};
+
+const errorBlock = () => errorMessage
+  ? `<div class="error-box"><span data-icon="CircleAlert"></span><span>${escapeHTML(errorMessage)}</span></div>`
+  : '';
+
+const pageHead = (eyebrow, iconName, title, description) => `
+  <header class="page-head">
+    <div class="eyebrow"><span data-icon="${iconName}"></span>${escapeHTML(eyebrow)}</div>
+    <h1>${escapeHTML(title)}</h1>
+    <p>${escapeHTML(description)}</p>
+  </header>`;
+
+const renderJourney = () => {
+  const current = stageIndex();
+  $('journey-list').innerHTML = steps.map((step, index) => `
+    <li class="journey-step ${index === current ? 'active' : ''} ${index < current ? 'done' : ''}">
+      <span class="step-dot">${index < current ? icon('Check') : index + 1}</span>
+      <span><strong>${step.label}</strong><small>${step.note}</small></span>
+    </li>`).join('');
+};
+
+const renderLogin = () => {
+  const codeMode = state.loginMode === 'code';
+  return `${pageHead('欢迎回来', 'LogIn', '登录 CampusMate', '浏览校园组队信息不要求登录；发布、申请和查看联系方式需要完成校园认证。')}
+    <div class="segmented" role="tablist" aria-label="登录方式">
+      <button class="segment ${codeMode ? '' : 'active'}" type="button" data-action="login-mode" data-mode="password">密码登录</button>
+      <button class="segment ${codeMode ? 'active' : ''}" type="button" data-action="login-mode" data-mode="code">验证码登录</button>
+    </div>
+    ${errorBlock()}
+    <form class="form" id="login-form">
+      <div class="field"><label for="login-account">手机号或邮箱</label><input class="control" id="login-account" name="account" value="student@example.edu.cn" autocomplete="username"></div>
+      ${codeMode
+        ? `<div class="field"><label for="login-code">验证码</label><div class="input-action"><input class="control" id="login-code" name="code" value="246810" inputmode="numeric" autocomplete="one-time-code"><button class="button secondary" type="button" data-action="send-login-code">发送验证码</button></div></div>`
+        : `<div class="field"><label for="login-password">密码</label><input class="control" id="login-password" name="password" type="password" value="DemoPass2026" autocomplete="current-password"></div>`}
+      <div class="actions"><button class="button text" type="button" data-action="forgot-password">忘记密码</button><button class="button primary push" type="submit"><span data-icon="LogIn"></span>登录</button></div>
+    </form>
+    <dl class="demo-credentials"><dt>演示账号</dt><dd>student@example.edu.cn</dd><dt>${codeMode ? '演示验证码' : '演示密码'}</dt><dd>${codeMode ? '246810' : 'DemoPass2026'}</dd></dl>
+    <div class="actions"><button class="button secondary" type="button" data-action="start-register"><span data-icon="UserPlus"></span>创建账号</button><button class="button text" type="button" data-action="browse-public"><span data-icon="Eye"></span>暂不登录，浏览公开内容</button></div>`;
+};
+
+const renderRegisterAccount = () => `${pageHead('第 1 步', 'UserPlus', '创建账号', '手机号或常用邮箱用于登录；创建账号后仍需单独完成校园身份认证。')}
+  ${errorBlock()}
+  <form class="form" id="register-form">
+    <div class="field"><label for="register-account">手机号或邮箱</label><input class="control" id="register-account" name="account" value="student@example.edu.cn" autocomplete="username"></div>
+    <div class="field"><label for="register-code">验证码</label><div class="input-action"><input class="control" id="register-code" name="code" value="246810" inputmode="numeric" autocomplete="one-time-code"><button class="button secondary" type="button" data-action="send-register-code">发送验证码</button></div></div>
+    <div class="field"><label for="register-password">设置密码</label><input class="control" id="register-password" name="password" type="password" value="DemoPass2026" autocomplete="new-password"><small class="muted">至少 8 位，同时包含字母和数字。</small></div>
+    <div class="form-note">注册只建立账号，不会自动获得发帖、申请或组织发布权限。</div>
+    <div class="actions"><button class="button text" type="button" data-action="back-login"><span data-icon="ArrowLeft"></span>返回登录</button><button class="button primary push" type="submit">继续完善资料<span data-icon="ArrowRight"></span></button></div>
+  </form>`;
+
+const renderProfile = () => `${pageHead('第 2 步', 'UserPlus', '完善个人资料', '昵称用于站内展示；专业、年级和技能可以稍后在个人中心补充。')}
+  ${errorBlock()}
+  <form class="form" id="profile-form">
+    <div class="field"><label for="nickname">昵称</label><input class="control" id="nickname" name="nickname" value="裴同学" autocomplete="nickname"></div>
+    <div class="field-row"><div class="field"><label for="major">专业 <span class="optional">选填</span></label><input class="control" id="major" name="major" placeholder="例如：计算机科学"></div><div class="field"><label for="grade">年级 <span class="optional">选填</span></label><select class="control" id="grade" name="grade"><option value="">稍后填写</option><option>2026 级</option><option>2025 级</option><option>2024 级</option><option>研究生</option></select></div></div>
+    <div class="field"><label for="skills">技能与兴趣 <span class="optional">选填</span></label><input class="control" id="skills" name="skills" placeholder="例如：Python、摄影、羽毛球"></div>
+    <div class="actions"><button class="button text" type="button" data-action="back-register"><span data-icon="ArrowLeft"></span>上一步</button><button class="button primary push" type="submit">进入校园认证<span data-icon="ArrowRight"></span></button></div>
+  </form>`;
+
+const renderCampusVerification = () => {
+  const sent = state.campusVerification === 'code_sent';
+  return `${pageHead('第 3 步', 'GraduationCap', '完成校园身份认证', '认证后可发布个人组队帖、申请加入队伍并在双方确认后查看联系方式。')}
+    ${errorBlock()}
+    <div class="choice-row">
+      <button class="choice" type="button" data-action="focus-campus-email"><span class="choice-icon" data-icon="Mail"></span><span><strong>校园邮箱</strong><p>使用学校分配的 .edu.cn 邮箱接收验证码</p></span></button>
+      <button class="choice" type="button" data-action="reserved-sso"><span class="choice-icon" data-icon="KeyRound"></span><span><strong>学校统一身份认证</strong><p>正式版本接入，当前草图仅保留入口</p></span></button>
+    </div>
+    <form class="form" id="campus-form" style="margin-top:22px">
+      <div class="field"><label for="campus-email">校园邮箱</label><div class="input-action"><input class="control" id="campus-email" name="email" value="${escapeHTML(state.campusEmail || 'student@example.edu.cn')}" autocomplete="email"><button class="button secondary" id="campus-send-button" type="button" data-action="send-campus-code" ${countdown ? 'disabled' : ''}>${countdown ? `重新发送 (${countdown}s)` : '发送验证码'}</button></div></div>
+      ${sent ? `<div class="success-box"><span data-icon="CheckCircle2"></span><span>验证码已发送至 ${escapeHTML(state.campusEmail)}。演示验证码为 246810。</span></div><div class="field"><label for="campus-code">邮箱验证码</label><input class="control" id="campus-code" name="code" value="246810" inputmode="numeric" autocomplete="one-time-code"></div>` : ''}
+      <div class="actions"><button class="button text" type="button" data-action="back-profile"><span data-icon="ArrowLeft"></span>上一步</button><button class="button text" type="button" data-action="skip-campus">稍后认证，先浏览</button>${sent ? '<button class="button primary push" type="submit">完成认证<span data-icon="ArrowRight"></span></button>' : ''}</div>
+    </form>`;
+};
+
+const statusChip = (text, tone, iconName) => `<span class="status-chip ${tone}"><span data-icon="${iconName}"></span>${escapeHTML(text)}</span>`;
+
+const organizationContent = () => {
+  const status = state.organizationApplication;
+  const data = state.organizationApplicationData;
+  if (panel === 'org-form') return renderOrganizationForm();
+  if (status === 'none' || status === 'rejected') return `
+    <div class="section-head">${statusChip(status === 'rejected' ? '申请被退回' : '尚未申请', status === 'rejected' ? 'red' : '', status === 'rejected' ? 'XCircle' : 'Circle')}</div>
+    <p>${status === 'rejected' ? '请根据审核意见修改组织名称或补充权威来源后重新提交。' : '组织认证用于确认学院、书院、学生组织或社团的真实身份。'}</p>
+    <button class="button secondary" type="button" data-action="open-org-form"><span data-icon="Building2"></span>${status === 'rejected' ? '修改并重新申请' : '申请组织认证'}</button>`;
+  if (status === 'reviewing') return `
+    <div class="section-head">${statusChip('人工审核中', 'amber', 'Clock3')}</div><p>申请不会自动通过。审核人员将核对官方页面、负责人身份和私有证明材料。</p>
+    <div class="review-meta"><div><small>申请编号</small><strong>CM-ORG-20260909-014</strong></div><div><small>组织名称</small><strong>${escapeHTML(data.name)}</strong></div><div><small>官方页面</small><strong>${escapeHTML(data.officialPage)}</strong></div><div><small>预计处理</small><strong>2 个工作日内</strong></div></div>
+    <div class="simulator"><strong>审核结果模拟</strong><p>正式版本由平台审核员操作；这里用于验证后续界面。</p><div class="actions"><button class="button secondary" type="button" data-action="review-org" data-decision="approved">模拟通过</button><button class="button danger" type="button" data-action="review-org" data-decision="rejected">模拟退回</button></div></div>`;
+  return `
+    <div class="section-head">${statusChip('组织资质已核验', 'green', 'BadgeCheck')}</div><p>${escapeHTML(data && data.name || '计算机学院学生科创中心')} 已通过资质审核。组织通过不代表当前账号自动获得负责人或发布者角色。</p>
+    <div class="review-meta"><div><small>认证有效期</small><strong>2027-09-01</strong></div><div><small>到期处理</small><strong>提前 30 天提醒复核</strong></div></div>
+    ${state.organizationRole === 'none' ? `<div class="simulator"><strong>负责人核验模拟</strong><p>正式版本由审核员把首位负责人绑定到组织，不允许用户自行声明“社长”。</p><button class="button secondary" type="button" data-action="grant-owner">模拟核验为负责人</button></div>` : ''}`;
+};
+
+const roleContent = () => {
+  const labels = { none: '暂无组织角色', member: '组织成员', publisher: '授权发布者', owner: '已核验负责人' };
+  const tones = { none: '', member: 'blue', publisher: 'purple', owner: 'green' };
+  let html = `<div class="section-head">${statusChip(labels[state.organizationRole], tones[state.organizationRole], state.organizationRole === 'none' ? 'Circle' : 'UserCog')}</div>`;
+  if (state.organizationRole === 'none') return `${html}<p>组织审核通过后，仍需由已核验负责人发送站内邀请；接受后角色才生效。</p>`;
+  html += `<p>当前权限限定在“计算机学院学生科创中心”，有效期至 2027-09-01，可撤销并保留审计记录。</p>`;
+  if (state.organizationRole === 'owner') html += `<button class="button secondary" type="button" data-action="toggle-invite"><span data-icon="Send"></span>${panel === 'invite-form' ? '收起邀请' : '邀请成员或发布者'}</button>`;
+  if (state.organizationRole === 'owner' && panel === 'invite-form') html += renderInviteForm();
+  if (state.pendingInvite) html += renderInvitePreview();
+  return html;
+};
+
+const renderIdentityCenter = () => {
+  const permissions = Auth.derivePermissions(state);
+  const name = state.profile && state.profile.nickname || '裴同学';
+  const campusVerified = state.accountStatus === 'campus_verified';
+  return `${pageHead('身份与权限', 'ShieldCheck', '认证中心', '账号、校园身份、组织资质和组织角色分别核验，任何一层都不会自动继承更高权限。')}
+    <div class="status-band"><span class="avatar">${escapeHTML(name.slice(0,1))}</span><div class="account-meta"><strong>${escapeHTML(name)}</strong><p>${escapeHTML(state.account && state.account.account || 'student@example.edu.cn')}</p></div>${statusChip(campusVerified ? '校园已认证' : '仅账号已注册', campusVerified ? 'green' : 'amber', campusVerified ? 'BadgeCheck' : 'CircleAlert')}</div>
+    <div class="identity-sections">
+      <section class="identity-section"><div class="section-label"><div><h3>校园身份</h3><p>个人基础权限</p></div></div><div class="section-body"><div class="section-head">${statusChip(campusVerified ? '已认证' : '未认证', campusVerified ? 'green' : 'amber', campusVerified ? 'CheckCircle2' : 'CircleAlert')}</div><p>${campusVerified ? `已通过 ${escapeHTML(state.campusEmail || 'student@example.edu.cn')} 验证。` : '仍可浏览公开内容，发布、申请和联系方式保持锁定。'}</p>${campusVerified ? '' : '<button class="button secondary" type="button" data-action="go-campus">完成校园认证</button>'}<div class="permission-list"><span class="permission on">公开浏览</span><span class="permission ${permissions.canCreateStudentPost ? 'on' : ''}">发布个人组队帖</span><span class="permission ${permissions.canApplyToTeam ? 'on' : ''}">申请加入队伍</span><span class="permission ${permissions.canViewContact ? 'on' : ''}">双方确认后查看联系方式</span></div></div></section>
+      <section class="identity-section"><div class="section-label"><div><h3>组织资质</h3><p>主体真实性</p></div></div><div class="section-body">${campusVerified ? organizationContent() : '<p>完成校园认证后才能代表组织提交资质申请。</p>'}</div></section>
+      <section class="identity-section"><div class="section-label"><div><h3>组织角色</h3><p>成员与发布权限</p></div></div><div class="section-body">${roleContent()}</div></section>
+    </div>
+    <div class="actions"><a class="button primary" href="${destinationHref()}"><span data-icon="Compass"></span>进入内容发现页</a><button class="button text" type="button" data-action="logout">退出演示账号</button></div>`;
+};
+
+const renderOrganizationForm = () => `${pageHead('组织认证', 'Building2', '提交组织资质申请', '平台核验组织主体后，再由负责人邀请成员和授权发布者。')}
+  ${errorBlock()}
+  <form class="form" id="organization-form">
+    <div class="field-row"><div class="field"><label for="org-type">组织类型</label><select class="control" id="org-type" name="type"><option value="college">学院 / 书院</option><option value="student-org">学生组织</option><option value="club">学生社团</option></select></div><div class="field"><label for="org-school">学校归属</label><input class="control" id="org-school" name="school" value="示例大学"></div></div>
+    <div class="field"><label for="org-name">组织标准名称</label><input class="control" id="org-name" name="name" value="计算机学院学生科创中心"></div>
+    <div class="field"><label for="org-page">官方页面</label><input class="control" id="org-page" name="officialPage" value="https://example.edu.cn/cs" inputmode="url"><small class="muted">可填写学校官网、学院官网或可公开核验的组织主页。</small></div>
+    <div class="field"><label for="org-person">申请负责人</label><input class="control" id="org-person" name="responsiblePerson" value="裴同学"></div>
+    <div class="field"><span class="field-label">证明材料 <span class="optional">正式版本私有上传</span></span><div class="file-placeholder"><span data-icon="FileText"></span><span>草图不会读取或上传本地文件。正式版本支持任职证明、指导教师确认或盖章材料。</span></div></div>
+    <div class="actions"><button class="button text" type="button" data-action="close-org-form"><span data-icon="ArrowLeft"></span>返回认证中心</button><button class="button primary push" type="submit">提交人工审核<span data-icon="ArrowRight"></span></button></div>
+  </form>`;
+
+const renderInviteForm = () => `<form class="form" id="invite-form" style="margin-top:16px">
+  <div class="field"><label for="invite-account">受邀人的校园账号</label><input class="control" id="invite-account" name="account" value="member@example.edu.cn"></div>
+  <div class="field-row"><div class="field"><label for="invite-role">组织角色</label><select class="control" id="invite-role" name="role"><option value="member">成员</option><option value="publisher">发布者</option></select></div><div class="field"><label for="invite-expiry">权限有效期</label><input class="control" id="invite-expiry" name="expiresAt" type="date" value="2027-09-01"></div></div>
+  <button class="button primary" type="submit"><span data-icon="Send"></span>生成站内邀请预览</button>
+  <div class="form-note">邀请不会立即赋权。受邀人接受后，权限才在指定组织和有效期内生效。</div>
+</form>`;
+
+const renderInvitePreview = () => {
+  const invite = state.pendingInvite;
+  return `<div class="invite-preview"><h3>待接受的站内邀请</h3><dl><dt>受邀账号</dt><dd>${escapeHTML(invite.account)}</dd><dt>邀请角色</dt><dd>${invite.role === 'publisher' ? '授权发布者' : '组织成员'}</dd><dt>所属组织</dt><dd>计算机学院学生科创中心</dd><dt>有效期至</dt><dd>${escapeHTML(invite.expiresAt)}</dd></dl><div class="actions"><button class="button primary" type="button" data-action="accept-invite">切换为受邀人并接受</button></div></div>`;
+};
+
+const renderPublicBrowse = () => `<div class="public-screen"><div class="public-icon" data-icon="Compass"></div><h1>以游客身份浏览</h1><p>你可以查看公开赛事、组织活动和校园搭子邀约。发布、申请加入和查看联系方式时，系统会再次引导登录与校园认证。</p><div class="actions"><a class="button primary" href="${destinationHref()}">进入内容发现页<span data-icon="ArrowRight"></span></a><button class="button text" type="button" data-action="back-login">返回登录</button></div></div>`;
+
+const renderAuthApp = () => {
+  renderJourney();
+  let html;
+  if (panel === 'org-form') html = renderOrganizationForm();
+  else if (state.authView === 'login') html = renderLogin();
+  else if (state.authView === 'register_account') html = renderRegisterAccount();
+  else if (state.authView === 'register_profile') html = renderProfile();
+  else if (state.authView === 'campus_verify') html = renderCampusVerification();
+  else if (state.authView === 'public_browse') html = renderPublicBrowse();
+  else html = renderIdentityCenter();
+  $('auth-root').innerHTML = html;
+  hydrateIcons();
+};
+
+const formObject = form => Object.fromEntries(new FormData(form).entries());
+
+const makeRegistered = () => Auth.completeProfile(Auth.registerAccount(Auth.createAuthState(), {
+  account: 'student@example.edu.cn', code: '246810', password: 'DemoPass2026'
+}), { nickname: '裴同学', major: '计算机科学', grade: '2026 级', skills: 'Python、摄影' });
+
+const makeVerified = () => Auth.verifyCampus(Auth.sendCampusCode(makeRegistered(), 'student@example.edu.cn'), '246810');
+const makeReviewing = () => Auth.submitOrganizationApplication(makeVerified(), {
+  type: 'college', name: '计算机学院学生科创中心', school: '示例大学',
+  officialPage: 'https://example.edu.cn/cs', responsiblePerson: '裴同学'
+});
+const makeOwner = () => ({ ...Auth.reviewOrganizationApplication(makeReviewing(), 'approved'), organizationRole: 'owner', organizationId: 'org-cs' });
+
+const startCountdown = () => {
+  countdown = 60;
+  clearInterval(countdownTimer);
+  countdownTimer = setInterval(() => {
+    countdown -= 1;
+    const button = $('campus-send-button');
+    if (button) button.textContent = countdown ? `重新发送 (${countdown}s)` : '发送验证码';
+    if (!countdown) clearInterval(countdownTimer);
+  }, 1000);
+};
+
+document.addEventListener('click', event => {
+  const button = event.target.closest('[data-action]');
+  if (!button) return;
+  const action = button.dataset.action;
+  if (action === 'login-mode') setState(Auth.setLoginMode(state, button.dataset.mode));
+  if (action === 'start-register') setState({ ...Auth.createAuthState(), authView: 'register_account' });
+  if (action === 'back-login' || action === 'logout') { panel = 'main'; setState(Auth.createAuthState()); $('demo-state').value = 'visitor'; }
+  if (action === 'back-register') setState({ ...state, authView: 'register_account' });
+  if (action === 'back-profile') setState({ ...state, authView: 'register_profile' });
+  if (action === 'browse-public' || action === 'skip-campus') setState(Auth.skipCampusVerification(state));
+  if (action === 'forgot-password') showToast('正式版本将通过独立验证码用途完成密码重置。');
+  if (action === 'send-login-code' || action === 'send-register-code') showToast('验证码已发送。演示验证码为 246810。');
+  if (action === 'reserved-sso') showToast('学校统一身份认证为正式版本预留入口。');
+  if (action === 'focus-campus-email') $('campus-email')?.focus();
+  if (action === 'send-campus-code') {
+    const email = $('campus-email').value;
+    attempt(() => Auth.sendCampusCode(state, email));
+    if (!errorMessage) startCountdown();
+  }
+  if (action === 'go-campus') setState({ ...state, authView: 'campus_verify' });
+  if (action === 'open-org-form') { panel = 'org-form'; errorMessage = ''; renderAuthApp(); }
+  if (action === 'close-org-form') { panel = 'main'; errorMessage = ''; renderAuthApp(); }
+  if (action === 'review-org') attempt(() => Auth.reviewOrganizationApplication(state, button.dataset.decision));
+  if (action === 'grant-owner') setState({ ...state, organizationRole: 'owner', organizationId: 'org-cs' });
+  if (action === 'toggle-invite') { panel = panel === 'invite-form' ? 'main' : 'invite-form'; renderAuthApp(); }
+  if (action === 'accept-invite') { panel = 'main'; attempt(() => Auth.acceptRoleInvite(state)); }
+});
+
+document.addEventListener('submit', event => {
+  event.preventDefault();
+  const form = event.target;
+  const data = formObject(form);
+  if (form.id === 'login-form') {
+    const valid = state.loginMode === 'code' ? data.code === '246810' : data.password === 'DemoPass2026';
+    if (!valid) { errorMessage = state.loginMode === 'code' ? '演示验证码为 246810' : '演示密码为 DemoPass2026'; renderAuthApp(); return; }
+    setState(makeVerified());
+  }
+  if (form.id === 'register-form') attempt(() => Auth.registerAccount(state, data));
+  if (form.id === 'profile-form') attempt(() => Auth.completeProfile(state, data));
+  if (form.id === 'campus-form') attempt(() => Auth.verifyCampus(state, data.code));
+  if (form.id === 'organization-form') {
+    panel = 'main';
+    attempt(() => Auth.submitOrganizationApplication(state, data));
+  }
+  if (form.id === 'invite-form') attempt(() => Auth.createRoleInvite(state, {
+    ...data, organizationId: state.organizationId
+  }));
+});
+
+$('demo-state').addEventListener('change', event => {
+  panel = 'main';
+  const presets = {
+    visitor: () => Auth.createAuthState(),
+    unverified: () => makeRegistered(),
+    verified: () => makeVerified(),
+    reviewing: () => makeReviewing(),
+    owner: () => makeOwner()
+  };
+  setState(presets[event.target.value]());
+});
+
+$('reset-demo').addEventListener('click', () => {
+  panel = 'main';
+  countdown = 0;
+  clearInterval(countdownTimer);
+  $('demo-state').value = 'visitor';
+  setState(Auth.resetAuthState(state));
+  showToast('演示状态已重置。');
+});
+
+hydrateIcons();
+renderAuthApp();
+</script>
+</body>
+</html>

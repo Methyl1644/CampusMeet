@@ -13,7 +13,8 @@ const {
   createRoleInvite,
   acceptRoleInvite,
   resetAuthState,
-  derivePermissions
+  derivePermissions,
+  setLoginMode
 } = require('./auth-state.cjs');
 
 const registeredState = () => registerAccount(createAuthState(), {
@@ -101,3 +102,16 @@ test('reset clears all fictional account and verification data', () => {
   assert.deepEqual(resetAuthState(ownerState()), createAuthState());
 });
 
+test('switching login mode records only a supported credential path', () => {
+  const state = setLoginMode(createAuthState(), 'code');
+  assert.equal(state.loginMode, 'code');
+  assert.throws(() => setLoginMode(state, 'magic-link'), /登录方式/);
+});
+
+test('registration rejects a weak password', () => {
+  assert.throws(() => registerAccount(createAuthState(), {
+    account: 'student@example.edu.cn',
+    code: '246810',
+    password: '123456'
+  }), /密码至少 8 位/);
+});

@@ -134,7 +134,7 @@ git commit -m "feat: add auth prototype state model"
 - Consumes: `window.AuthPrototypeState` exports from Task 1.
 - Produces: `renderAuthApp()`, browser event handlers, and placeholder markers `/*ICON_DATA*/`, `/*AUTH_STATE*/`, `/*AUTH_CSS*/`, and `/*AUTH_UI*/` consumed by the build script.
 
-- [ ] **Step 1: Extend tests with login-mode and registration validation**
+- [x] **Step 1: Extend tests with login-mode and registration validation**
 
 ```javascript
 test('switching login mode reveals only the selected credential path', () => {
@@ -149,29 +149,29 @@ test('registration rejects a weak password', () => {
 });
 ```
 
-- [ ] **Step 2: Run tests and verify RED**
+- [x] **Step 2: Run tests and verify RED**
 
 Run: `node --test .superpowers/brainstorm/1261-1788787885/content/auth-state.test.cjs`
 
 Expected: FAIL because `setLoginMode` and password-strength validation are missing.
 
-- [ ] **Step 3: Implement state support and the login/register UI**
+- [x] **Step 3: Implement state support and the login/register UI**
 
 Create a two-column desktop shell with a narrow step rail and one unframed form surface. Add password/code segmented login, forgot-password explanation, public-browse action, account registration, profile completion, inline validation, send-code countdown, back actions, and a persistent “本地模拟，请勿输入真实凭据” notice. The code-login panel must not render a password field; the password-login panel must not render a verification-code field.
 
-- [ ] **Step 4: Build and syntax-check the prototype**
+- [x] **Step 4: Build and syntax-check the prototype**
 
 Run: `node .superpowers/brainstorm/1261-1788787885/content/build-auth-prototype.cjs`
 
 Expected: prints `Built and syntax-checked` and exits 0.
 
-- [ ] **Step 5: Run all state tests**
+- [x] **Step 5: Run all state tests**
 
 Run: `node --test .superpowers/brainstorm/1261-1788787885/content/auth-state.test.cjs`
 
-Expected: eight tests pass and zero fail.
+Expected: nine tests pass and zero fail.
 
-- [ ] **Step 6: Commit the account experience**
+- [x] **Step 6: Commit the account experience**
 
 ```bash
 git add .superpowers/brainstorm/1261-1788787885/content/auth.template .superpowers/brainstorm/1261-1788787885/content/auth-ui.css .superpowers/brainstorm/1261-1788787885/content/auth-ui.js .superpowers/brainstorm/1261-1788787885/content/build-auth-prototype.cjs .superpowers/brainstorm/1261-1788787885/content/auth-prototype.html
