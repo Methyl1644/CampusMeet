@@ -240,11 +240,11 @@ git commit -m "feat: add campus and organization verification flows"
 - Consumes: built `auth-prototype.html` from Task 3 and existing `CampusMate-interactive-prototype.html`.
 - Produces: final user-facing auth prototype with a relative link to `CampusMate-interactive-prototype.html`.
 
-- [ ] **Step 1: Copy the generated HTML and document its scope**
+- [x] **Step 1: Copy the generated HTML and document its scope**
 
 Use PowerShell `Copy-Item -LiteralPath` to copy the built HTML. In the notes, list the two prototypes, explain that all identity states are simulated, and record that production work still requires OTP separation, school-domain configuration, organization models/APIs, audit logs, and JWT lifecycle handling.
 
-- [ ] **Step 2: Run fresh automated verification**
+- [x] **Step 2: Run fresh automated verification**
 
 Run: `node --test .superpowers/brainstorm/1261-1788787885/content/auth-state.test.cjs .superpowers/brainstorm/1261-1788787885/content/prototype-state.test.cjs .superpowers/brainstorm/1261-1788787885/content/publishing-state.test.cjs`
 
@@ -252,15 +252,15 @@ Run: `node .superpowers/brainstorm/1261-1788787885/content/build-auth-prototype.
 
 Expected: all tests pass, build exits 0, and the output reports successful syntax checking.
 
-- [ ] **Step 3: Verify required desktop interactions at 1366px**
+- [x] **Step 3: Verify required desktop interactions at 1366px**
 
 Open `http://127.0.0.1:53806/auth-prototype.html` and verify: password/code switching; registration; profile completion; skip campus verification; successful campus verification using fictional code `246810`; organization application reviewing/approved/rejected states; owner invitation; invited user acceptance; reset; and link into the topic prototype. Confirm no console errors or warnings.
 
-- [ ] **Step 4: Verify responsive layout at 390px**
+- [x] **Step 4: Verify responsive layout at 390px**
 
 Resize to 390px and confirm: the left rail becomes a compact top stepper; inputs and buttons stay within the viewport; status labels wrap cleanly; no horizontal scrollbar appears; and the fixed actions do not cover form content.
 
-- [ ] **Step 5: Inspect workspace changes**
+- [x] **Step 5: Inspect workspace changes**
 
 Run: `git diff --check`
 
@@ -268,7 +268,7 @@ Run: `git status --short`
 
 Expected: no whitespace errors; existing user change in `apps/web/src/pages/Login.tsx` remains untouched; only intended prototype sources, generated output, and notes are new or modified.
 
-- [ ] **Step 6: Commit documentation changes inside the repository**
+- [x] **Step 6: Commit documentation changes inside the repository**
 
 ```bash
 git add docs/superpowers/plans/2026-09-09-auth-prototype-implementation.md
