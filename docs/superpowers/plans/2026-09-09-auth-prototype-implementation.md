@@ -43,7 +43,7 @@
 - Produces: `createAuthState()`, `registerAccount(state, payload)`, `completeProfile(state, payload)`, `sendCampusCode(state, email)`, `verifyCampus(state, code)`, `skipCampusVerification(state)`, `submitOrganizationApplication(state, payload)`, `reviewOrganizationApplication(state, decision)`, `createRoleInvite(state, payload)`, `acceptRoleInvite(state)`, `resetAuthState()`, and `derivePermissions(state)`.
 - State values follow the exact names in the approved spec: `authView`, `loginMode`, `accountStatus`, `campusVerification`, `organizationApplication`, and `organizationRole`.
 
-- [ ] **Step 1: Write failing state-transition tests**
+- [x] **Step 1: Write failing state-transition tests**
 
 ```javascript
 test('registration creates an unverified account without publishing permission', () => {
@@ -83,13 +83,13 @@ test('reset clears all fictional account and verification data', () => {
 });
 ```
 
-- [ ] **Step 2: Run the tests and verify RED**
+- [x] **Step 2: Run the tests and verify RED**
 
 Run: `node --test .superpowers/brainstorm/1261-1788787885/content/auth-state.test.cjs`
 
 Expected: FAIL because `auth-state.cjs` or its exported functions do not exist.
 
-- [ ] **Step 3: Implement the minimal immutable state transitions**
+- [x] **Step 3: Implement the minimal immutable state transitions**
 
 ```javascript
 const createAuthState = () => ({
@@ -109,13 +109,13 @@ const derivePermissions = state => ({
 
 Implement every exported transition as a pure function returning a new object. Reject invalid verification codes, non-campus email domains, organization actions from non-verified accounts, and invites created by non-owners with specific Chinese error messages.
 
-- [ ] **Step 4: Run the state tests and verify GREEN**
+- [x] **Step 4: Run the state tests and verify GREEN**
 
 Run: `node --test .superpowers/brainstorm/1261-1788787885/content/auth-state.test.cjs`
 
-Expected: six tests pass and zero fail.
+Expected: seven tests pass and zero fail.
 
-- [ ] **Step 5: Commit the state model**
+- [x] **Step 5: Commit the state model**
 
 ```bash
 git add .superpowers/brainstorm/1261-1788787885/content/auth-state.cjs .superpowers/brainstorm/1261-1788787885/content/auth-state.test.cjs
@@ -274,4 +274,3 @@ Expected: no whitespace errors; existing user change in `apps/web/src/pages/Logi
 git add docs/superpowers/plans/2026-09-09-auth-prototype-implementation.md
 git commit -m "docs: add auth prototype implementation plan"
 ```
-
