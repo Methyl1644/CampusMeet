@@ -54,6 +54,10 @@ const profileSource = readFileSync(
   new URL('../pages/Profile.tsx', import.meta.url),
   'utf8',
 )
+const homeSource = readFileSync(new URL('../pages/Home.tsx', import.meta.url), 'utf8')
+const discoverSource = readFileSync(new URL('../pages/Discover.tsx', import.meta.url), 'utf8')
+const routerSource = readFileSync(new URL('../router/index.tsx', import.meta.url), 'utf8')
+const clientSource = readFileSync(new URL('../api/client.ts', import.meta.url), 'utf8')
 
 test('theme sources define the approved campus identity tokens', () => {
   assert.match(themeSources, /#5B2A86/i, `${sourcePath} must define NJU purple`)
@@ -73,6 +77,11 @@ test('global styles preserve keyboard focus and reduced-motion access', () => {
     indexCss,
     /@media\s*\(prefers-reduced-motion:\s*reduce\)/,
     'CSS must disable motion when reduced motion is requested',
+  )
+  assert.match(
+    indexCss,
+    /@media\s*\(prefers-reduced-motion:\s*reduce\)[\s\S]*?\.group:hover[\s\S]*?transform:\s*none\s*!important/,
+    'Reduced-motion mode must disable card hover transforms',
   )
 })
 
@@ -174,6 +183,25 @@ test('topic cards exist and link to topic detail routes', () => {
     topicCardSource,
     /to=\{`\/topics\/\$\{topic\.id\}`\}/,
     'TopicCard must link to /topics/:id',
+  )
+})
+
+test('discovery and topic detail are connected to application routes', () => {
+  assert.match(homeSource, /import\s+DiscoveryHub\s+from\s+['"]@\/components\/DiscoveryHub['"]/)
+  assert.match(homeSource, /return\s+<DiscoveryHub\s*\/>/)
+  assert.match(discoverSource, /import\s+DiscoveryHub\s+from\s+['"]@\/components\/DiscoveryHub['"]/)
+  assert.match(discoverSource, /return\s+<DiscoveryHub\s*\/>/)
+  assert.match(routerSource, /import\s+TopicDetail\s+from\s+['"]@\/pages\/TopicDetail['"]/)
+  assert.match(routerSource, /path:\s*['"]topics\/:id['"][\s\S]*?element:\s*<TopicDetail\s*\/>/)
+})
+
+test('development preview stays in the frontend when protected APIs return 401', () => {
+  assert.match(clientSource, /import\.meta\.env\.DEV/)
+  assert.match(clientSource, /token\s*===\s*['"]local-demo-token['"]/)
+  assert.match(
+    clientSource,
+    /status\s*===\s*401[\s\S]*?!isLocalDemo[\s\S]*?logout\(\)/,
+    'A preview-only token must not trigger the real-account logout redirect',
   )
 })
 

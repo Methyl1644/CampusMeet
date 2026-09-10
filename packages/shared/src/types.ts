@@ -21,6 +21,45 @@ export type RiskLevel = 'low' | 'medium' | 'high';
 /** 帖子状态 */
 export type PostStatus = 'recruiting' | 'full' | 'closed' | 'expired';
 
+export type ContentChannel = 'official' | 'organization' | 'casual';
+export type PostKind = 'topic_team' | 'casual_invitation';
+export type FieldStatus = 'confirmed' | 'none' | 'unknown' | 'skipped' | 'pending';
+
+export interface StandardTag {
+  tag_id: string;
+  canonical_name: string;
+  category: string;
+  display_color: string;
+  matched_alias?: string | null;
+}
+
+export interface Topic {
+  id: string;
+  channel: Exclude<ContentChannel, 'casual'>;
+  title: string;
+  short_title: string;
+  organizer: string;
+  edition: string;
+  summary: string;
+  content: string;
+  source_url?: string;
+  source_status: string;
+  cover_url?: string;
+  follower_count: number;
+  followed: boolean;
+  tags: StandardTag[];
+  status: string;
+}
+
+export interface SearchDirectResult {
+  entity_type: 'topic' | 'post';
+  entity_id: string;
+  title: string;
+  subtitle: string;
+  matched_by: string;
+  channel: ContentChannel;
+}
+
 /** 用户认证状态 */
 export type AuthStatus = 'unverified' | 'verified' | 'organization';
 
@@ -30,8 +69,11 @@ export interface Post {
   title: string;
   description: string;
   source_type: SourceType;
+  kind?: PostKind;
+  topic_id?: string | null;
   main_category: MainCategory;
   tags: string[];
+  tag_ids?: string[];
   activity_name: string;
   current_members: number;
   target_members: number;
@@ -114,12 +156,21 @@ export interface PostDraftRequest {
   message: string;
   draft?: PostDraft;
   user_skills?: string[];
+  kind?: PostKind;
+  topic_id?: string;
+  field_states?: Record<string, { value: string | number | null; status: FieldStatus }>;
 }
 
 export interface PostDraftResponse {
   reply: string;
   draft: PostDraft;
   is_complete: boolean;
+  field_states?: Record<string, { value: string | number | null; status: FieldStatus }>;
+  suggested_tag_ids?: string[];
+  candidate_tags?: StandardTag[];
+  next_field?: string | null;
+  missing_fields?: string[];
+  degraded?: boolean;
 }
 
 export interface MatchResult {

@@ -70,6 +70,16 @@ export const API_PATHS = {
     create: '/api/posts',
     myPosts: '/api/posts/my',
   },
+  content: {
+    topics: '/api/topics',
+    topicDetail: '/api/topics/:id',
+    topicPosts: '/api/topics/:id/posts',
+    topicFollow: '/api/topics/:id/follow',
+    tags: '/api/tags',
+    tagSuggestions: '/api/tags/suggestions',
+    searchSuggestions: '/api/search/suggestions',
+    permissions: '/api/me/permissions',
+  },
   agent: {
     postDraft: '/api/agent/post-draft',
     classify: '/api/agent/classify-review',

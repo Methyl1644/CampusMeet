@@ -11,6 +11,8 @@ export interface PostListParams {
   tab?: 'recommend' | 'recruiting' | 'official' | 'hot'
   page?: number
   page_size?: number
+  kind?: 'topic_team' | 'casual_invitation'
+  topic_id?: string
 }
 
 /** 获取帖子列表 */

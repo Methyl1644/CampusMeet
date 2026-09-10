@@ -1,10 +1,13 @@
 import { post, get, patch } from './client'
 import { API_PATHS } from '@shared/constants'
 import type { AuthResponse, LoginRequest, RegisterRequest, User } from '@shared/types'
+import type { VerificationCodeResponse } from './auth-feedback'
+
+export type VerificationCodePurpose = 'register' | 'login' | 'campus_verify'
 
 /** 发送验证码 */
-export function sendCode(account: string) {
-  return post<{ sent: boolean }>(API_PATHS.auth.sendCode, { account })
+export function sendCode(account: string, purpose: VerificationCodePurpose = 'register') {
+  return post<VerificationCodeResponse>(API_PATHS.auth.sendCode, { account, purpose })
 }
 
 /** 注册 */

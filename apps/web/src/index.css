@@ -173,4 +173,9 @@
   :active {
     transform: none !important;
   }
+
+  .group:hover .group-hover\:scale-\[1\.02\],
+  .group:hover .group-hover\:translate-x-0\.5 {
+    transform: none !important;
+  }
 }
