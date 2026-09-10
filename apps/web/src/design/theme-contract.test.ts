@@ -10,6 +10,14 @@ const tailwindConfig = readFileSync(
   'utf8',
 )
 const themeSources = `${indexCss}\n${tailwindConfig}`
+const navbarSource = readFileSync(
+  new URL('../components/Navbar.tsx', import.meta.url),
+  'utf8',
+)
+const mainLayoutSource = readFileSync(
+  new URL('../layouts/MainLayout.tsx', import.meta.url),
+  'utf8',
+)
 
 test('theme sources define the approved campus identity tokens', () => {
   assert.match(themeSources, /#5B2A86/i, `${sourcePath} must define NJU purple`)
@@ -29,5 +37,37 @@ test('global styles preserve keyboard focus and reduced-motion access', () => {
     indexCss,
     /@media\s*\(prefers-reduced-motion:\s*reduce\)/,
     'CSS must disable motion when reduced motion is requested',
+  )
+})
+
+test('navbar preserves the five-route campus identity and accessible logout', () => {
+  assert.match(
+    navbarSource,
+    /import\s+CampusMark\s+from\s+['"]@\/components\/CampusMark['"]/,
+    'Navbar must use the shared campus mark',
+  )
+  assert.match(navbarSource, /<CampusMark\b/, 'Navbar must render CampusMark')
+
+  for (const label of ['首页', '发现', '发布', '消息', '我的']) {
+    assert.match(navbarSource, new RegExp(`label:\\s*['"]${label}['"]`))
+  }
+
+  assert.match(
+    navbarSource,
+    /<button[\s\S]*?aria-label=['"]退出登录['"][\s\S]*?onClick=\{handleLogout\}/,
+    'Logout must remain an accessible button wired to the logout handler',
+  )
+})
+
+test('authenticated shell uses dynamic viewport height and mobile safe-area room', () => {
+  assert.match(
+    mainLayoutSource,
+    /min-h-dvh/,
+    'MainLayout must use the dynamic viewport-height shell',
+  )
+  assert.match(
+    navbarSource,
+    /env\(safe-area-inset-bottom\)/,
+    'Mobile navigation must account for the bottom safe area',
   )
 })
