@@ -34,6 +34,26 @@ const publishSource = readFileSync(
   new URL('../pages/Publish.tsx', import.meta.url),
   'utf8',
 )
+const postDetailSource = readFileSync(
+  new URL('../pages/PostDetail.tsx', import.meta.url),
+  'utf8',
+)
+const applicationModalSource = readFileSync(
+  new URL('../components/ApplicationModal.tsx', import.meta.url),
+  'utf8',
+)
+const messagesSource = readFileSync(
+  new URL('../pages/Messages.tsx', import.meta.url),
+  'utf8',
+)
+const teamDetailSource = readFileSync(
+  new URL('../pages/TeamDetail.tsx', import.meta.url),
+  'utf8',
+)
+const profileSource = readFileSync(
+  new URL('../pages/Profile.tsx', import.meta.url),
+  'utf8',
+)
 
 test('theme sources define the approved campus identity tokens', () => {
   assert.match(themeSources, /#5B2A86/i, `${sourcePath} must define NJU purple`)
@@ -356,5 +376,160 @@ test('primary auth code sends ignore stale completions after a purpose switch', 
     loginSource,
     /sendCode\(verifyEmailAddr,\s*['"]campus_verify['"]\)/,
     'Campus verification code sending must remain on its independent flow',
+  )
+})
+
+test('remaining workflow surfaces use the shared campus visual and motion language', () => {
+  for (const [name, source] of [
+    ['PostDetail', postDetailSource],
+    ['ApplicationModal', applicationModalSource],
+    ['Messages', messagesSource],
+    ['TeamDetail', teamDetailSource],
+    ['Profile', profileSource],
+  ]) {
+    assert.match(
+      source,
+      /(?:<Reveal\b|<motion\.|text-ink|border-stone|bg-paper)/,
+      `${name} must use shared campus styling or motion`,
+    )
+    assert.doesNotMatch(source, /[\u2013\u2014]/, `${name} must not render dash fallbacks`)
+  }
+})
+
+test('post detail reads as a recruitment brief while preserving apply permissions and status', () => {
+  assert.match(
+    postDetailSource,
+    /import\s+\{\s*Reveal\s*\}\s+from\s+['"]@\/components\/motion\/Reveal['"]/,
+    'PostDetail must use the shared page reveal',
+  )
+  for (const label of ['招募条件', '所需角色', '安全提醒', 'AI 匹配说明', '发起人']) {
+    assert.match(postDetailSource, new RegExp(label), `PostDetail must include ${label}`)
+  }
+  assert.match(
+    postDetailSource,
+    /const\s+isAuthor\s*=\s*user\?\.id\s*===\s*post\.author\.id[\s\S]*?const\s+canApply\s*=\s*!isAuthor\s*&&\s*post\.status\s*===\s*['"]recruiting['"]\s*&&\s*!applied/,
+    'Author, recruiting status, and prior application must continue to gate applying',
+  )
+  assert.match(
+    postDetailSource,
+    /if\s*\(isUnverified\)[\s\S]*?showToast\(['"]请先完成校园邮箱认证['"],\s*['"]error['"]\)[\s\S]*?setShowApplyModal\(true\)/,
+    'Campus verification must continue to gate the application modal',
+  )
+  assert.match(
+    postDetailSource,
+    /isAuthor\s*\?[\s\S]*?applied\s*\?[\s\S]*?canApply\s*\?[\s\S]*?post\.status\s*===\s*['"]full['"][\s\S]*?post\.status\s*===\s*['"]expired['"]/,
+    'The stable apply action must preserve every status branch',
+  )
+})
+
+test('application modal protects focus and preserves required application submission fields', () => {
+  assert.match(
+    applicationModalSource,
+    /role=['"]dialog['"][\s\S]*?aria-modal=['"]true['"][\s\S]*?aria-labelledby=['"]application-modal-title['"]/,
+    'ApplicationModal must expose modal dialog semantics',
+  )
+  assert.match(
+    applicationModalSource,
+    /previouslyFocusedElement[\s\S]*?event\.key\s*===\s*['"]Escape['"][\s\S]*?event\.key\s*!==\s*['"]Tab['"][\s\S]*?previouslyFocusedElement\.focus\(\)/,
+    'ApplicationModal must close on Escape, contain Tab focus, and restore focus',
+  )
+  for (const fieldId of ['application-role', 'application-experience', 'application-time', 'application-reason', 'application-questions']) {
+    assert.match(
+      applicationModalSource,
+      new RegExp(`(?:htmlFor|id)=['"]${fieldId}['"]`),
+      `ApplicationModal must explicitly label ${fieldId}`,
+    )
+  }
+  assert.match(
+    applicationModalSource,
+    /!roleWanted[\s\S]*?!experience\.trim\(\)[\s\S]*?!reason\.trim\(\)[\s\S]*?createApplication\(\{[\s\S]*?post_id:\s*post\.id[\s\S]*?role_wanted:\s*roleWanted[\s\S]*?experience:\s*experience\.trim\(\)[\s\S]*?available_time:\s*availableTime\.trim\(\)[\s\S]*?reason:\s*reason\.trim\(\)[\s\S]*?questions:/,
+    'Required checks and the createApplication payload must remain intact',
+  )
+  assert.match(
+    applicationModalSource,
+    /max-h-\[calc\(100dvh-[^\]]+\)\][\s\S]*?overflow-y-auto/,
+    'The modal body must remain scrollable within the mobile viewport',
+  )
+})
+
+test('messages keeps safe bilateral confirmation in a responsive two-pane workspace', () => {
+  assert.match(messagesSource, /100dvh/, 'Messages must use dynamic viewport height')
+  assert.match(
+    messagesSource,
+    /md:grid-cols-\[[^\]]+\]/,
+    'Messages must expose stable desktop conversation and chat columns',
+  )
+  assert.match(
+    messagesSource,
+    /aria-current=\{activeConv\?\.id\s*===\s*conv\.id\s*\?\s*['"]true['"]\s*:\s*undefined\}/,
+    'The active conversation row must be announced',
+  )
+  assert.match(
+    messagesSource,
+    /role=['"]note['"][\s\S]*?请勿在聊天中交换联系方式，确认组队后将自动解锁/,
+    'The chat safety guidance must remain semantic and visible',
+  )
+  assert.match(
+    messagesSource,
+    /sendMessage\(activeConv\.id,\s*content\)[\s\S]*?confirmTeam\(activeConv\.id\)[\s\S]*?closeConversation\(activeConv\.id\)/,
+    'Message send, bilateral confirmation, and close API boundaries must remain',
+  )
+  assert.match(
+    messagesSource,
+    /activeConv\.status\s*===\s*['"]active['"][\s\S]*?activeConv\.status\s*===\s*['"]closed['"][\s\S]*?activeConv\.status\s*===\s*['"]team_confirmed['"]/,
+    'Conversation controls must preserve active, closed, and confirmation states',
+  )
+})
+
+test('team detail keeps planning controls and locked contact disclosure stable', () => {
+  assert.match(
+    teamDetailSource,
+    /import\s+\{\s*Reveal\s*\}\s+from\s+['"]@\/components\/motion\/Reveal['"]/,
+    'TeamDetail must use shared record reveals',
+  )
+  for (const label of ['成员与角色', '分工建议', '首次会议议程', '任务清单', '风险提醒', '联系方式']) {
+    assert.match(teamDetailSource, new RegExp(label), `TeamDetail must include ${label}`)
+  }
+  assert.match(
+    teamDetailSource,
+    /handleToggleAgenda\(item\.id\)[\s\S]*?min-h-[\w\[\]-]+[\s\S]*?handleToggleTask\(task\.id,\s*task\.done\)[\s\S]*?min-h-[\w\[\]-]+/,
+    'Agenda and task controls need stable checked and unchecked row heights',
+  )
+  assert.match(
+    teamDetailSource,
+    /updateTask\(team\.id,\s*taskId,\s*!currentDone\)[\s\S]*?showToast\(['"]更新失败['"],\s*['"]error['"]\)/,
+    'Task updates must keep their API and rollback error boundary',
+  )
+  assert.match(
+    teamDetailSource,
+    /team\.contact_info\.length\s*>\s*0[\s\S]*?双方确认组队后将解锁联系方式/,
+    'Contact details must remain locked until the backend provides them',
+  )
+})
+
+test('profile preserves editing, underline tabs, records, stats, and logout', () => {
+  assert.match(
+    profileSource,
+    /import\s+\{\s*Reveal\s*\}\s+from\s+['"]@\/components\/motion\/Reveal['"]/,
+    'Profile must use shared page and record reveals',
+  )
+  assert.match(profileSource, /role=['"]tablist['"]/, 'Profile tabs need tablist semantics')
+  assert.match(
+    profileSource,
+    /role=['"]tab['"][\s\S]*?aria-selected=\{active\}[\s\S]*?border-b-2/,
+    'Profile must keep underline tabs with selected-state semantics',
+  )
+  assert.match(
+    profileSource,
+    /updateProfile\(\{[\s\S]*?nickname:\s*editNickname[\s\S]*?major:\s*editMajor[\s\S]*?grade:\s*editGrade[\s\S]*?skills:\s*editSkills/,
+    'Profile editing must preserve its existing payload',
+  )
+  for (const label of ['我的帖子', '我的申请', '我的团队']) {
+    assert.match(profileSource, new RegExp(label), `Profile must preserve ${label}`)
+  }
+  assert.match(
+    profileSource,
+    /const\s+handleLogout[\s\S]*?logout\(\)[\s\S]*?navigate\(['"]\/login['"]\)/,
+    'Profile logout must continue to clear auth and route to login',
   )
 })

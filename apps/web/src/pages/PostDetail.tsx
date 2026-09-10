@@ -1,6 +1,15 @@
-import { useState, useEffect } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
-import { Users, Clock, MapPin, Calendar, AlertTriangle, ArrowLeft, CheckCircle } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { useNavigate, useParams } from 'react-router-dom'
+import {
+  AlertTriangle,
+  ArrowLeft,
+  Calendar,
+  CheckCircle,
+  Clock,
+  MapPin,
+  Sparkles,
+  Users,
+} from 'lucide-react'
 import { getPostDetail } from '@/api/posts'
 import type { Post } from '@shared/types'
 import SourceBadge from '@/components/SourceBadge'
@@ -8,6 +17,7 @@ import RiskTag from '@/components/RiskTag'
 import StatusBadge from '@/components/StatusBadge'
 import Loading from '@/components/Loading'
 import ApplicationModal from '@/components/ApplicationModal'
+import { Reveal } from '@/components/motion/Reveal'
 import { useAuthStore } from '@/store/authStore'
 import { useToast } from '@/components/Toast'
 
@@ -44,7 +54,7 @@ export default function PostDetail() {
   if (!post) {
     return (
       <div className="py-16 text-center">
-        <p className="text-sm text-gray-500">帖子不存在或已被删除</p>
+        <p className="text-sm text-ink-muted">帖子不存在或已被删除</p>
         <button onClick={() => navigate('/home')} className="btn-secondary mt-4">返回首页</button>
       </div>
     )
@@ -63,134 +73,147 @@ export default function PostDetail() {
   }
 
   return (
-    <div className="mx-auto max-w-2xl">
-      {/* 返回按钮 */}
+    <div className="mx-auto max-w-5xl">
       <button
         onClick={() => navigate(-1)}
-        className="mb-3 flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700"
+        className="mb-4 inline-flex items-center gap-1 text-sm font-medium text-ink-muted transition-colors hover:text-primary-700"
       >
-        <ArrowLeft size={16} />
+        <ArrowLeft aria-hidden="true" size={16} />
         返回
       </button>
 
-      {/* 帖子头部 */}
-      <div className="card mb-3">
-        <div className="mb-3 flex flex-wrap items-center gap-2">
-          <SourceBadge type={post.source_type} />
-          <span className="text-xs text-gray-500">{post.main_category}</span>
-          <StatusBadge status={post.status} />
-          {post.risk_level !== 'low' && <RiskTag level={post.risk_level} />}
-        </div>
-
-        <h1 className="mb-2 text-lg font-bold text-gray-900">{post.title}</h1>
-
-        {/* 标签 */}
-        {post.tags.length > 0 && (
-          <div className="mb-3 flex flex-wrap gap-1.5">
-            {post.tags.map((tag) => (
-              <span key={tag} className="badge bg-gray-100 text-gray-600">
-                {tag}
-              </span>
-            ))}
+      <Reveal as="article" className="border-y border-stone bg-paper px-4 py-6 sm:px-7 sm:py-8">
+        <header className="border-b border-stone pb-6">
+          <div className="flex flex-wrap items-center gap-2">
+            <SourceBadge type={post.source_type} />
+            <span className="text-xs font-medium text-ink-muted">{post.main_category}</span>
+            <StatusBadge status={post.status} />
+            {post.risk_level !== 'low' && <RiskTag level={post.risk_level} />}
           </div>
-        )}
 
-        {/* 描述 */}
-        {post.description && (
-          <p className="mb-4 text-sm leading-relaxed text-gray-700">{post.description}</p>
-        )}
+          <h1 id="post-title" className="mt-4 font-serif text-2xl font-semibold leading-9 text-ink sm:text-3xl sm:leading-10">
+            {post.title}
+          </h1>
+          <p className="mt-4 whitespace-pre-wrap text-sm leading-7 text-ink-muted">
+            {post.description || '暂无'}
+          </p>
 
-        {/* 帖子信息网格 */}
-        <div className="grid grid-cols-2 gap-3 border-t border-gray-100 pt-3">
-          <InfoItem icon={Calendar} label="活动名称" value={post.activity_name} />
-          <InfoItem icon={Users} label="人数" value={`${post.current_members}/${post.target_members} 人`} />
-          <InfoItem icon={Clock} label="每周投入" value={post.weekly_hours} />
-          <InfoItem icon={MapPin} label="组队范围" value={post.school_scope} />
-          <InfoItem icon={Calendar} label="截止日期" value={post.deadline} />
-        </div>
-
-        {/* 需要角色 */}
-        <div className="mt-3 border-t border-gray-100 pt-3">
-          <p className="mb-1.5 text-xs font-medium text-gray-500">需要的角色</p>
-          <div className="flex flex-wrap gap-2">
-            {post.needed_roles.map((role) => (
-              <span key={role} className="rounded-lg bg-primary-50 px-3 py-1 text-sm font-medium text-primary-600">
-                {role}
-              </span>
-            ))}
-          </div>
-        </div>
-
-        {/* 风险提示 */}
-        {post.risk_level !== 'low' && (
-          <div className="mt-3 flex items-start gap-2 rounded-lg bg-orange-50 p-3">
-            <AlertTriangle size={16} className="mt-0.5 text-orange-500" />
-            <p className="text-xs text-orange-700">
-              {post.risk_level === 'high'
-                ? '该活动被标记为高风险，请注意人身和财产安全。如有疑问请联系平台。'
-                : '该活动涉及线下/夜间等场景，请注意安全。'}
-            </p>
-          </div>
-        )}
-      </div>
-
-      {/* 匹配推荐 */}
-      {post.match_score !== undefined && (
-        <div className="card mb-3 border-primary-200 bg-primary-50">
-          <div className="flex items-center gap-2">
-            <span className="text-lg font-bold text-primary-600">{post.match_score}%</span>
-            <span className="text-sm text-primary-600">匹配度</span>
-          </div>
-          {post.match_reason && (
-            <p className="mt-1 text-xs text-primary-700">{post.match_reason}</p>
-          )}
-        </div>
-      )}
-
-      {/* 发帖者信息 */}
-      <div className="card mb-3">
-        <p className="mb-2 text-xs font-medium text-gray-500">发布者</p>
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary-100 text-sm font-medium text-primary-600">
-            {post.author.nickname.charAt(0)}
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-medium text-gray-900">{post.author.nickname}</span>
-              {post.author.auth_status !== 'unverified' && (
-                <CheckCircle size={14} className="text-green-500" />
-              )}
+          {post.tags.length > 0 && (
+            <div className="mt-4 flex flex-wrap gap-2" aria-label="帖子标签">
+              {post.tags.map((tag) => (
+                <span key={tag} className="badge border border-stone bg-paper-warm text-ink-muted">
+                  {tag}
+                </span>
+              ))}
             </div>
-            <p className="text-xs text-gray-500">
-              {post.author.major} · {post.author.grade}
-            </p>
-          </div>
-        </div>
-      </div>
+          )}
+        </header>
 
-      {/* 操作区 */}
-      <div className="sticky bottom-16 md:bottom-0">
+        <div className="grid gap-7 pt-6 lg:grid-cols-[minmax(0,1fr)_17rem] lg:gap-10">
+          <main className="min-w-0 space-y-7">
+            <section aria-labelledby="conditions-title">
+              <SectionTitle id="conditions-title">招募条件</SectionTitle>
+              <dl className="mt-4 grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2">
+                <InfoItem icon={Calendar} label="活动名称" value={post.activity_name || '暂无'} />
+                <InfoItem icon={Users} label="人数" value={`${post.current_members}/${post.target_members} 人`} />
+                <InfoItem icon={Clock} label="每周投入" value={post.weekly_hours || '暂无'} />
+                <InfoItem icon={MapPin} label="组队范围" value={post.school_scope || '暂无'} />
+                <InfoItem icon={Calendar} label="截止日期" value={post.deadline || '暂无'} />
+              </dl>
+            </section>
+
+            <section className="border-t border-stone pt-6" aria-labelledby="roles-title">
+              <SectionTitle id="roles-title">所需角色</SectionTitle>
+              {post.needed_roles.length > 0 ? (
+                <div className="mt-4 flex flex-wrap gap-2">
+                  {post.needed_roles.map((role) => (
+                    <span key={role} className="rounded-card border border-primary-200 bg-primary-50 px-3 py-1.5 text-sm font-semibold text-primary-700">
+                      {role}
+                    </span>
+                  ))}
+                </div>
+              ) : (
+                <p className="mt-3 text-sm text-ink-muted">暂无</p>
+              )}
+            </section>
+
+            {post.risk_level !== 'low' && (
+              <section className="border-t border-stone pt-6" aria-labelledby="risk-title">
+                <div className="border-l-2 border-campus-gold bg-amber-50 px-4 py-3">
+                  <div className="flex items-center gap-2">
+                    <AlertTriangle aria-hidden="true" size={17} className="shrink-0 text-campus-gold" />
+                    <h2 id="risk-title" className="text-sm font-semibold text-ink">安全提醒</h2>
+                  </div>
+                  <p className="mt-2 text-sm leading-6 text-amber-900">
+                    {post.risk_level === 'high'
+                      ? '该活动被标记为高风险，请注意人身和财产安全。如有疑问请联系平台。'
+                      : '该活动涉及线下/夜间等场景，请注意安全。'}
+                  </p>
+                </div>
+              </section>
+            )}
+
+            {post.match_score !== undefined && (
+              <section className="border-t border-stone pt-6" aria-labelledby="match-title">
+                <div className="flex items-center gap-2 text-primary-700">
+                  <Sparkles aria-hidden="true" size={16} />
+                  <h2 id="match-title" className="text-sm font-semibold">AI 匹配说明</h2>
+                  <span className="ml-auto text-sm font-semibold tabular-nums">{post.match_score}%</span>
+                </div>
+                <p className="mt-2 text-xs leading-6 text-ink-muted">
+                  {post.match_reason || '暂无'}
+                </p>
+              </section>
+            )}
+          </main>
+
+          <aside className="border-t border-stone pt-6 lg:border-l lg:border-t-0 lg:pl-7 lg:pt-0" aria-labelledby="author-title">
+            <SectionTitle id="author-title">发起人</SectionTitle>
+            <div className="mt-4 flex items-center gap-3">
+              <div className="flex size-11 shrink-0 items-center justify-center rounded-full bg-primary-100 text-sm font-semibold text-primary-700">
+                {post.author.nickname.charAt(0)}
+              </div>
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="truncate text-sm font-semibold text-ink">{post.author.nickname}</span>
+                  {post.author.auth_status !== 'unverified' && (
+                    <CheckCircle aria-label="已认证" size={15} className="shrink-0 text-campus-green" />
+                  )}
+                </div>
+                <p className="mt-1 text-xs text-ink-muted">
+                  {post.author.major || '暂无'} · {post.author.grade || '暂无'}
+                </p>
+              </div>
+            </div>
+          </aside>
+        </div>
+      </Reveal>
+
+      <Reveal
+        as="footer"
+        delay={0.04}
+        className="sticky bottom-[calc(4.75rem+env(safe-area-inset-bottom))] z-20 mt-4 border border-stone bg-paper/95 p-3 shadow-panel md:bottom-3"
+      >
         {isAuthor ? (
-          <div className="rounded-xl border border-gray-200 bg-white p-3 text-center text-sm text-gray-500">
+          <div className="min-h-11 content-center text-center text-sm text-ink-muted">
             这是你发布的帖子
           </div>
         ) : applied ? (
-          <div className="flex items-center justify-center gap-2 rounded-xl border border-green-200 bg-green-50 p-3 text-sm text-green-600">
-            <CheckCircle size={16} />
+          <div className="flex min-h-11 items-center justify-center gap-2 text-sm font-medium text-campus-green">
+            <CheckCircle aria-hidden="true" size={16} />
             已申请，等待回复
           </div>
         ) : canApply ? (
-          <button onClick={handleApplyClick} className="btn-primary w-full py-3">
+          <button onClick={handleApplyClick} className="btn-primary min-h-11 w-full">
             申请加入
           </button>
         ) : (
-          <div className="rounded-xl border border-gray-200 bg-gray-50 p-3 text-center text-sm text-gray-400">
+          <div className="min-h-11 content-center text-center text-sm text-ink-muted">
             {post.status === 'full' ? '已满员' : post.status === 'expired' ? '已截止' : '不可申请'}
           </div>
         )}
-      </div>
+      </Reveal>
 
-      {/* 申请弹窗 */}
       {showApplyModal && post && (
         <ApplicationModal
           post={post}
@@ -200,6 +223,10 @@ export default function PostDetail() {
       )}
     </div>
   )
+}
+
+function SectionTitle({ id, children }: { id: string; children: string }) {
+  return <h2 id={id} className="section-label">{children}</h2>
 }
 
 function InfoItem({
@@ -212,11 +239,11 @@ function InfoItem({
   value: string
 }) {
   return (
-    <div className="flex items-start gap-2">
-      <Icon size={16} className="mt-0.5 text-gray-400" />
-      <div>
-        <p className="text-xs text-gray-400">{label}</p>
-        <p className="text-sm text-gray-800">{value}</p>
+    <div className="flex min-h-12 items-start gap-3 border-b border-stone/70 pb-3">
+      <Icon aria-hidden="true" size={16} className="mt-1 shrink-0 text-campus-green" />
+      <div className="min-w-0">
+        <dt className="text-xs text-ink-muted">{label}</dt>
+        <dd className="mt-1 break-words text-sm font-medium text-ink">{value}</dd>
       </div>
     </div>
   )
