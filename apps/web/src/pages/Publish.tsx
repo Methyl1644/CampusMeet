@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Check, Edit3, RefreshCw, Send, Sparkles, X } from 'lucide-react'
+import { Check, ChevronDown, Edit3, RefreshCw, Send, Sparkles, X } from 'lucide-react'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { postDraft } from '@/api/agent'
@@ -41,6 +41,9 @@ const initialMessage = (): ChatMessage => ({
   timestamp: new Date().toISOString(),
 })
 
+const serializeFieldStateValue = (value: string | number | string[]) =>
+  Array.isArray(value) ? value.join('、') : value
+
 export default function Publish() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
@@ -57,6 +60,7 @@ export default function Publish() {
   const [publishing, setPublishing] = useState(false)
   const [editingDraft, setEditingDraft] = useState(false)
   const [useManualForm, setUseManualForm] = useState(false)
+  const [mobileDraftOpen, setMobileDraftOpen] = useState(false)
   const [fieldStates, setFieldStates] = useState<
     NonNullable<PostDraftResponse['field_states']>
   >({})
@@ -87,6 +91,7 @@ export default function Publish() {
   const activateManualForm = () => {
     setUseManualForm(true)
     setEditingDraft(true)
+    setMobileDraftOpen(true)
     setDraft((current) => current || { ...EMPTY_DRAFT })
     setDraftRevision((current) => current + 1)
   }
@@ -188,6 +193,7 @@ export default function Publish() {
     setIsComplete(false)
     setUseManualForm(false)
     setEditingDraft(false)
+    setMobileDraftOpen(false)
     setFieldStates({})
     setCandidateTags([])
     setSelectedTagIds([])
@@ -195,6 +201,13 @@ export default function Publish() {
 
   const updateDraftField = (field: keyof PostDraft, value: string | number | string[]) => {
     setDraft((prev) => (prev ? { ...prev, [field]: value } : null))
+    setFieldStates((current) => ({
+      ...current,
+      [field]: {
+        value: serializeFieldStateValue(value),
+        status: 'confirmed',
+      },
+    }))
   }
 
   return (
@@ -330,10 +343,30 @@ export default function Publish() {
 
         <Reveal
           as="aside"
-          className="min-w-0 border-t-2 border-primary-600 bg-paper px-4 py-5 shadow-panel lg:max-h-[calc(100dvh-13rem)] lg:overflow-y-auto"
+          className="min-w-0 border-t-2 border-primary-600 bg-paper shadow-panel lg:max-h-[calc(100dvh-13rem)] lg:overflow-y-auto"
           delay={0.08}
         >
-          <div className="mb-5 flex items-start justify-between gap-3 border-b border-stone pb-4">
+          <button
+            type="button"
+            onClick={() => setMobileDraftOpen((current) => !current)}
+            aria-expanded={mobileDraftOpen}
+            aria-controls="mobile-publish-draft"
+            className="flex min-h-12 w-full items-center justify-between gap-3 px-4 py-3 text-left lg:hidden"
+          >
+            <span className="min-w-0">
+              <span className="block text-xs font-semibold text-primary-700">结构化稿件</span>
+              <span className="mt-0.5 block truncate text-sm font-semibold text-ink">
+                {draft ? `草稿：${draft.activity_name || '暂无'}` : '组队帖草稿'}
+              </span>
+            </span>
+            <ChevronDown size={18} className="shrink-0 text-ink-muted" />
+          </button>
+
+          <div
+            id="mobile-publish-draft"
+            className={`${mobileDraftOpen ? 'block' : 'hidden'} px-4 py-5 lg:block`}
+          >
+          <div className="mb-5 hidden items-start justify-between gap-3 border-b border-stone pb-4 lg:flex">
             <div>
               <p className="section-label mb-2">结构化稿件</p>
               <h2 className="text-lg font-semibold text-ink">组队帖草稿</h2>
@@ -518,6 +551,7 @@ export default function Publish() {
               </motion.div>
             )}
           </AnimatePresence>
+          </div>
         </Reveal>
       </div>
     </div>

@@ -86,6 +86,15 @@ export default function Login() {
   const goToStep = (nextStep: Step) => {
     const nextIndex = STEP_INDEX[nextStep]
     const currentIndex = STEP_INDEX[step]
+    const switchingAuthPurpose =
+      (step === 'login' && nextStep === 'register') ||
+      (step === 'register' && nextStep === 'login')
+
+    if (switchingAuthPurpose) {
+      setCode('')
+      setCodeCooldown(0)
+    }
+
     setStageDirection(
       nextIndex === currentIndex
         ? nextStep === 'login'

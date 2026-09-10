@@ -271,3 +271,47 @@ test('publishing preserves AI fallback, controlled tags, and the publish boundar
     'Publishing updates must use the shared Motion or Reveal language',
   )
 })
+
+test('publishing collapses the draft accessibly on mobile and keeps it visible on desktop', () => {
+  assert.match(
+    publishSource,
+    /const\s+\[mobileDraftOpen,\s*setMobileDraftOpen\]\s*=\s*useState\(false\)/,
+    'The mobile draft must start as an explicit collapsed disclosure',
+  )
+  assert.match(
+    publishSource,
+    /<button[\s\S]*?aria-expanded=\{mobileDraftOpen\}[\s\S]*?aria-controls=['"]mobile-publish-draft['"][\s\S]*?className=['"][^'"]*lg:hidden[^'"]*['"]/,
+    'Mobile draft access must be an accessible disclosure button',
+  )
+  assert.match(
+    publishSource,
+    /id=['"]mobile-publish-draft['"][\s\S]*?mobileDraftOpen\s*\?\s*['"]block['"]\s*:\s*['"]hidden['"][\s\S]*?lg:block/,
+    'The draft body must collapse below lg and remain visible on desktop',
+  )
+})
+
+test('authentication clears purpose-specific OTP state when switching modes', () => {
+  assert.match(
+    loginSource,
+    /const\s+switchingAuthPurpose\s*=\s*[\s\S]*?step\s*===\s*['"]login['"][\s\S]*?nextStep\s*===\s*['"]register['"][\s\S]*?step\s*===\s*['"]register['"][\s\S]*?nextStep\s*===\s*['"]login['"]/,
+    'goToStep must detect login/register purpose changes in either direction',
+  )
+  assert.match(
+    loginSource,
+    /if\s*\(switchingAuthPurpose\)\s*\{\s*setCode\(['"]['"]\)\s*setCodeCooldown\(0\)\s*\}/,
+    'Purpose changes must clear the OTP value and resend cooldown together',
+  )
+})
+
+test('manual draft edits synchronize confirmed field state for the next AI request', () => {
+  assert.match(
+    publishSource,
+    /const\s+serializeFieldStateValue\s*=\s*\(value:[^)]*\)\s*=>[\s\S]*?Array\.isArray\(value\)[\s\S]*?value\.join\(['"]、['"]\)/,
+    'Array draft fields must serialize to a readable field-state string',
+  )
+  assert.match(
+    publishSource,
+    /const\s+updateDraftField[\s\S]*?setDraft\([\s\S]*?setFieldStates\(\(current\)\s*=>\s*\(\{[\s\S]*?\[field\]:\s*\{[\s\S]*?value:\s*serializeFieldStateValue\(value\)[\s\S]*?status:\s*['"]confirmed['"]/,
+    'Manual draft edits must update the corresponding field state as confirmed',
+  )
+})
