@@ -26,6 +26,14 @@ const topicCardUrl = new URL('../components/TopicCard.tsx', import.meta.url)
 const topicCardSource = existsSync(topicCardUrl)
   ? readFileSync(topicCardUrl, 'utf8')
   : ''
+const loginSource = readFileSync(
+  new URL('../pages/Login.tsx', import.meta.url),
+  'utf8',
+)
+const publishSource = readFileSync(
+  new URL('../pages/Publish.tsx', import.meta.url),
+  'utf8',
+)
 
 test('theme sources define the approved campus identity tokens', () => {
   assert.match(themeSources, /#5B2A86/i, `${sourcePath} must define NJU purple`)
@@ -184,5 +192,82 @@ test('discovery list loading commits only the latest request', () => {
     discoveryHubSource,
     /finally\s*\{\s*if\s*\(currentLoad\s*===\s*loadRequestId\.current\)\s+setLoading\(false\)/,
     'Only the latest list request may clear loading',
+  )
+})
+
+test('authentication keeps every stage inside the approved campus composition', () => {
+  assert.match(
+    loginSource,
+    /import\s+CampusMark\s+from\s+['"]@\/components\/CampusMark['"]/,
+    'Login must use the shared campus mark',
+  )
+  assert.match(loginSource, /<CampusMark\b/, 'Login must render CampusMark')
+  assert.match(
+    loginSource,
+    /type\s+Step\s*=\s*['"]login['"]\s*\|\s*['"]register['"]\s*\|\s*['"]profile['"]\s*\|\s*['"]verify['"]/,
+    'Login must preserve login, register, profile, and verify states',
+  )
+  assert.match(
+    loginSource,
+    /<AnimatePresence\b[\s\S]*?<motion\.(?:div|section|form)\b/,
+    'Authentication stages must transition through Motion AnimatePresence',
+  )
+  assert.match(
+    loginSource,
+    /enter:\s*\(direction:\s*number\)\s*=>\s*\(\{[\s\S]*?x:\s*direction\s*\*\s*14[\s\S]*?custom=\{stageDirection\}/,
+    'Authentication stage motion must use the transition direction',
+  )
+  assert.match(
+    loginSource,
+    /duration:\s*shouldReduceMotion\s*\?\s*0\s*:\s*0\.22/,
+    'Authentication stage transitions must be direction-aware and 220ms',
+  )
+  assert.match(
+    loginSource,
+    /step\s*!==\s*['"]login['"][\s\S]*?aria-label=['"]注册进度['"]/,
+    'Only registration stages may render the horizontal progress line',
+  )
+  assert.match(
+    loginSource,
+    /grid-cols-3[\s\S]*?h-(?:0\.5|1)\b/,
+    'Registration progress must be a thin three-part horizontal line',
+  )
+})
+
+test('publishing preserves AI fallback, controlled tags, and the publish boundary', () => {
+  assert.match(
+    publishSource,
+    /const\s+\[useManualForm,\s*setUseManualForm\]\s*=\s*useState\(false\)/,
+    'Publishing must retain the manual fallback state',
+  )
+  assert.match(
+    publishSource,
+    /const\s+activateManualForm\s*=\s*\(\)\s*=>\s*\{[\s\S]*?setUseManualForm\(true\)[\s\S]*?catch\s*\{[\s\S]*?activateManualForm\(\)/,
+    'AI failure must continue to activate the manual fallback',
+  )
+  assert.match(
+    publishSource,
+    /const\s+\[fieldStates,\s*setFieldStates\][\s\S]*?field_states:\s*fieldStates/,
+    'Publishing must retain structured field states across AI calls',
+  )
+  assert.match(
+    publishSource,
+    /candidateTags\s*\.filter\(\(tag\)\s*=>\s*selectedTagIds\.includes\(tag\.tag_id\)\)[\s\S]*?items\s*\.filter\(\(id\)\s*=>\s*id\s*!==\s*tag\.tag_id\)/,
+    'Selected candidate tags must remain removable',
+  )
+  assert.match(
+    publishSource,
+    /candidateTags\.some\(\(tag\)\s*=>\s*!selectedTagIds\.includes\(tag\.tag_id\)\)[\s\S]*?setSelectedTagIds/,
+    'Unselected candidate tags must remain selectable',
+  )
+  assert.match(
+    publishSource,
+    /const\s+handlePublish\s*=\s*async\s*\(\)\s*=>[\s\S]*?createPost\(/,
+    'Publishing must retain handlePublish as the createPost boundary',
+  )
+  assert.match(
+    publishSource,
+    /<AnimatePresence\b|<Reveal\b/,
+    'Publishing updates must use the shared Motion or Reveal language',
   )
 })
