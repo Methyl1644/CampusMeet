@@ -492,7 +492,11 @@ test('team detail keeps planning controls and locked contact disclosure stable',
   }
   assert.match(
     teamDetailSource,
-    /handleToggleAgenda\(item\.id\)[\s\S]*?min-h-[\w\[\]-]+[\s\S]*?handleToggleTask\(task\.id,\s*task\.done\)[\s\S]*?min-h-[\w\[\]-]+/,
+    new RegExp(
+      String.raw`handleToggleAgenda\(item\.id\)[\s\S]*?min-h-` +
+        String.raw`[\w\[\]-]+[\s\S]*?handleToggleTask\(task\.id,\s*task\.done\)[\s\S]*?min-h-` +
+        String.raw`[\w\[\]-]+`,
+    ),
     'Agenda and task controls need stable checked and unchecked row heights',
   )
   assert.match(
