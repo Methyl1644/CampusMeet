@@ -2,12 +2,14 @@
 import json
 import logging
 from langchain.tools import tool
-from sqlalchemy import select, desc, asc, or_
+from sqlalchemy import select, desc, asc, or_, func
 from coze_coding_utils.log.write_log import request_context
 from coze_coding_utils.runtime_ctx.context import new_context
 from storage.database.db import get_session
 from storage.database.models.user import User
 from storage.database.models.post import Post
+from storage.database.models.content import PostTag, Topic
+from services.content import validate_tag_ids
 from utils.security import screen_post_content
 from tools.auth_tools import _user_brief
 
@@ -21,6 +23,8 @@ def _post_to_dict(post: Post, author: User | None = None) -> dict:
         "title": post.title,
         "description": post.description,
         "source_type": post.source_type,
+        "kind": post.kind,
+        "topic_id": str(post.topic_id) if post.topic_id is not None else None,
         "main_category": post.main_category,
         "tags": post.tags or [],
         "activity_name": post.activity_name,
@@ -52,6 +56,9 @@ def create_post(
     weekly_hours: str = "",
     school_scope: str = "",
     deadline: str = "",
+    kind: str = "casual_invitation",
+    topic_id: str = "",
+    tag_ids: str = "",
 ) -> str:
     """创建组队帖。user_id 为用户ID，title 为标题，description 为描述，main_category 为主分类，activity_name 为活动名称，target_members 为目标人数，needed_roles 为所需角色(逗号分隔)，weekly_hours 为每周时长，school_scope 为学校范围，deadline 为截止日期。"""
     ctx = request_context.get() or new_context(method="create_post")
@@ -75,11 +82,33 @@ def create_post(
                     "suggestions": screen.suggestions,
                 }, ensure_ascii=False)
 
+            if kind not in {"topic_team", "casual_invitation"}:
+                return json.dumps({"success": False, "message": "帖子类型不正确"}, ensure_ascii=False)
+            resolved_topic_id = int(topic_id) if topic_id else None
+            if kind == "topic_team":
+                if resolved_topic_id is None:
+                    return json.dumps({"success": False, "message": "正规赛事组队帖必须关联话题"}, ensure_ascii=False)
+                topic = session.get(Topic, resolved_topic_id)
+                if not topic or topic.status != "active":
+                    return json.dumps({"success": False, "message": "关联话题不存在或不可用"}, ensure_ascii=False)
+            elif resolved_topic_id is not None:
+                return json.dumps({"success": False, "message": "日常邀约不能关联正式话题"}, ensure_ascii=False)
+
+            selected_tag_ids = list(dict.fromkeys(item.strip() for item in tag_ids.split(",") if item.strip()))[:8]
+            invalid_tag_ids = validate_tag_ids(session, selected_tag_ids)
+            if invalid_tag_ids:
+                return json.dumps(
+                    {"success": False, "message": f"包含未收录的标签：{', '.join(invalid_tag_ids)}"},
+                    ensure_ascii=False,
+                )
+
             roles = [r.strip() for r in needed_roles.split(",") if r.strip()] if needed_roles else []
             post = Post(
                 title=title,
                 description=description,
                 source_type="user",
+                kind=kind,
+                topic_id=resolved_topic_id,
                 main_category=main_category,
                 activity_name=activity_name,
                 target_members=target_members,
@@ -93,6 +122,10 @@ def create_post(
             )
             session.add(post)
             session.flush()
+            session.add_all(
+                PostTag(post_id=post.id, tag_id=tag_id, source="user") for tag_id in selected_tag_ids
+            )
+            post.tags = selected_tag_ids
 
             # 更新用户发帖数
             user.post_count = (user.post_count or 0) + 1
@@ -121,6 +154,8 @@ def list_posts(
     tags: str = "",
     keyword: str = "",
     sort: str = "latest",
+    kind: str = "",
+    topic_id: str = "",
 ) -> str:
     """浏览帖子列表。tab 为标签页(recommend/recruiting/official/hot)，page 为页码，page_size 为每页数量，category 为主分类筛选，tags 为标签筛选(逗号分隔)，keyword 为搜索关键词，sort 为排序方式(latest/hot/deadline)。"""
     ctx = request_context.get() or new_context(method="list_posts")
@@ -128,6 +163,11 @@ def list_posts(
         session = get_session()
         try:
             query = select(Post)
+
+            if kind in {"topic_team", "casual_invitation"}:
+                query = query.where(Post.kind == kind)
+            if topic_id:
+                query = query.where(Post.topic_id == int(topic_id))
 
             # Tab 筛选
             if tab == "recruiting":
@@ -152,7 +192,11 @@ def list_posts(
             if tags:
                 tag_list = [t.strip() for t in tags.split(",") if t.strip()]
                 for tag in tag_list:
-                    query = query.where(Post.tags.contains([tag]))
+                    query = query.where(
+                        Post.id.in_(select(PostTag.post_id).where(PostTag.tag_id == tag))
+                    )
+
+            total = session.scalar(select(func.count()).select_from(query.order_by(None).subquery())) or 0
 
             # 排序
             if sort == "deadline":
@@ -177,7 +221,7 @@ def list_posts(
             return json.dumps({
                 "success": True,
                 "list": posts,
-                "total": len(posts),
+                "total": total,
                 "page": page,
                 "page_size": page_size,
             }, ensure_ascii=False)

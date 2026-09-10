@@ -17,7 +17,15 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 
 @router.post("/send-code")
 def send_code(body: dict[str, Any]) -> dict[str, Any]:
-    return parse_tool_result(invoke_tool(register_auth_send_code, {"account": body.get("account", "")}))
+    return parse_tool_result(
+        invoke_tool(
+            register_auth_send_code,
+            {
+                "account": body.get("account", ""),
+                "purpose": body.get("purpose", "register"),
+            },
+        )
+    )
 
 
 @router.post("/register")
@@ -28,7 +36,7 @@ def register(body: dict[str, Any]) -> dict[str, Any]:
         {
             "account": body.get("account", ""),
             "code": body.get("code", ""),
-            "password": body.get("password") or body.get("code", ""),
+            "password": body.get("password", ""),
             "nickname": body.get("nickname", ""),
             "major": body.get("major", ""),
             "grade": body.get("grade", ""),
@@ -42,7 +50,14 @@ def register(body: dict[str, Any]) -> dict[str, Any]:
 
 @router.post("/login")
 def login(body: dict[str, Any]) -> dict[str, Any]:
-    raw = invoke_tool(login_user, {"account": body.get("account", ""), "password": body.get("password") or body.get("code", "")})
+    raw = invoke_tool(
+        login_user,
+        {
+            "account": body.get("account", ""),
+            "password": body.get("password", ""),
+            "code": body.get("code", ""),
+        },
+    )
     data = unwrap_data(raw)
     return {"code": 0, "message": "ok", "data": {"token": data["token"], "user": data["user"]}}
 

@@ -66,11 +66,7 @@ export default function Publish() {
 
   const draftIsValid = Boolean(
     draft?.activity_name.trim() &&
-      draft.target_members > 0 &&
-      draft.needed_roles.length > 0 &&
-      draft.weekly_hours.trim() &&
-      draft.school_scope.trim() &&
-      draft.deadline.trim(),
+      draft.target_members > 0,
   )
   const canPublish = draftIsValid && (useManualForm || isComplete)
 
@@ -146,13 +142,13 @@ export default function Publish() {
   const handlePublish = async () => {
     if (!draft) return
     if (!draftIsValid) {
-      showToast('请完善活动名称、人数、角色、投入、范围和截止日期', 'error')
+      showToast('请至少填写活动名称和目标人数', 'error')
       return
     }
     setPublishing(true)
     try {
       const post = await createPost({
-        title: `${draft.activity_name}队伍招募${draft.needed_roles.join('和')}队友`,
+        title: `${draft.activity_name}${draft.needed_roles.length ? `招募${draft.needed_roles.join('和')}` : '组队邀约'}`,
         activity_name: draft.activity_name,
         target_members: draft.target_members,
         needed_roles: draft.needed_roles,
@@ -392,7 +388,7 @@ export default function Publish() {
                   onChange={(value) => updateDraftField('target_members', Number(value) || 1)}
                 />
                 <DraftField
-                  label="需要角色"
+                  label={kind === 'casual_invitation' ? '参与要求' : '需要角色'}
                   value={draft.needed_roles.join('、')}
                   status={fieldStates.needed_roles?.status}
                   editing={editingDraft}
@@ -404,26 +400,28 @@ export default function Publish() {
                   }
                 />
                 <DraftField
-                  label="每周投入"
+                  label={kind === 'casual_invitation' ? '活动时间' : '每周投入'}
                   value={draft.weekly_hours}
                   status={fieldStates.weekly_hours?.status}
                   editing={editingDraft}
                   onChange={(value) => updateDraftField('weekly_hours', value)}
                 />
                 <DraftField
-                  label="组队范围"
+                  label={kind === 'casual_invitation' ? '活动地点' : '组队范围'}
                   value={draft.school_scope}
                   status={fieldStates.school_scope?.status}
                   editing={editingDraft}
                   onChange={(value) => updateDraftField('school_scope', value)}
                 />
-                <DraftField
-                  label="截止日期"
-                  value={draft.deadline}
-                  status={fieldStates.deadline?.status}
-                  editing={editingDraft}
-                  onChange={(value) => updateDraftField('deadline', value)}
-                />
+                {kind === 'topic_team' && (
+                  <DraftField
+                    label="截止日期"
+                    value={draft.deadline}
+                    status={fieldStates.deadline?.status}
+                    editing={editingDraft}
+                    onChange={(value) => updateDraftField('deadline', value)}
+                  />
+                )}
                 <DraftField
                   label="补充说明"
                   value={draft.description || ''}

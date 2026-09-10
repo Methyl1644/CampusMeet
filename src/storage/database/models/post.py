@@ -2,15 +2,18 @@ import datetime
 from sqlalchemy import BigInteger, DateTime, Integer, JSON, Text, func
 from sqlalchemy.orm import Mapped, mapped_column
 from storage.database.shared.model import Base
+from storage.database.shared.types import BIGINT_PRIMARY_KEY
 
 
 class Post(Base):
     __tablename__ = "posts"
 
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(BIGINT_PRIMARY_KEY, primary_key=True, autoincrement=True)
     title: Mapped[str] = mapped_column(Text, nullable=False)
     description: Mapped[str | None] = mapped_column(Text)
     source_type: Mapped[str] = mapped_column(Text, nullable=False, default="user")
+    kind: Mapped[str] = mapped_column(Text, nullable=False, default="casual_invitation")
+    topic_id: Mapped[int | None] = mapped_column(BigInteger)
     main_category: Mapped[str] = mapped_column(Text, nullable=False)
     tags: Mapped[list] = mapped_column(JSON, default=list)
     activity_name: Mapped[str] = mapped_column(Text, nullable=False)

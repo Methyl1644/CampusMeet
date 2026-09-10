@@ -16,6 +16,7 @@ from storage.database.models.user import User
 from storage.database.models.post import Post
 from storage.database.models.team import Team, TeamMember
 from tools.auth_tools import _user_brief, _user_to_dict
+from services.content import build_post_draft
 
 logger = logging.getLogger(__name__)
 
@@ -71,15 +72,56 @@ def _try_coze_workflow(workflow_env_key: str, parameters: dict) -> dict | None:
 
 
 @tool
-def ai_post_draft(message: str, draft: str = "", user_skills: str = "") -> str:
+def ai_post_draft(
+    message: str,
+    draft: str = "",
+    user_skills: str = "",
+    kind: str = "",
+    field_states: str = "",
+    candidate_tags: str = "",
+    topic_id: str = "",
+) -> str:
     """AI 对话式发帖助手。用户输入一句话描述组队需求，AI 追问缺失信息并生成结构化草稿。message 为用户输入，draft 为当前草稿(JSON字符串)，user_skills 为用户技能(逗号分隔)。返回追问回复和结构化草稿。"""
     ctx = request_context.get() or new_context(method="ai_post_draft")
 
     # 先尝试 Coze 工作流
-    coze_params = {"message": message, "draft": draft, "user_skills": user_skills}
+    parsed_fields = json.loads(field_states) if field_states else {}
+    parsed_candidates = json.loads(candidate_tags) if candidate_tags else []
+    coze_params = {
+        "message": message,
+        "draft": draft,
+        "user_skills": user_skills,
+        "kind": kind,
+        "field_states": parsed_fields,
+        "candidate_tags": parsed_candidates,
+        "topic_id": topic_id or None,
+    }
     coze_result = _try_coze_workflow("COZE_WORKFLOW_POST_DRAFT", coze_params)
     if coze_result:
-        return json.dumps(coze_result, ensure_ascii=False)
+        if kind:
+            allowed_ids = {str(item.get("tag_id")) for item in parsed_candidates if isinstance(item, dict)}
+            returned_ids = coze_result.get("suggested_tag_ids", [])
+            returned_fields = coze_result.get("field_states", {})
+            valid_statuses = {"confirmed", "none", "unknown", "skipped", "pending"}
+            fields_valid = isinstance(returned_fields, dict) and all(
+                isinstance(value, dict) and value.get("status") in valid_statuses
+                for value in returned_fields.values()
+            )
+            tags_valid = isinstance(returned_ids, list) and all(str(tag_id) in allowed_ids for tag_id in returned_ids)
+            if fields_valid and tags_valid:
+                return json.dumps(coze_result, ensure_ascii=False)
+            logger.warning("Coze post-draft output failed controlled-schema validation")
+        else:
+            return json.dumps(coze_result, ensure_ascii=False)
+
+    if kind:
+        result = build_post_draft(
+            kind=kind,
+            message=message,
+            previous_fields=parsed_fields,
+            candidates=parsed_candidates,
+        )
+        return json.dumps(result, ensure_ascii=False)
 
     # 降级: 使用 LLM 直接处理
     system_prompt = """你是 CampusMate AI 发帖助手。用户想发布组队帖，你需要：
@@ -127,15 +169,27 @@ def ai_post_draft(message: str, draft: str = "", user_skills: str = "") -> str:
 
 
 @tool
-def ai_classify_review(post_title: str, post_description: str) -> str:
+def ai_classify_review(post_title: str, post_description: str, candidate_tags: str = "") -> str:
     """AI 分类与审核。自动对帖子进行分类、打标签、评估风险等级，并给出修改建议。post_title 为帖子标题，post_description 为帖子描述。"""
     ctx = request_context.get() or new_context(method="ai_classify_review")
 
     # 先尝试 Coze 工作流
-    coze_params = {"title": post_title, "description": post_description}
+    parsed_candidates = json.loads(candidate_tags) if candidate_tags else []
+    candidate_ids = {str(item.get("tag_id")) for item in parsed_candidates if isinstance(item, dict)}
+    coze_params = {
+        "title": post_title,
+        "description": post_description,
+        "candidate_tags": parsed_candidates,
+    }
     coze_result = _try_coze_workflow("COZE_WORKFLOW_CLASSIFY_REVIEW", coze_params)
     if coze_result:
-        return json.dumps(coze_result, ensure_ascii=False)
+        if candidate_tags:
+            tag_ids = coze_result.get("tag_ids", [])
+            if isinstance(tag_ids, list) and all(str(tag_id) in candidate_ids for tag_id in tag_ids):
+                return json.dumps(coze_result, ensure_ascii=False)
+            logger.warning("Coze classify-review output contained non-candidate tags")
+        else:
+            return json.dumps(coze_result, ensure_ascii=False)
 
     # 降级: 使用 LLM 直接处理
     system_prompt = """你是 CampusMate AI 内容审核专家。对帖子进行分类、打标签、评估风险等级。
@@ -165,14 +219,27 @@ def ai_classify_review(post_title: str, post_description: str) -> str:
     try:
         result_text = _call_llm(system_prompt, user_msg, temperature=0.3)
         result = json.loads(result_text)
+        if candidate_tags:
+            names_to_ids = {
+                str(item.get("canonical_name")): str(item.get("tag_id"))
+                for item in parsed_candidates
+                if isinstance(item, dict)
+            }
+            result["tag_ids"] = [
+                names_to_ids[name]
+                for name in result.get("tags", [])
+                if isinstance(name, str) and name in names_to_ids
+            ][:4]
+            result.pop("tags", None)
         return json.dumps(result, ensure_ascii=False)
     except json.JSONDecodeError:
-        return json.dumps({
+        fallback = {
             "main_category": "校园生活",
-            "tags": [],
             "risk_level": "low",
             "suggestions": ["自动分类失败，请手动设置分类"],
-        }, ensure_ascii=False)
+        }
+        fallback["tag_ids" if candidate_tags else "tags"] = []
+        return json.dumps(fallback, ensure_ascii=False)
     except Exception as e:
         logger.error(f"ai_classify_review error: {e}")
         return json.dumps({"error": f"AI 审核失败: {str(e)}"}, ensure_ascii=False)

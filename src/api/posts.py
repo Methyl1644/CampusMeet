@@ -17,6 +17,9 @@ def posts(
     tags: str = "",
     keyword: str = "",
     sort: str = "latest",
+    kind: str = "",
+    topic_id: str = "",
+    user_id: str = Depends(current_user_id),
 ) -> dict[str, Any]:
     return parse_tool_result(
         invoke_tool(
@@ -29,6 +32,8 @@ def posts(
                 "tags": tags,
                 "keyword": keyword,
                 "sort": sort,
+                "kind": kind,
+                "topic_id": topic_id,
             },
         )
     )
@@ -42,7 +47,7 @@ def my_posts(user_id: str = Depends(current_user_id)) -> dict[str, Any]:
 
 
 @router.get("/{post_id}")
-def post_detail(post_id: str) -> dict[str, Any]:
+def post_detail(post_id: str, user_id: str = Depends(current_user_id)) -> dict[str, Any]:
     return parse_tool_result(invoke_tool(get_post_detail, {"post_id": post_id}), "post")
 
 
@@ -62,6 +67,9 @@ def create(body: dict[str, Any], user_id: str = Depends(current_user_id)) -> dic
             "weekly_hours": body.get("weekly_hours", ""),
             "school_scope": body.get("school_scope", ""),
             "deadline": body.get("deadline", ""),
+            "kind": body.get("kind", "casual_invitation"),
+            "topic_id": str(body.get("topic_id") or ""),
+            "tag_ids": ",".join(body.get("tag_ids") or body.get("tags") or []),
         },
     )
     return parse_tool_result(raw, "post")

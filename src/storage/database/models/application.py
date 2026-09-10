@@ -2,12 +2,13 @@ import datetime
 from sqlalchemy import BigInteger, DateTime, JSON, Text, func
 from sqlalchemy.orm import Mapped, mapped_column
 from storage.database.shared.model import Base
+from storage.database.shared.types import BIGINT_PRIMARY_KEY
 
 
 class Application(Base):
     __tablename__ = "applications"
 
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(BIGINT_PRIMARY_KEY, primary_key=True, autoincrement=True)
     post_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
     applicant_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
     role_wanted: Mapped[str] = mapped_column(Text, nullable=False)

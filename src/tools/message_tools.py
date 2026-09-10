@@ -159,10 +159,23 @@ def confirm_team(user_id: str, conversation_id: str) -> str:
             if conv.status == "closed":
                 return json.dumps({"success": False, "message": "会话已关闭"}, ensure_ascii=False)
 
-            # 记录确认状态（用 conversation 的 status 字段）
-            # active -> 需要双方确认 -> team_confirmed
-            # 简化逻辑：第一次确认标记，第二次确认创建团队
-            # 使用一个临时字段来跟踪，这里简化为直接确认
+            if uid == conv.post_author_id:
+                conv.author_confirmed = True
+            else:
+                conv.applicant_confirmed = True
+
+            if not (conv.author_confirmed and conv.applicant_confirmed):
+                session.commit()
+                return json.dumps(
+                    {
+                        "success": True,
+                        "message": "已确认组队，等待对方确认",
+                        "contact_unlocked": False,
+                        "waiting_for_other": True,
+                    },
+                    ensure_ascii=False,
+                )
+
             post = session.execute(select(Post).where(Post.id == conv.post_id)).scalar_one_or_none()
             if not post:
                 return json.dumps({"success": False, "message": "帖子不存在"}, ensure_ascii=False)
@@ -173,13 +186,48 @@ def confirm_team(user_id: str, conversation_id: str) -> str:
             if not author or not applicant:
                 return json.dumps({"success": False, "message": "用户信息不完整"}, ensure_ascii=False)
 
-            # 检查是否已有团队
+            # 同一帖子只建立一个团队，后续双方确认的申请者加入已有团队。
             existing_team = session.execute(
                 select(Team).where(Team.post_id == conv.post_id)
             ).scalar_one_or_none()
             if existing_team:
+                member_ids = set(
+                    session.execute(
+                        select(TeamMember.user_id).where(
+                            TeamMember.team_id == existing_team.id
+                        )
+                    ).scalars()
+                )
+                contact_info = list(existing_team.contact_info or [])
+                contact_ids = {str(item.get("user_id")) for item in contact_info}
+                for participant in (author, applicant):
+                    if participant.id not in member_ids:
+                        session.add(
+                            TeamMember(
+                                team_id=existing_team.id,
+                                user_id=participant.id,
+                                suggested_role="",
+                            )
+                        )
+                        member_ids.add(participant.id)
+                        participant.team_count = (participant.team_count or 0) + 1
+                    if str(participant.id) not in contact_ids:
+                        contact_info.append(
+                            {
+                                "user_id": str(participant.id),
+                                "nickname": participant.nickname,
+                                "phone": participant.phone,
+                                "wechat": participant.wechat,
+                            }
+                        )
+                        contact_ids.add(str(participant.id))
+                existing_team.contact_info = contact_info
                 conv.status = "team_confirmed"
                 conv.contact_unlocked = True
+                post.current_members = len(member_ids)
+                post.status = (
+                    "full" if post.current_members >= post.target_members else "recruiting"
+                )
                 session.commit()
                 return json.dumps({
                     "success": True,
@@ -226,8 +274,8 @@ def confirm_team(user_id: str, conversation_id: str) -> str:
 
             conv.status = "team_confirmed"
             conv.contact_unlocked = True
-            post.status = "full"
-            post.current_members = post.current_members + 1
+            post.current_members = 2
+            post.status = "full" if post.current_members >= post.target_members else "recruiting"
 
             # 更新用户团队数
             author.team_count = (author.team_count or 0) + 1

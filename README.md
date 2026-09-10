@@ -12,6 +12,8 @@ CampusMate AI 不只是一个带 AI 审核的校园论坛，而是由智能体�
 - **申请与临时聊天**：申请加入 → 发布者接受 → 平台内安全聊天
 - **双向确认成队**：双方确认后创建团队并解锁联系方式
 - **AI 成队规划**：自动生成分工建议、首次会议议程、任务清单和风险提醒
+- **分层内容发现**：官方赛事、认证组织活动先进入话题，再查看组队帖；日常搭子直接发布
+- **受控标签搜索**：简称和别名映射到标准标签，未知输入不会污染标签库
 
 ## 🛠 技术栈
 
@@ -77,8 +79,14 @@ cp .env.example .env
 ```
 
 ```env
-# 数据库连接（变量名必须是 DATABASE_URL）
-DATABASE_URL=postgresql://用户名:密码@localhost:5432/campusmate
+# 本地可留空并自动使用 campusmate.db；部署时填写 PostgreSQL
+DATABASE_URL=
+
+# 本地联调可设 true，生产环境必须为 false
+AUTH_TEST_MODE=true
+
+# 仅在 Coze 模型凭据已配置时开启
+ENABLE_AGENT_RUNTIME=false
 
 # JWT 密钥
 JWT_SECRET=
@@ -105,6 +113,18 @@ npm run dev
 ```
 
 > 后端首次启动会自动建表。建表后另开终端运行 `python scripts/seed.py` 灌入演示数据。
+
+仅希望为已有本地账号追加新版话题与标签预览数据时，运行：
+
+```bash
+python scripts/seed_content_preview.py
+```
+
+该脚本幂等执行，不会清空注册用户。
+
+本地未配置短信网关时，手机验证码会以测试模式返回并显示在登录页提示中；这只用于开发联调。生产部署必须设置 `AUTH_TEST_MODE=false` 并接入短信服务，否则手机验证码接口会明确提示改用邮箱或联系管理员。
+
+新版内容接口包括 `/api/topics`、`/api/topics/:id/posts`、`/api/search/suggestions`、`/api/tags/suggestions`、`/api/me/permissions` 和组织认证接口，均要求登录。Coze 交付审计与剩余上线条件见 `docs/coze-result-review-2026-09-10.md`。
 
 ## 🔀 Git 协作规范
 
