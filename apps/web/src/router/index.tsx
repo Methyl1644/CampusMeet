@@ -9,6 +9,7 @@ import Messages from '@/pages/Messages'
 import TeamDetail from '@/pages/TeamDetail'
 import Profile from '@/pages/Profile'
 import TopicDetail from '@/pages/TopicDetail'
+import Tutorial from '@/pages/Tutorial'
 
 export const router = createBrowserRouter([
   {
@@ -26,6 +27,7 @@ export const router = createBrowserRouter([
       { path: 'posts/:id', element: <PostDetail /> },
       { path: 'topics/:id', element: <TopicDetail /> },
       { path: 'messages', element: <Messages /> },
+      { path: 'tutorial', element: <Tutorial /> },
       { path: 'teams/:id', element: <TeamDetail /> },
       { path: 'profile', element: <Profile /> },
     ],

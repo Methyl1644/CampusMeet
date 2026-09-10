@@ -1,14 +1,15 @@
 import { NavLink, useNavigate } from 'react-router-dom'
-import { Home, Compass, Plus, MessageCircle, User, LogOut } from 'lucide-react'
+import { Home, Compass, Plus, MessageCircle, BookOpen, User, LogOut } from 'lucide-react'
 import CampusMark from '@/components/CampusMark'
 import { useAuthStore } from '@/store/authStore'
 
 const navItems = [
-  { to: '/home', label: '首页', icon: Home },
-  { to: '/discover', label: '发现', icon: Compass },
-  { to: '/publish', label: '发布', icon: Plus, isPublish: true },
-  { to: '/messages', label: '消息', icon: MessageCircle },
-  { to: '/profile', label: '我的', icon: User },
+  { to: '/home', label: '首页', icon: Home, isPublish: false, desktopOnly: false },
+  { to: '/discover', label: '发现', icon: Compass, isPublish: false, desktopOnly: false },
+  { to: '/publish', label: '发布', icon: Plus, isPublish: true, desktopOnly: false },
+  { to: '/messages', label: '消息', icon: MessageCircle, isPublish: false, desktopOnly: false },
+  { to: '/tutorial', label: '教程', icon: BookOpen, isPublish: false, desktopOnly: true },
+  { to: '/profile', label: '我的', icon: User, isPublish: false, desktopOnly: false },
 ]
 
 export default function Navbar() {
@@ -80,7 +81,7 @@ export default function Navbar() {
         style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
       >
         <div className="grid h-16 grid-cols-5">
-        {navItems.map(({ to, label, icon: Icon, isPublish }) => (
+        {navItems.filter((item) => !item.desktopOnly).map(({ to, label, icon: Icon, isPublish }) => (
           <NavLink
             key={to}
             to={to}

@@ -58,6 +58,8 @@ const homeSource = readFileSync(new URL('../pages/Home.tsx', import.meta.url), '
 const discoverSource = readFileSync(new URL('../pages/Discover.tsx', import.meta.url), 'utf8')
 const routerSource = readFileSync(new URL('../router/index.tsx', import.meta.url), 'utf8')
 const clientSource = readFileSync(new URL('../api/client.ts', import.meta.url), 'utf8')
+const tutorialUrl = new URL('../pages/Tutorial.tsx', import.meta.url)
+const tutorialSource = existsSync(tutorialUrl) ? readFileSync(tutorialUrl, 'utf8') : ''
 
 test('theme sources define the approved campus identity tokens', () => {
   assert.match(themeSources, /#5B2A86/i, `${sourcePath} must define NJU purple`)
@@ -102,6 +104,30 @@ test('navbar preserves the five-route campus identity and accessible logout', ()
     /<button[\s\S]*?aria-label=['"]退出登录['"][\s\S]*?onClick=\{handleLogout\}/,
     'Logout must remain an accessible button wired to the logout handler',
   )
+})
+
+test('tutorial is available on desktop without changing the mobile five-item navigation', () => {
+  assert.ok(existsSync(tutorialUrl), 'Tutorial.tsx must exist')
+  assert.match(navbarSource, /BookOpen/)
+  assert.match(
+    navbarSource,
+    /to:\s*['"]\/tutorial['"][\s\S]*?label:\s*['"]教程['"][\s\S]*?desktopOnly:\s*true/,
+  )
+  assert.match(navbarSource, /navItems\.filter\(\(item\)\s*=>\s*!item\.desktopOnly\)/)
+  assert.match(navbarSource, /grid-cols-5/)
+  assert.match(routerSource, /import\s+Tutorial\s+from\s+['"]@\/pages\/Tutorial['"]/)
+  assert.match(routerSource, /path:\s*['"]tutorial['"][\s\S]*?element:\s*<Tutorial\s*\/>/)
+
+  for (const heading of [
+    '注册与校园认证',
+    '查找话题与活动',
+    '标准标签与搜索',
+    'AI 辅助发布组队帖',
+    '申请、消息与确认组队',
+    '联系方式与安全',
+  ]) {
+    assert.match(tutorialSource, new RegExp(heading))
+  }
 })
 
 test('desktop navbar has a medium-width fit strategy', () => {
