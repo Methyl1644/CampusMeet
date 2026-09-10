@@ -298,7 +298,7 @@ test('authentication clears purpose-specific OTP state when switching modes', ()
   )
   assert.match(
     loginSource,
-    /if\s*\(switchingAuthPurpose\)\s*\{\s*setCode\(['"]['"]\)\s*setCodeCooldown\(0\)\s*\}/,
+    /if\s*\(switchingAuthPurpose\)\s*\{[\s\S]*?setCode\(['"]['"]\)[\s\S]*?setCodeCooldown\(0\)[\s\S]*?\}/,
     'Purpose changes must clear the OTP value and resend cooldown together',
   )
 })
@@ -313,5 +313,48 @@ test('manual draft edits synchronize confirmed field state for the next AI reque
     publishSource,
     /const\s+updateDraftField[\s\S]*?setDraft\([\s\S]*?setFieldStates\(\(current\)\s*=>\s*\(\{[\s\S]*?\[field\]:\s*\{[\s\S]*?value:\s*serializeFieldStateValue\(value\)[\s\S]*?status:\s*['"]confirmed['"]/,
     'Manual draft edits must update the corresponding field state as confirmed',
+  )
+})
+
+test('primary auth code sends ignore stale completions after a purpose switch', () => {
+  assert.match(
+    loginSource,
+    /const\s+primaryCodeRequestGeneration\s*=\s*useRef\(0\)/,
+    'Primary auth code sends need a dedicated request generation ref',
+  )
+  assert.match(
+    loginSource,
+    /const\s+primaryAuthPurpose\s*=\s*useRef<['"]login['"]\s*\|\s*['"]register['"]>\(['"]login['"]\)/,
+    'Primary auth code sends need the current auth purpose independent from stale closures',
+  )
+  assert.match(
+    loginSource,
+    /if\s*\(switchingAuthPurpose\)\s*\{[\s\S]*?primaryCodeRequestGeneration\.current\s*\+=\s*1[\s\S]*?setCode\(['"]['"]\)[\s\S]*?setCodeCooldown\(0\)[\s\S]*?setSendingCode\(false\)[\s\S]*?\}/,
+    'A purpose switch must invalidate requests and clear all primary code-send UI state',
+  )
+  assert.match(
+    loginSource,
+    /const\s+requestPurpose\s*=\s*step\s*===\s*['"]login['"]\s*\?\s*['"]login['"]\s*:\s*['"]register['"][\s\S]*?const\s+requestGeneration\s*=\s*\+\+primaryCodeRequestGeneration\.current[\s\S]*?await\s+sendCode\(account,\s*requestPurpose\)/,
+    'Each send must capture its purpose and generation before awaiting the API',
+  )
+  assert.match(
+    loginSource,
+    /const\s+requestIsCurrent\s*=\s*\(\)\s*=>[\s\S]*?primaryCodeRequestGeneration\.current\s*===\s*requestGeneration[\s\S]*?primaryAuthPurpose\.current\s*===\s*requestPurpose/,
+    'Completion guards must check both generation and current auth purpose',
+  )
+  assert.equal(
+    [...loginSource.matchAll(/if\s*\(!requestIsCurrent\(\)\)\s*return/g)].length,
+    2,
+    'Primary code success and error paths must both reject stale completion',
+  )
+  assert.match(
+    loginSource,
+    /finally\s*\{\s*if\s*\(requestIsCurrent\(\)\)\s*setSendingCode\(false\)\s*\}/,
+    'A stale request must not finalize the current purpose sending state',
+  )
+  assert.match(
+    loginSource,
+    /sendCode\(verifyEmailAddr,\s*['"]campus_verify['"]\)/,
+    'Campus verification code sending must remain on its independent flow',
   )
 })

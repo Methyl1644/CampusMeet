@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { ArrowLeft, ArrowRight, Mail, Phone, Shield } from 'lucide-react'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import { useNavigate } from 'react-router-dom'
@@ -54,6 +54,8 @@ export default function Login() {
   const [codeCooldown, setCodeCooldown] = useState(0)
   const [sendingCode, setSendingCode] = useState(false)
   const [submitting, setSubmitting] = useState(false)
+  const primaryCodeRequestGeneration = useRef(0)
+  const primaryAuthPurpose = useRef<'login' | 'register'>('login')
 
   const [nickname, setNickname] = useState('')
   const [major, setMajor] = useState('')
@@ -90,9 +92,15 @@ export default function Login() {
       (step === 'login' && nextStep === 'register') ||
       (step === 'register' && nextStep === 'login')
 
+    if (nextStep === 'login' || nextStep === 'register') {
+      primaryAuthPurpose.current = nextStep
+    }
+
     if (switchingAuthPurpose) {
+      primaryCodeRequestGeneration.current += 1
       setCode('')
       setCodeCooldown(0)
+      setSendingCode(false)
     }
 
     setStageDirection(
@@ -124,15 +132,24 @@ export default function Login() {
       showToast('请输入正确的手机号或邮箱', 'error')
       return
     }
+    const requestPurpose = step === 'login' ? 'login' : 'register'
+    const requestGeneration = ++primaryCodeRequestGeneration.current
+    primaryAuthPurpose.current = requestPurpose
+    const requestIsCurrent = () =>
+      primaryCodeRequestGeneration.current === requestGeneration &&
+      primaryAuthPurpose.current === requestPurpose
+
     setSendingCode(true)
     try {
-      const result = await sendCode(account, step === 'login' ? 'login' : 'register')
+      const result = await sendCode(account, requestPurpose)
+      if (!requestIsCurrent()) return
       setCodeCooldown(result.retry_after_seconds ?? 60)
       showToast(getCodeSentMessage(result), 'success')
     } catch (error) {
+      if (!requestIsCurrent()) return
       showToast(getApiErrorMessage(error, '验证码发送失败，请稍后重试'), 'error')
     } finally {
-      setSendingCode(false)
+      if (requestIsCurrent()) setSendingCode(false)
     }
   }
 
