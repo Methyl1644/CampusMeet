@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import test from 'node:test'
 import { fileURLToPath } from 'node:url'
 
@@ -18,6 +18,14 @@ const mainLayoutSource = readFileSync(
   new URL('../layouts/MainLayout.tsx', import.meta.url),
   'utf8',
 )
+const discoveryHubSource = readFileSync(
+  new URL('../components/DiscoveryHub.tsx', import.meta.url),
+  'utf8',
+)
+const topicCardUrl = new URL('../components/TopicCard.tsx', import.meta.url)
+const topicCardSource = existsSync(topicCardUrl)
+  ? readFileSync(topicCardUrl, 'utf8')
+  : ''
 
 test('theme sources define the approved campus identity tokens', () => {
   assert.match(themeSources, /#5B2A86/i, `${sourcePath} must define NJU purple`)
@@ -92,5 +100,51 @@ test('authenticated shell uses dynamic viewport height and mobile safe-area room
     navbarSource,
     /env\(safe-area-inset-bottom\)/,
     'Mobile navigation must account for the bottom safe area',
+  )
+})
+
+test('discovery preserves the approved channel and search hierarchy', () => {
+  const channelTitles = [
+    ...discoveryHubSource.matchAll(
+      /\{\s*key:\s*['"](?:official|organization|casual)['"],\s*title:\s*['"]([^'"]+)['"]/g,
+    ),
+  ].map((match) => match[1])
+
+  assert.deepEqual(channelTitles, [
+    '官方赛事与项目',
+    '认证组织活动',
+    '同学自主组队',
+  ])
+  assert.equal(
+    [...discoveryHubSource.matchAll(/<input\b/g)].length,
+    1,
+    'DiscoveryHub must render a single search input',
+  )
+  const directTopicPosition = discoveryHubSource.search(/>\s*话题直达\s*</)
+  const standardTagPosition = discoveryHubSource.search(/>\s*标准标签\s*</)
+  assert.ok(
+    directTopicPosition >= 0 &&
+      standardTagPosition >= 0 &&
+      directTopicPosition < standardTagPosition,
+    'Direct topic results must render before standard tags',
+  )
+  assert.match(
+    discoveryHubSource,
+    /aria-label=['"]已选择标签['"][\s\S]*?setSelectedTags\([\s\S]*?filter\([\s\S]*?aria-label=\{`移除\$\{tag\.canonical_name\}`\}/,
+    'Selected standard tags must expose an X removal control',
+  )
+  assert.match(
+    discoveryHubSource,
+    /import\s+TopicCard\s+from\s+['"]@\/components\/TopicCard['"]/,
+    'DiscoveryHub must import TopicCard',
+  )
+})
+
+test('topic cards exist and link to topic detail routes', () => {
+  assert.ok(existsSync(topicCardUrl), 'TopicCard.tsx must exist')
+  assert.match(
+    topicCardSource,
+    /to=\{`\/topics\/\$\{topic\.id\}`\}/,
+    'TopicCard must link to /topics/:id',
   )
 })
