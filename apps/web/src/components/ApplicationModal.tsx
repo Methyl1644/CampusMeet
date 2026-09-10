@@ -4,7 +4,6 @@ import { motion, useReducedMotion } from 'motion/react'
 import { Send, X } from 'lucide-react'
 import type { Post } from '@shared/types'
 import { createApplication } from '@/api/applications'
-import { useAuthStore } from '@/store/authStore'
 import { useToast } from './Toast'
 
 interface ApplicationModalProps {
@@ -36,7 +35,6 @@ export default function ApplicationModal({ post, onClose, onSuccess }: Applicati
   const [submitting, setSubmitting] = useState(false)
 
   const modalRef = useRef<HTMLDivElement>(null)
-  const { user } = useAuthStore()
   const { showToast } = useToast()
   const shouldReduceMotion = useReducedMotion()
 
@@ -120,7 +118,7 @@ export default function ApplicationModal({ post, onClose, onSuccess }: Applicati
       onSuccess()
       onClose()
     } catch {
-      showToast('提交失败，请稍后重试', 'error')
+      showToast('提交失败', 'error')
     } finally {
       setSubmitting(false)
     }
@@ -207,7 +205,6 @@ export default function ApplicationModal({ post, onClose, onSuccess }: Applicati
                   setExperience(event.target.value)
                   setErrors((current) => ({ ...current, experience: undefined }))
                 }}
-                placeholder="描述你的相关经验，如项目经历、获奖情况等"
                 rows={3}
                 aria-invalid={Boolean(errors.experience)}
                 aria-describedby={errors.experience ? 'application-experience-error' : undefined}
@@ -221,7 +218,6 @@ export default function ApplicationModal({ post, onClose, onSuccess }: Applicati
                 type="text"
                 value={availableTime}
                 onChange={(event) => setAvailableTime(event.target.value)}
-                placeholder="如：每周6小时"
                 className="input-base"
               />
             </Field>
@@ -234,7 +230,6 @@ export default function ApplicationModal({ post, onClose, onSuccess }: Applicati
                   setReason(event.target.value)
                   setErrors((current) => ({ ...current, reason: undefined }))
                 }}
-                placeholder="为什么想加入这个队伍？"
                 rows={3}
                 aria-invalid={Boolean(errors.reason)}
                 aria-describedby={errors.reason ? 'application-reason-error' : undefined}
@@ -242,12 +237,11 @@ export default function ApplicationModal({ post, onClose, onSuccess }: Applicati
               />
             </Field>
 
-            <Field label="想问的问题（选填）" inputId="application-questions">
+            <Field label="问题（选填）" inputId="application-questions">
               <textarea
                 id="application-questions"
                 value={questions}
                 onChange={(event) => setQuestions(event.target.value)}
-                placeholder="有什么想问发布者的？"
                 rows={2}
                 className="input-base resize-y"
               />
@@ -264,11 +258,6 @@ export default function ApplicationModal({ post, onClose, onSuccess }: Applicati
                 {submitting ? '提交中...' : '提交申请'}
               </button>
             </div>
-            {user && (
-              <p className="mt-2 text-center text-xs text-ink-muted">
-                以「{user.nickname}」身份申请
-              </p>
-            )}
           </footer>
         </form>
       </motion.div>

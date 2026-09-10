@@ -125,7 +125,7 @@ export default function Profile() {
                 className="mt-2 inline-flex items-center gap-1.5 text-xs font-semibold text-campus-gold hover:text-amber-800"
               >
                 <Shield aria-hidden="true" size={13} />
-                点击完成校园邮箱认证
+                校园认证
               </button>
             )}
           </div>

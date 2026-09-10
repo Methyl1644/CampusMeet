@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import {
-  AlertTriangle,
   ArrowLeft,
   Calendar,
   CheckCircle,
@@ -136,22 +135,6 @@ export default function PostDetail() {
                 <p className="mt-3 text-sm text-ink-muted">暂无</p>
               )}
             </section>
-
-            {post.risk_level !== 'low' && (
-              <section className="border-t border-stone pt-6" aria-labelledby="risk-title">
-                <div className="border-l-2 border-campus-gold bg-amber-50 px-4 py-3">
-                  <div className="flex items-center gap-2">
-                    <AlertTriangle aria-hidden="true" size={17} className="shrink-0 text-campus-gold" />
-                    <h2 id="risk-title" className="text-sm font-semibold text-ink">安全提醒</h2>
-                  </div>
-                  <p className="mt-2 text-sm leading-6 text-amber-900">
-                    {post.risk_level === 'high'
-                      ? '该活动被标记为高风险，请注意人身和财产安全。如有疑问请联系平台。'
-                      : '该活动涉及线下/夜间等场景，请注意安全。'}
-                  </p>
-                </div>
-              </section>
-            )}
 
             {post.match_score !== undefined && (
               <section className="border-t border-stone pt-6" aria-labelledby="match-title">

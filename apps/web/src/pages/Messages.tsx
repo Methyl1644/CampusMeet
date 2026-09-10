@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { motion, useReducedMotion } from 'motion/react'
-import { ArrowLeft, Handshake, Lock, Send, Shield, XCircle } from 'lucide-react'
+import { ArrowLeft, Handshake, Lock, Send, XCircle } from 'lucide-react'
 import { closeConversation, confirmTeam, getConversations, getMessages, sendMessage } from '@/api/messages'
 import type { Conversation, Message } from '@shared/types'
 import Loading from '@/components/Loading'
@@ -114,7 +114,7 @@ export default function Messages() {
 
         <div className="min-h-0 flex-1 overflow-y-auto">
           {conversations.length === 0 ? (
-            <EmptyState title="暂无会话" description="接受申请后会自动创建会话" />
+            <EmptyState title="暂无会话" />
           ) : (
             conversations.map((conv) => (
               <button
@@ -188,13 +188,6 @@ export default function Messages() {
               </div>
             </header>
 
-            <div role="note" className="flex shrink-0 items-start gap-2 border-b border-campus-gold/25 bg-amber-50 px-4 py-2.5">
-              <Shield aria-hidden="true" size={15} className="mt-0.5 shrink-0 text-campus-gold" />
-              <p className="text-xs leading-5 text-amber-900">
-                请勿在聊天中交换联系方式，确认组队后将自动解锁
-              </p>
-            </div>
-
             <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto bg-paper-warm/45 px-3 py-4 sm:px-5">
               <div className="space-y-3" aria-live="polite">
                 {messages.map((msg) => (
@@ -227,7 +220,7 @@ export default function Messages() {
               <div className="shrink-0 border-t border-stone p-3">
                 <div className="flex min-h-10 items-center justify-center gap-2 bg-green-50 px-3 text-sm font-medium text-campus-green">
                   <Lock aria-hidden="true" size={14} />
-                  组队确认中，联系方式即将解锁
+                  组队确认中
                 </div>
               </div>
             ) : (
@@ -240,7 +233,6 @@ export default function Messages() {
                     value={input}
                     onChange={(event) => setInput(event.target.value)}
                     onKeyDown={(event) => event.key === 'Enter' && handleSend()}
-                    placeholder="输入消息..."
                     disabled={sending}
                     className="input-base min-w-0 flex-1"
                   />
@@ -259,7 +251,7 @@ export default function Messages() {
           </>
         ) : (
           <div className="flex min-h-0 flex-1 items-center justify-center">
-            <EmptyState title="选择一个会话开始聊天" />
+            <EmptyState title="未选择会话" />
           </div>
         )}
       </section>

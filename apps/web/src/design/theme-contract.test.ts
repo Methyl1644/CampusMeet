@@ -60,6 +60,7 @@ const routerSource = readFileSync(new URL('../router/index.tsx', import.meta.url
 const clientSource = readFileSync(new URL('../api/client.ts', import.meta.url), 'utf8')
 const tutorialUrl = new URL('../pages/Tutorial.tsx', import.meta.url)
 const tutorialSource = existsSync(tutorialUrl) ? readFileSync(tutorialUrl, 'utf8') : ''
+const topicDetailSource = readFileSync(new URL('../pages/TopicDetail.tsx', import.meta.url), 'utf8')
 
 test('theme sources define the approved campus identity tokens', () => {
   assert.match(themeSources, /#5B2A86/i, `${sourcePath} must define NJU purple`)
@@ -201,6 +202,22 @@ test('discovery preserves the approved channel and search hierarchy', () => {
     /import\s+TopicCard\s+from\s+['"]@\/components\/TopicCard['"]/,
     'DiscoveryHub must import TopicCard',
   )
+})
+
+test('business pages move explanatory copy into the tutorial module', () => {
+  assert.doesNotMatch(discoveryHubSource, /正式赛事先查看话题资料/)
+  assert.doesNotMatch(discoveryHubSource, /调整关键词|试试活动简称/)
+  assert.doesNotMatch(loginSource, /在校园里，找到一起把事情做成的人/)
+  assert.doesNotMatch(loginSource, /仅用于本地界面预览|验证码登录可留空|首期限南京大学校内使用/)
+  assert.doesNotMatch(publishSource, /例如：|例如：「|AI 只整理发帖草稿|开始对话后/)
+  assert.doesNotMatch(messagesSource, /请勿在聊天中交换联系方式/)
+  assert.doesNotMatch(teamDetailSource, /双方确认组队后将解锁联系方式/)
+  assert.doesNotMatch(topicDetailSource, /先了解活动，再选择合适的队伍|成为第一个发起招募的人/)
+  assert.doesNotMatch(postDetailSource, /该活动被标记为高风险|该活动涉及线下\/夜间/)
+
+  for (const concept of ['校园认证', '话题直达', '标准标签', 'AI 辅助', '确认组队', '联系方式只在双方确认组队后解锁']) {
+    assert.match(tutorialSource, new RegExp(concept))
+  }
 })
 
 test('topic cards exist and link to topic detail routes', () => {
@@ -456,7 +473,7 @@ test('post detail reads as a recruitment brief while preserving apply permission
     /import\s+\{\s*Reveal\s*\}\s+from\s+['"]@\/components\/motion\/Reveal['"]/,
     'PostDetail must use the shared page reveal',
   )
-  for (const label of ['招募条件', '所需角色', '安全提醒', 'AI 匹配说明', '发起人']) {
+  for (const label of ['招募条件', '所需角色', 'AI 匹配说明', '发起人']) {
     assert.match(postDetailSource, new RegExp(label), `PostDetail must include ${label}`)
   }
   assert.match(
@@ -520,11 +537,6 @@ test('messages keeps safe bilateral confirmation in a responsive two-pane worksp
   )
   assert.match(
     messagesSource,
-    /role=['"]note['"][\s\S]*?请勿在聊天中交换联系方式，确认组队后将自动解锁/,
-    'The chat safety guidance must remain semantic and visible',
-  )
-  assert.match(
-    messagesSource,
     /sendMessage\(activeConv\.id,\s*content\)[\s\S]*?confirmTeam\(activeConv\.id\)[\s\S]*?closeConversation\(activeConv\.id\)/,
     'Message send, bilateral confirmation, and close API boundaries must remain',
   )
@@ -558,11 +570,7 @@ test('team detail keeps planning controls and locked contact disclosure stable',
     /updateTask\(team\.id,\s*taskId,\s*!currentDone\)[\s\S]*?showToast\(['"]更新失败['"],\s*['"]error['"]\)/,
     'Task updates must keep their API and rollback error boundary',
   )
-  assert.match(
-    teamDetailSource,
-    /team\.contact_info\.length\s*>\s*0[\s\S]*?双方确认组队后将解锁联系方式/,
-    'Contact details must remain locked until the backend provides them',
-  )
+  assert.match(teamDetailSource, /team\.contact_info\.length\s*>\s*0/)
 })
 
 test('profile preserves editing, underline tabs, records, stats, and logout', () => {

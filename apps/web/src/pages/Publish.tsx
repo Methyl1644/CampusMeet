@@ -34,13 +34,6 @@ const FIELD_STATUS_LABEL: Record<FieldStatus, string> = {
   none: '未填写',
 }
 
-const initialMessage = (): ChatMessage => ({
-  role: 'assistant',
-  content:
-    '你好！我是你的 AI 组队助手。告诉我你想参加什么活动，或者需要什么样的队友，我来帮你生成组队帖。\n\n例如：「我想参加美赛，还缺两个队友」',
-  timestamp: new Date().toISOString(),
-})
-
 const serializeFieldStateValue = (value: string | number | string[]) =>
   Array.isArray(value) ? value.join('、') : value
 
@@ -51,7 +44,7 @@ export default function Publish() {
   const { user } = useAuthStore()
   const { showToast } = useToast()
 
-  const [messages, setMessages] = useState<ChatMessage[]>([initialMessage()])
+  const [messages, setMessages] = useState<ChatMessage[]>([])
   const [input, setInput] = useState('')
   const [draft, setDraft] = useState<PostDraft | null>(null)
   const [draftRevision, setDraftRevision] = useState(0)
@@ -139,12 +132,12 @@ export default function Publish() {
         ...prev,
         {
           role: 'assistant',
-          content: '抱歉，AI 服务暂时不可用。你可以切换到手动填写模式直接发布。',
+          content: 'AI 服务不可用',
           timestamp: new Date().toISOString(),
         },
       ])
       activateManualForm()
-      showToast('AI 服务异常，已切换到手动填写', 'error')
+      showToast('已切换到手动填写', 'error')
     } finally {
       setLoading(false)
     }
@@ -181,13 +174,7 @@ export default function Publish() {
   }
 
   const handleReset = () => {
-    setMessages([
-      {
-        role: 'assistant',
-        content: '好的，让我们重新开始。告诉我你想参加什么活动？',
-        timestamp: new Date().toISOString(),
-      },
-    ])
+    setMessages([])
     setDraft(null)
     setDraftRevision((current) => current + 1)
     setIsComplete(false)
@@ -257,10 +244,7 @@ export default function Publish() {
           delay={0.04}
         >
           <div className="flex items-center justify-between border-b border-stone px-4 py-3">
-            <div>
-              <h2 className="text-sm font-semibold text-ink">需求对话</h2>
-              <p className="mt-0.5 text-xs text-ink-muted">AI 只整理发帖草稿，发布前由你确认</p>
-            </div>
+            <h2 className="text-sm font-semibold text-ink">需求对话</h2>
             <span className="text-xs font-medium text-campus-green">
               {loading ? '整理中' : useManualForm ? '手动模式' : '可继续对话'}
             </span>
@@ -322,7 +306,6 @@ export default function Publish() {
                 value={input}
                 onChange={(event) => setInput(event.target.value)}
                 onKeyDown={(event) => event.key === 'Enter' && handleSend()}
-                placeholder="例如：我想参加美赛，还缺两位队友"
                 disabled={loading}
                 autoComplete="off"
                 className="input-base min-w-0 flex-1"
@@ -393,12 +376,6 @@ export default function Publish() {
                 transition={{ duration: shouldReduceMotion ? 0 : 0.18 }}
                 className="space-y-4"
               >
-                {useManualForm && (
-                  <div className="border-l-2 border-campus-gold bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-900">
-                    手动模式已开启。请完善必填字段后发布。
-                  </div>
-                )}
-
                 <DraftField
                   label="活动名称"
                   value={draft.activity_name}
@@ -530,11 +507,6 @@ export default function Publish() {
                     <Check size={16} />
                     {publishing ? '发布中...' : canPublish ? '确认发布' : '继续完善信息'}
                   </button>
-                  {!canPublish && (
-                    <p className="mt-2 text-center text-xs leading-5 text-ink-muted">
-                      {useManualForm ? '请补全必填字段后发布' : 'AI 正在帮你补全信息，完善后可发布'}
-                    </p>
-                  )}
                 </div>
               </motion.div>
             ) : (
@@ -547,7 +519,7 @@ export default function Publish() {
                 className="py-12 text-center text-sm text-ink-muted"
               >
                 <Sparkles size={28} className="mx-auto mb-3 text-primary-300" />
-                <p>开始对话后，AI 会在这里生成草稿</p>
+                <p>暂无草稿</p>
               </motion.div>
             )}
           </AnimatePresence>

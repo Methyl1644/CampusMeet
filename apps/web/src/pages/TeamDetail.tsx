@@ -263,9 +263,6 @@ export default function TeamDetail() {
             ) : (
               <div className="mt-3 border-y border-stone py-6 text-center">
                 <p className="text-sm font-medium text-ink">联系方式暂未解锁</p>
-                <p className="mt-1 text-xs leading-5 text-ink-muted">
-                  双方确认组队后将解锁联系方式
-                </p>
               </div>
             )}
           </Reveal>

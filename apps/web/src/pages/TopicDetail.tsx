@@ -53,10 +53,7 @@ export default function TopicDetail() {
   if (loading) return <Loading />
   if (!topic)
     return (
-      <EmptyState
-        title="话题不存在"
-        description="该话题可能已撤下或链接有误"
-      />
+      <EmptyState title="话题不存在" />
     )
 
   const handleFollow = async () => {
@@ -220,9 +217,6 @@ export default function TopicDetail() {
           <div>
             <p className="section-label">加入活动</p>
             <h2 className="mt-2 text-xl font-semibold text-ink">相关组队帖</h2>
-            <p className="mt-1 text-sm text-ink-muted">
-              先了解活动，再选择合适的队伍。
-            </p>
           </div>
           <Link
             to={`/publish?kind=topic_team&topic_id=${topic.id}`}
@@ -246,10 +240,7 @@ export default function TopicDetail() {
             ))}
           </div>
         ) : (
-          <EmptyState
-            title="还没有组队帖"
-            description="成为第一个发起招募的人"
-          />
+          <EmptyState title="还没有组队帖" />
         )}
       </Reveal>
     </div>

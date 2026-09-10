@@ -26,10 +26,10 @@ import type {
   Topic,
 } from '@shared/types'
 
-const channels: Array<{ key: ContentChannel; title: string; subtitle: string }> = [
-  { key: 'official', title: '官方赛事与项目', subtitle: '权威来源收录' },
-  { key: 'organization', title: '认证组织活动', subtitle: '学院与社团发布' },
-  { key: 'casual', title: '同学自主组队', subtitle: '运动、约饭与出游' },
+const channels: Array<{ key: ContentChannel; title: string }> = [
+  { key: 'official', title: '官方赛事与项目' },
+  { key: 'organization', title: '认证组织活动' },
+  { key: 'casual', title: '同学自主组队' },
 ]
 
 const channelIcons = {
@@ -86,7 +86,7 @@ export default function DiscoveryHub() {
       if (currentLoad === loadRequestId.current) {
         setTopics([])
         setPosts([])
-        showToast('内容加载失败，请确认后端服务已启动', 'error')
+        showToast('内容加载失败', 'error')
       }
     } finally {
       if (currentLoad === loadRequestId.current) setLoading(false)
@@ -143,12 +143,7 @@ export default function DiscoveryHub() {
       >
         <div className="min-w-0">
           <p className="section-label">南京大学校内组队</p>
-          <h1 className="mt-3 text-2xl font-semibold leading-9 text-ink md:text-3xl">
-            找到活动，也找到一起出发的人
-          </h1>
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-ink-muted">
-            正式赛事先查看话题资料，日常邀约直接联系发起人。
-          </p>
+          <h1 className="mt-3 text-2xl font-semibold leading-9 text-ink md:text-3xl">校园活动</h1>
         </div>
         <img
           src="/campus-clocktower-badge.jpg"
@@ -191,9 +186,6 @@ export default function DiscoveryHub() {
                 <span className="block text-xs font-semibold leading-5 sm:text-sm">
                   {item.title}
                 </span>
-                <span className="mt-0.5 hidden text-xs text-ink-muted md:block">
-                  {item.subtitle}
-                </span>
               </span>
               {active && (
                 <motion.span
@@ -221,11 +213,7 @@ export default function DiscoveryHub() {
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             className="input-base h-11 pl-11 pr-11 shadow-panel"
-            placeholder={
-              channel === 'casual'
-                ? '搜索活动、地点或标准标签'
-                : '搜索赛事名称、简称或标准标签'
-            }
+            placeholder="搜索"
             aria-label="搜索话题和标签"
           />
           {query && (
@@ -394,10 +382,7 @@ export default function DiscoveryHub() {
                 ))}
               </div>
             ) : (
-              <EmptyState
-                title="暂时没有匹配的自主组队"
-                description="调整关键词，或发布一条新的日常邀约"
-              />
+              <EmptyState title="暂无匹配内容" />
             )
           ) : topics.length > 0 ? (
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
@@ -413,10 +398,7 @@ export default function DiscoveryHub() {
               ))}
             </div>
           ) : (
-            <EmptyState
-              title="暂时没有匹配的话题"
-              description="试试活动简称或标准标签"
-            />
+            <EmptyState title="暂无匹配话题" />
           )}
         </motion.section>
       </AnimatePresence>

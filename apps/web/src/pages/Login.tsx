@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { ArrowLeft, ArrowRight, Mail, Phone, Shield } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Mail, Phone } from 'lucide-react'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import { useNavigate } from 'react-router-dom'
 import { sendCode, register, login, verifyEmail } from '@/api/auth'
@@ -43,7 +43,7 @@ const stageVariants = {
 export default function Login() {
   const navigate = useNavigate()
   const shouldReduceMotion = useReducedMotion()
-  const { setAuth, user, updateUser } = useAuthStore()
+  const { setAuth, updateUser } = useAuthStore()
   const { showToast } = useToast()
 
   const [step, setStep] = useState<Step>('login')
@@ -224,13 +224,8 @@ export default function Login() {
           <CampusMark />
         </div>
         <div className="max-w-lg border-l-2 border-campus-gold pl-7">
-          <p className="mb-4 text-xs font-semibold text-primary-100">CAMPUS PUBLICATION · NJU</p>
-          <h1 className="font-serif text-4xl font-semibold leading-tight xl:text-5xl">
-            在校园里，找到一起把事情做成的人
-          </h1>
-          <p className="mt-5 max-w-md text-sm leading-7 text-primary-100">
-            从赛事组队到同学邀约，清楚地说明目标、角色与时间，让每一次协作都有可靠的开始。
-          </p>
+          <p className="mb-4 text-xs font-semibold text-primary-100">NANJING UNIVERSITY</p>
+          <h1 className="font-serif text-5xl font-semibold leading-tight xl:text-6xl">CampusMate</h1>
         </div>
         <div className="flex items-center justify-between border-t border-white/20 pt-5 text-xs text-primary-100">
           <span>南京大学校园组队</span>
@@ -258,12 +253,6 @@ export default function Login() {
               {step === 'profile' && '完善个人资料'}
               {step === 'verify' && '完成校园邮箱认证'}
             </h2>
-            <p className="mt-2 text-sm leading-6 text-ink-muted">
-              {step === 'login' && '登录后直接进入校园组队信息页面。'}
-              {step === 'register' && '手机号或常用邮箱用于登录，验证码与密码均需填写。'}
-              {step === 'profile' && '昵称用于站内展示，其他资料可以稍后继续补充。'}
-              {step === 'verify' && '认证后即可发帖和申请加入队伍。'}
-            </p>
           </div>
 
           {(step === 'login' || step === 'register') && (
@@ -325,7 +314,6 @@ export default function Login() {
                         type="text"
                         value={account}
                         onChange={(event) => setAccount(event.target.value)}
-                        placeholder="输入手机号或邮箱"
                         autoComplete="username"
                         className="input-base min-w-0 pl-9"
                       />
@@ -343,7 +331,6 @@ export default function Login() {
                         inputMode="numeric"
                         value={code}
                         onChange={(event) => setCode(event.target.value)}
-                        placeholder="输入验证码"
                         autoComplete="one-time-code"
                         className="input-base min-w-0"
                       />
@@ -365,16 +352,12 @@ export default function Login() {
                   <div>
                     <label htmlFor="auth-password" className="mb-1.5 block text-sm font-medium text-ink">
                       {step === 'login' ? '密码' : '设置密码'}
-                      <span className="ml-1 font-normal text-ink-muted">
-                        {step === 'login' ? '（验证码登录可留空）' : '（至少 8 位，含字母和数字）'}
-                      </span>
                     </label>
                     <input
                       id="auth-password"
                       type="password"
                       value={password}
                       onChange={(event) => setPassword(event.target.value)}
-                      placeholder={step === 'login' ? '输入密码（可选）' : '设置登录密码'}
                       autoComplete={step === 'login' ? 'current-password' : 'new-password'}
                       className="input-base"
                     />
@@ -399,9 +382,6 @@ export default function Login() {
                       <button type="button" onClick={handleDemoEnter} className="btn-secondary w-full">
                         进入前端演示
                       </button>
-                      <p className="mt-2 text-center text-xs text-ink-muted">
-                        仅用于本地界面预览，不连接真实账户
-                      </p>
                     </div>
                   )}
                 </div>
@@ -418,7 +398,6 @@ export default function Login() {
                       type="text"
                       value={nickname}
                       onChange={(event) => setNickname(event.target.value)}
-                      placeholder="给自己取个昵称"
                       autoComplete="nickname"
                       className="input-base"
                     />
@@ -433,7 +412,6 @@ export default function Login() {
                         type="text"
                         value={major}
                         onChange={(event) => setMajor(event.target.value)}
-                        placeholder="如：计算机"
                         autoComplete="off"
                         className="input-base"
                       />
@@ -503,12 +481,6 @@ export default function Login() {
 
               {step === 'verify' && (
                 <div className="space-y-4">
-                  <div className="flex items-start gap-3 border-l-2 border-campus-green bg-green-50 px-4 py-3 text-sm text-campus-green">
-                    <Shield size={18} className="mt-0.5 shrink-0" />
-                    <p className="leading-6">
-                      欢迎，{user?.nickname}！完成校园邮箱认证后即可发帖和申请加入队伍。
-                    </p>
-                  </div>
                   <div>
                     <label htmlFor="verify-email" className="mb-1.5 block text-sm font-medium text-ink">
                       校园邮箱
@@ -518,7 +490,6 @@ export default function Login() {
                       type="email"
                       value={verifyEmailAddr}
                       onChange={(event) => setVerifyEmailAddr(event.target.value)}
-                      placeholder="如：xxx@nju.edu.cn"
                       autoComplete="email"
                       className="input-base"
                     />
@@ -534,7 +505,6 @@ export default function Login() {
                         inputMode="numeric"
                         value={verifyCode}
                         onChange={(event) => setVerifyCode(event.target.value)}
-                        placeholder="输入邮箱验证码"
                         autoComplete="one-time-code"
                         className="input-base min-w-0"
                       />
@@ -579,7 +549,7 @@ export default function Login() {
                       onClick={() => navigate('/home')}
                       className="min-h-10 text-center text-ink-muted transition-colors hover:text-primary-700"
                     >
-                      稍后再认证，先逛逛
+                      暂不认证
                     </button>
                   </div>
                 </div>
@@ -620,9 +590,6 @@ export default function Login() {
             </motion.section>
           </AnimatePresence>
 
-          <p className="mt-6 text-center text-xs leading-5 text-ink-muted">
-            首期限南京大学校内使用 · 认证后可发帖和申请
-          </p>
         </div>
       </section>
     </main>
