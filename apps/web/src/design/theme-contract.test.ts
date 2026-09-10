@@ -59,6 +59,29 @@ test('navbar preserves the five-route campus identity and accessible logout', ()
   )
 })
 
+test('desktop navbar has a medium-width fit strategy', () => {
+  assert.match(
+    navbarSource,
+    /className=['"]lg:hidden['"][\s\S]*?<CampusMark\s+compact\s*\/>/,
+    'Medium widths must keep a compact campus mark without the wordmark',
+  )
+  assert.match(
+    navbarSource,
+    /className=['"]hidden[^'"]*lg:inline-flex[^'"]*['"][\s\S]*?<CampusMark\s*\/>/,
+    'Large widths may restore the full CampusMate wordmark',
+  )
+  assert.match(
+    navbarSource,
+    /<span\s+className=['"]hidden[^'"]*lg:block[^'"]*['"][^>]*>[\s\S]*?\{user\.nickname\}/,
+    'Nickname text must stay hidden until large widths',
+  )
+  assert.match(
+    navbarSource,
+    /<nav[^>]*className=['"][^'"]*min-w-0[^'"]*gap-3[^'"]*lg:gap-6[^'"]*['"]/,
+    'Desktop routes need a shrinkable nav region and responsive gaps',
+  )
+})
+
 test('authenticated shell uses dynamic viewport height and mobile safe-area room', () => {
   assert.match(
     mainLayoutSource,

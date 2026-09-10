@@ -23,16 +23,24 @@ export default function Navbar() {
   return (
     <>
       <header className="sticky top-0 z-40 hidden h-[72px] border-b border-stone bg-paper/95 md:block">
-        <div className="mx-auto flex h-[72px] max-w-content items-center gap-8 px-6 lg:px-8">
-          <div className="flex min-w-0 flex-1 items-center gap-8">
+        <div className="mx-auto flex h-[72px] max-w-content items-center gap-3 px-4 lg:gap-8 lg:px-8">
+          <div className="flex min-w-0 flex-1 items-center gap-3 lg:gap-8">
             <NavLink
               to="/home"
               aria-label="CampusMate 首页"
-              className="shrink-0"
+              className="flex shrink-0 items-center"
             >
-              <CampusMark />
+              <span className="lg:hidden">
+                <CampusMark compact />
+              </span>
+              <span className="hidden lg:inline-flex">
+                <CampusMark />
+              </span>
             </NavLink>
-            <nav aria-label="主导航" className="flex h-[72px] items-stretch gap-6">
+            <nav
+              aria-label="主导航"
+              className="flex h-[72px] min-w-0 items-stretch gap-3 lg:gap-6"
+            >
               {navItems.map(({ to, label, icon: Icon }) => (
                 <NavLink
                   key={to}
@@ -47,9 +55,9 @@ export default function Navbar() {
               ))}
             </nav>
           </div>
-          <div className="flex shrink-0 items-center gap-3 border-l border-stone pl-5">
+          <div className="flex shrink-0 items-center gap-2 border-l border-stone pl-3 lg:gap-3 lg:pl-5">
             {user && (
-              <span className="max-w-32 truncate text-sm text-ink-muted">
+              <span className="hidden max-w-32 truncate text-sm text-ink-muted lg:block">
                 {user.nickname}
               </span>
             )}
