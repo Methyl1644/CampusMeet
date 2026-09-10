@@ -148,3 +148,36 @@ test('topic cards exist and link to topic detail routes', () => {
     'TopicCard must link to /topics/:id',
   )
 })
+
+test('discovery list loading commits only the latest request', () => {
+  assert.match(
+    discoveryHubSource,
+    /const\s+loadRequestId\s*=\s*useRef\(0\)/,
+    'List loading needs a request guard independent from suggestions',
+  )
+  assert.match(
+    discoveryHubSource,
+    /const\s+load\s*=\s*useCallback\(async\s*\(\)\s*=>\s*\{\s*const\s+currentLoad\s*=\s*\+\+loadRequestId\.current/,
+    'Each list load must capture its own latest-request identity',
+  )
+  assert.match(
+    discoveryHubSource,
+    /getPosts\([\s\S]*?if\s*\(currentLoad\s*===\s*loadRequestId\.current\)\s*\{[\s\S]*?setPosts\(response\.list\)[\s\S]*?setTopics\(\[\]\)[\s\S]*?\}/,
+    'Casual list success must be latest-request guarded',
+  )
+  assert.match(
+    discoveryHubSource,
+    /getTopics\([\s\S]*?if\s*\(currentLoad\s*===\s*loadRequestId\.current\)\s*\{[\s\S]*?setTopics\(response\.list\)[\s\S]*?setPosts\(\[\]\)[\s\S]*?\}/,
+    'Topic list success must be latest-request guarded',
+  )
+  assert.match(
+    discoveryHubSource,
+    /catch\s*\{\s*if\s*\(currentLoad\s*===\s*loadRequestId\.current\)\s*\{[\s\S]*?setTopics\(\[\]\)[\s\S]*?setPosts\(\[\]\)[\s\S]*?showToast\(/,
+    'List errors must be latest-request guarded',
+  )
+  assert.match(
+    discoveryHubSource,
+    /finally\s*\{\s*if\s*\(currentLoad\s*===\s*loadRequestId\.current\)\s+setLoading\(false\)/,
+    'Only the latest list request may clear loading',
+  )
+})

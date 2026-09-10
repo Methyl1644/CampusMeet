@@ -51,9 +51,11 @@ export default function DiscoveryHub() {
   const [posts, setPosts] = useState<Post[]>([])
   const [loading, setLoading] = useState(true)
   const [suggesting, setSuggesting] = useState(false)
+  const loadRequestId = useRef(0)
   const requestId = useRef(0)
 
   const load = useCallback(async () => {
+    const currentLoad = ++loadRequestId.current
     setLoading(true)
     try {
       if (channel === 'casual') {
@@ -64,8 +66,10 @@ export default function DiscoveryHub() {
           page: 1,
           page_size: 30,
         })
-        setPosts(response.list)
-        setTopics([])
+        if (currentLoad === loadRequestId.current) {
+          setPosts(response.list)
+          setTopics([])
+        }
       } else {
         const response = await getTopics({
           channel,
@@ -74,15 +78,19 @@ export default function DiscoveryHub() {
           page: 1,
           page_size: 30,
         })
-        setTopics(response.list)
-        setPosts([])
+        if (currentLoad === loadRequestId.current) {
+          setTopics(response.list)
+          setPosts([])
+        }
       }
     } catch {
-      setTopics([])
-      setPosts([])
-      showToast('内容加载失败，请确认后端服务已启动', 'error')
+      if (currentLoad === loadRequestId.current) {
+        setTopics([])
+        setPosts([])
+        showToast('内容加载失败，请确认后端服务已启动', 'error')
+      }
     } finally {
-      setLoading(false)
+      if (currentLoad === loadRequestId.current) setLoading(false)
     }
   }, [channel, query, selectedTags, showToast])
 
