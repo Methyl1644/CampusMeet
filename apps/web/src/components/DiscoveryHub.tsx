@@ -54,8 +54,7 @@ export default function DiscoveryHub() {
   const loadRequestId = useRef(0)
   const requestId = useRef(0)
 
-  const load = useCallback(async () => {
-    const currentLoad = ++loadRequestId.current
+  const load = useCallback(async (currentLoad: number) => {
     setLoading(true)
     try {
       if (channel === 'casual') {
@@ -95,7 +94,8 @@ export default function DiscoveryHub() {
   }, [channel, query, selectedTags, showToast])
 
   useEffect(() => {
-    const timer = window.setTimeout(load, 250)
+    const currentLoad = ++loadRequestId.current
+    const timer = window.setTimeout(() => load(currentLoad), 250)
     return () => window.clearTimeout(timer)
   }, [load])
 

@@ -157,8 +157,13 @@ test('discovery list loading commits only the latest request', () => {
   )
   assert.match(
     discoveryHubSource,
-    /const\s+load\s*=\s*useCallback\(async\s*\(\)\s*=>\s*\{\s*const\s+currentLoad\s*=\s*\+\+loadRequestId\.current/,
-    'Each list load must capture its own latest-request identity',
+    /const\s+load\s*=\s*useCallback\(async\s*\(currentLoad:\s*number\)\s*=>/,
+    'The delayed list load must receive the dependency generation',
+  )
+  assert.match(
+    discoveryHubSource,
+    /useEffect\(\(\)\s*=>\s*\{\s*const\s+currentLoad\s*=\s*\+\+loadRequestId\.current\s*const\s+timer\s*=\s*window\.setTimeout\(\(\)\s*=>\s*load\(currentLoad\),\s*250\)/,
+    'Dependency changes must invalidate prior list requests before the debounce timer',
   )
   assert.match(
     discoveryHubSource,
