@@ -26,7 +26,7 @@
   const isCampusEmail = email => /^[^\s@]+@[^\s@]+\.edu\.cn$/i.test(email);
 
   const derivePermissions = state => ({
-    canBrowse: true,
+    canBrowse: state.accountStatus !== 'visitor',
     canCreateStudentPost: state.accountStatus === 'campus_verified',
     canApplyToTeam: state.accountStatus === 'campus_verified',
     canViewContact: state.accountStatus === 'campus_verified',
@@ -93,8 +93,6 @@
       campusVerification: 'verified'
     };
   };
-
-  const skipCampusVerification = state => ({ ...state, authView: 'public_browse' });
 
   const submitOrganizationApplication = (state, payload) => {
     if (state.accountStatus !== 'campus_verified') throw new Error('完成校园认证后才能申请组织认证');
@@ -163,7 +161,6 @@
     completeProfile,
     sendCampusCode,
     verifyCampus,
-    skipCampusVerification,
     submitOrganizationApplication,
     reviewOrganizationApplication,
     createRoleInvite,

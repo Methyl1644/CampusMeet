@@ -1,0 +1,132 @@
+<div id="controlled-tags">
+  <style>
+    #controlled-tags { color: var(--foreground); }
+    #controlled-tags * { box-sizing: border-box; }
+    #controlled-tags .layout { display: grid; grid-template-columns: minmax(260px, .8fr) minmax(340px, 1.2fr); gap: 28px; margin-top: 18px; }
+    #controlled-tags .taxonomy { display: grid; gap: 18px; }
+    #controlled-tags .dimension { padding-bottom: 14px; border-bottom: 1px solid var(--border); }
+    #controlled-tags .dimension h3, #controlled-tags .dimension p { margin: 0 0 8px; }
+    #controlled-tags .chips { display: flex; flex-wrap: wrap; gap: 7px; }
+    #controlled-tags .chip { display: inline-flex; align-items: center; min-height: 28px; padding: 3px 9px; border-radius: 999px; font-weight: 500; }
+    #controlled-tags .level { color: var(--blue); background: color-mix(in srgb, var(--blue) 12%, var(--background)); }
+    #controlled-tags .organizer { color: var(--green); background: color-mix(in srgb, var(--green) 12%, var(--background)); }
+    #controlled-tags .topic { color: var(--orange); background: color-mix(in srgb, var(--orange) 12%, var(--background)); }
+    #controlled-tags .attribute { color: var(--purple); background: color-mix(in srgb, var(--purple) 12%, var(--background)); }
+    #controlled-tags .search-demo { padding: 18px; border: 1px solid var(--border); border-radius: 8px; background: var(--card); }
+    #controlled-tags .search-row { display: flex; align-items: center; gap: 9px; padding: 0 11px; min-height: 44px; border: 1px solid var(--input); border-radius: 8px; background: var(--background); }
+    #controlled-tags .search-row input { width: 100%; min-width: 0; border: 0; outline: 0; color: var(--foreground); background: transparent; }
+    #controlled-tags .suggestions { display: grid; gap: 8px; margin-top: 9px; }
+    #controlled-tags .suggestion { display: grid; grid-template-columns: 1fr auto; gap: 14px; align-items: center; width: 100%; padding: 11px; text-align: left; color: var(--foreground); border: 1px solid var(--border); border-radius: 7px; background: var(--background); cursor: pointer; }
+    #controlled-tags .suggestion:hover { background: var(--accent); }
+    #controlled-tags .suggestion strong, #controlled-tags .suggestion small { display: block; }
+    #controlled-tags .suggestion small { color: var(--muted-foreground); }
+    #controlled-tags .selected { display: flex; flex-wrap: wrap; gap: 7px; align-items: center; min-height: 38px; margin-top: 12px; }
+    #controlled-tags .empty { color: var(--muted-foreground); }
+    #controlled-tags .pipeline { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; align-items: stretch; margin-top: 24px; }
+    #controlled-tags .step { min-height: 100px; padding: 11px; background: var(--accent); border-radius: 7px; }
+    #controlled-tags .step strong, #controlled-tags .step span { display: block; }
+    #controlled-tags .step span { margin-top: 5px; color: var(--muted-foreground); }
+    #controlled-tags .boundary { margin-top: 18px; padding: 13px 0; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+    #controlled-tags .boundary-line { display: flex; align-items: center; gap: 9px; }
+    #controlled-tags .model { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-top: 18px; }
+    #controlled-tags .model div { padding: 10px; text-align: center; background: var(--accent); border-radius: 6px; }
+    #controlled-tags .model code { display: block; margin-bottom: 4px; }
+    @media (max-width: 760px) {
+      #controlled-tags .layout { grid-template-columns: 1fr; }
+      #controlled-tags .pipeline, #controlled-tags .model { grid-template-columns: 1fr; }
+      #controlled-tags .step { min-height: auto; }
+    }
+  </style>
+
+  <h2>受控标签体系</h2>
+  <p class="subtitle">标签由平台预先审核并分层；用户只能选择标准标签，AI没有创建标签的权限。</p>
+
+  <div class="layout">
+    <section class="taxonomy" aria-label="标签维度">
+      <div class="dimension">
+        <h3>赛事级别</h3>
+        <p class="text-muted">描述活动影响范围，不包含具体主办方名称。</p>
+        <div class="chips"><span class="chip level">世界级</span><span class="chip level">国家级</span><span class="chip level">省市级</span><span class="chip level">校级</span><span class="chip level">院系级</span></div>
+      </div>
+      <div class="dimension">
+        <h3>主办与发布身份</h3>
+        <p class="text-muted">标准实体标签，可关联组织认证记录。</p>
+        <div class="chips"><span class="chip organizer">软件学院</span><span class="chip organizer">匡亚明学院</span><span class="chip organizer">羽毛球协会</span><span class="chip organizer">学生会</span></div>
+      </div>
+      <div class="dimension">
+        <h3>活动主题</h3>
+        <p class="text-muted">解决同一事物出现多个名字的问题。</p>
+        <div class="chips"><span class="chip topic">羽毛球</span><span class="chip topic">数学建模</span><span class="chip topic">志愿服务</span><span class="chip topic">户外徒步</span></div>
+      </div>
+      <div class="dimension">
+        <h3>活动属性</h3>
+        <p class="text-muted">时间、场景和参与方式等可组合条件。</p>
+        <div class="chips"><span class="chip attribute">线下</span><span class="chip attribute">跨校</span><span class="chip attribute">长期招募</span><span class="chip attribute">即将截止</span></div>
+      </div>
+    </section>
+
+    <section class="search-demo" aria-label="标准标签联想演示">
+      <h3>即时规范化</h3>
+      <label class="form-label" for="controlled-query">输入非标准表达</label>
+      <div class="search-row"><i data-lucide="search" aria-hidden="true"></i><input id="controlled-query" value="国家级羽球" autocomplete="off"></div>
+      <div class="suggestions" id="controlled-suggestions" aria-live="polite"></div>
+      <div class="selected" id="selected-tags"><span class="empty">选择建议后，标准标签会出现在这里</span></div>
+      <div class="boundary">
+        <div class="boundary-line"><i data-lucide="shield-check" aria-hidden="true"></i><strong>写入边界：AI只能返回已有 <code>tag_id</code>，不能向标签库执行新增操作。</strong></div>
+      </div>
+      <div class="model" aria-label="标签数据模型">
+        <div><code>tag_category</code><span class="text-muted">维度与颜色</span></div>
+        <div><code>canonical_tag</code><span class="text-muted">标准名称</span></div>
+        <div><code>tag_alias</code><span class="text-muted">别名与简称</span></div>
+        <div><code>entity_tag</code><span class="text-muted">内容与标签关系</span></div>
+      </div>
+    </section>
+  </div>
+
+  <div class="pipeline" aria-label="标签联想处理流程">
+    <div class="step"><strong>1. 输入清洗</strong><span>全半角、大小写、空格、拼音归一化</span></div>
+    <div class="step"><strong>2. 别名命中</strong><span>“羽球”直接映射标准标签“羽毛球”</span></div>
+    <div class="step"><strong>3. 模糊召回</strong><span>前缀、拼音、错别字与关键词匹配</span></div>
+    <div class="step"><strong>4. AI语义补充</strong><span>只在低确定性时从固定标签库中选择候选</span></div>
+    <div class="step"><strong>5. 用户确认</strong><span>点击标准标签后才加入筛选条件</span></div>
+  </div>
+
+  <script>
+    (() => {
+      const root = document.getElementById('controlled-tags');
+      const input = root.querySelector('#controlled-query');
+      const suggestions = root.querySelector('#controlled-suggestions');
+      const selected = root.querySelector('#selected-tags');
+      const catalog = [
+        { id: 'level-national', name: '国家级', kind: '赛事级别', cls: 'level', aliases: ['国家赛', '全国级', '全国赛事', '国家级'] },
+        { id: 'topic-badminton', name: '羽毛球', kind: '活动主题', cls: 'topic', aliases: ['羽球', '打羽毛球', 'badminton', '羽毛球'] },
+        { id: 'topic-modeling', name: '数学建模', kind: '活动主题', cls: 'topic', aliases: ['建模赛', '数模', '数学模型竞赛', '数学建模'] },
+        { id: 'org-software', name: '软件学院', kind: '主办与发布身份', cls: 'organizer', aliases: ['软院', '软件学院'] },
+        { id: 'org-badminton', name: '羽毛球协会', kind: '主办与发布身份', cls: 'organizer', aliases: ['羽协', '羽毛球社', '羽毛球协会'] }
+      ];
+      const chosen = new Map();
+
+      function renderSelected() {
+        selected.innerHTML = chosen.size
+          ? Array.from(chosen.values()).map(tag => `<span class="chip ${tag.cls}">${tag.name}</span>`).join('')
+          : '<span class="empty">选择建议后，标准标签会出现在这里</span>';
+      }
+
+      function render() {
+        const query = input.value.trim().toLowerCase();
+        const hits = catalog.filter(tag => tag.aliases.some(alias => query.includes(alias.toLowerCase()) || alias.toLowerCase().includes(query)));
+        suggestions.innerHTML = hits.length
+          ? hits.map(tag => `<button class="suggestion" type="button" data-tag="${tag.id}"><span><strong>${tag.name}</strong><small>由“${input.value.trim()}”联想到 · ${tag.kind}</small></span><span class="chip ${tag.cls}">使用标准标签</span></button>`).join('')
+          : '<div class="suggestion"><span><strong>暂无高可信标准标签</strong><small>继续按关键词搜索，并将该表达进入人工维护候选，不自动创建标签。</small></span></div>';
+        suggestions.querySelectorAll('[data-tag]').forEach(button => button.addEventListener('click', () => {
+          const tag = catalog.find(item => item.id === button.dataset.tag);
+          if (tag) chosen.set(tag.id, tag);
+          renderSelected();
+        }));
+      }
+
+      input.addEventListener('input', render);
+      render();
+    })();
+  </script>
+</div>

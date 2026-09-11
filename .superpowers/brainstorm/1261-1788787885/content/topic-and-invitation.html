@@ -1,0 +1,853 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CampusMate | 话题与校园搭子 · 交互草图</title>
+<style>
+:root{--ink:#202725;--muted:#717975;--line:#e1e6e3;--soft:#f5f7f6;--green:#18755a;--blue:#266caa;--red:#ab423c;--purple:#79518e;--white:#fff}
+*{box-sizing:border-box;letter-spacing:0}body{margin:0;color:var(--ink);font:14px/1.6 "Microsoft YaHei","PingFang SC",system-ui,sans-serif;background:var(--white)}button,input,select{font:inherit}button,a,input,select{-webkit-tap-highlight-color:transparent}button{cursor:pointer}button:disabled{cursor:default}button{color:inherit}a{color:var(--blue)}button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,summary:focus-visible{outline:3px solid #64ad94;outline-offset:3px}button:disabled{color:#8b948f;background:#f1f4f2}svg{display:inline-block;flex-shrink:0;vertical-align:middle}button svg{pointer-events:none}h1,h2,h3,p{margin:0}h1{font-size:26px;line-height:1.4}h2{font-size:20px;line-height:1.45}h3{font-size:16px;line-height:1.55}small,.small{font-size:12px}.muted{color:var(--muted)}[hidden]{display:none!important}.wrap{max-width:1376px;margin:auto;padding:0 32px}.prototype{background:#edf3f0;color:#496457;border-bottom:1px solid #dbe5df;font-size:12px}.prototype .wrap{min-height:38px;display:flex;align-items:center;gap:16px}.prototype .switcher{margin-left:auto;display:flex;align-items:stretch;gap:16px}.prototype button{border:0;background:none;padding:8px 0;font-size:12px}.prototype button.active{box-shadow:inset 0 -2px var(--green);color:var(--green);font-weight:700}.app-header{border-bottom:1px solid var(--line)}.header-row{min-height:76px;display:flex;align-items:center;gap:26px}.brand{color:var(--ink);font-size:22px;font-weight:800;text-decoration:none;display:flex;align-items:center;gap:9px;white-space:nowrap}.brand-symbol{width:30px;height:30px;display:grid;place-items:center;background:var(--green);color:white;border-radius:6px}.profile{display:flex;align-items:center;gap:9px;padding-left:24px;border-left:1px solid var(--line);white-space:nowrap}.avatar{width:32px;height:32px;border-radius:50%;display:grid;place-items:center;background:#e5efeb;color:#246d54;font-size:13px;font-weight:700;flex-shrink:0}.account-label{font-size:12px;color:var(--muted);line-height:1.4}.header-right{margin-left:auto;display:flex;align-items:center;gap:18px}.campus-label{display:flex;gap:6px;align-items:center;color:#59655e;font-size:13px}.icon-button{border:1px solid var(--line);background:white;width:34px;height:34px;border-radius:6px;display:inline-grid;place-items:center}.text-button{border:0;background:none;color:var(--green);padding:0;font-weight:600;display:inline-flex;align-items:center;gap:5px}.button{min-height:39px;border:1px solid var(--line);border-radius:6px;padding:8px 14px;background:white;display:inline-flex;align-items:center;justify-content:center;gap:7px;font-size:13px;font-weight:600}.button.primary{background:var(--green);color:white;border-color:var(--green)}.button.chosen{background:#e9f4ee;color:var(--green);border-color:#add3c1}.channels{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));border-bottom:1px solid var(--line);gap:28px}.channel{display:flex;align-items:center;justify-content:center;gap:14px;border:0;border-bottom:3px solid transparent;background:white;min-height:98px;text-align:left;padding:16px 8px}.channel.active{border-bottom-color:var(--green)}.channel .channel-icon{height:42px;width:42px;display:grid;place-items:center;border-radius:8px;background:#edf3fb;color:var(--blue)}.channel:nth-child(2) .channel-icon{background:#eef6ef;color:#498050}.channel:nth-child(3) .channel-icon{background:#fff0e7;color:#ad612a}.channel svg{width:25px;height:25px}.channel strong{font-size:16px}.channel small{display:block;color:var(--muted);margin-top:2px}.channel.active strong{color:var(--green)}.browse-layout{display:grid;grid-template-columns:224px minmax(0,1fr);gap:36px;padding-top:26px;padding-bottom:48px}.sidebar{border-right:1px solid var(--line);padding-right:22px;min-width:0}.filter-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px}.filter-head strong{font-size:15px}.filter-block{border-bottom:1px solid var(--line);padding-bottom:22px;margin-bottom:20px}.filter-block:last-child{border-bottom:0}.filter-block label.title,.filter-block .title{display:block;font-weight:600;margin-bottom:10px;font-size:13px}.search-wrap{position:relative}.search-box{display:flex;align-items:center;gap:8px;border:1px solid #cdd6d0;border-radius:6px;min-height:42px;padding:0 10px;background:white}.search-box svg{width:17px;color:var(--muted)}.search-box:focus-within{border-color:var(--green);box-shadow:0 0 0 2px #edf6f1}.search-box input{min-width:0;width:100%;padding:9px 0;border:0;outline:0!important;font-size:12px;background:transparent}.search-box input::placeholder{color:#929b95}.suggestions{position:absolute;z-index:10;top:48px;left:0;width:310px;max-width:calc(100vw - 60px);background:white;border:1px solid var(--line);border-radius:6px;box-shadow:0 8px 24px #25372c1a;max-height:320px;overflow:auto}.suggestion-heading{padding:8px 12px 3px;color:var(--muted);font-size:11px}.suggestion{width:100%;display:flex;align-items:center;gap:8px;text-align:left;padding:10px 12px;border:0;background:white;font-size:13px}.suggestion:hover,.suggestion:focus{background:#eef6f1}.suggestion .muted{font-size:11px;margin-left:auto}.suggestion-text{min-width:0}.suggestion-text small{display:block;color:var(--muted)}.no-suggestion{padding:12px;color:var(--muted);font-size:12px}.selected-tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}.selected-tags:empty{margin-top:0}.chip{display:inline-flex;align-items:center;gap:6px;border:1px solid #c9ddd2;background:#edf6f1;color:var(--green);padding:3px 6px 3px 8px;border-radius:4px;font-size:12px}.chip button{display:grid;place-items:center;padding:0;width:18px;height:18px;border:0;background:none}.chip svg{height:13px;width:13px}.select{width:100%;border:1px solid #d4ddd7;border-radius:5px;background:white;min-height:38px;font-size:13px;padding:6px 8px}.radio-row{display:flex;align-items:center;gap:8px;padding:5px 0;font-size:13px}.radio-row input{accent-color:var(--green);margin:0}.legend{font-size:12px;color:var(--muted);display:grid;gap:10px}.legend span{display:flex;align-items:center;gap:7px}.dot{width:7px;height:7px;border-radius:50%;background:var(--blue)}.dot.org{background:var(--green)}.dot.topic{background:#757d78}.results-head{display:flex;justify-content:space-between;gap:16px;align-items:flex-end;margin-bottom:20px}.results-head p{font-size:12px;color:var(--muted);margin-top:6px}.sort{display:flex;gap:8px;align-items:center;white-space:nowrap;font-size:12px;color:var(--muted)}.sort select{border:0;background:#f4f6f4;border-radius:5px;padding:8px;font-size:12px;color:var(--ink);max-width:126px}.topic-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:24px}.topic-card{border:1px solid var(--line);border-radius:8px;overflow:hidden;background:white;transition:border-color .15s,box-shadow .15s;min-width:0}.topic-card:hover{border-color:#b8cfc2;box-shadow:0 4px 16px #223b2b0a}.cover{aspect-ratio:3.6;background:#eaf0f7;display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid #dfe6ed;color:#637b95;text-align:left;width:100%;border-top:0;border-left:0;border-right:0;gap:12px}.cover.green{background:#eaf2ed;color:#56846c;border-bottom-color:#dde9e2}.cover.rose{background:#f7efef;color:#a27a7a;border-bottom-color:#eee0e0}.cover.stone{background:#f0f1f2;color:#77828b;border-bottom-color:#e1e4e7}.cover .cover-icon svg{height:38px;width:38px;stroke-width:1.2}.cover span small{font-size:10px;display:block;margin-bottom:3px;text-transform:uppercase}.cover span strong{font-size:15px;font-weight:600}.card-body{padding:17px 18px}.card-source{color:var(--muted);font-size:11px;display:flex;align-items:center;gap:5px;margin-bottom:9px}.card-source svg{width:14px;height:14px;color:var(--green)}.card-title{border:0;background:none;display:block;font-weight:700;font-size:17px;text-align:left;padding:0;line-height:1.5;width:100%}.card-title:hover{color:var(--green)}.summary{color:#768079;font-size:12px;margin:7px 0 12px;min-height:38px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}.badges{display:flex;flex-wrap:wrap;gap:5px}.badge{display:inline-flex;align-items:center;gap:4px;border-radius:4px;padding:2px 7px;font-size:11px;background:#f0f2f1;color:#646e67;max-width:100%;overflow-wrap:anywhere}.badge.level{color:#336fa5;background:#edf3fc}.badge.org{color:#287a59;background:#eaf4ee}.badge.topic{color:#6c537f;background:#f2edf6}.badge.status{color:#96702f;background:#fbf4e7}.meta{display:flex;align-items:center;gap:5px;color:var(--muted);font-size:12px}.meta svg{width:14px;height:14px}.card-date{margin-top:14px;font-size:12px;color:#5f6a63}.card-foot{display:flex;align-items:center;gap:12px;justify-content:space-between;padding-top:12px;margin-top:12px;border-top:1px solid #eef1ee}.card-foot button{font-size:12px}.count{font-weight:600;color:var(--ink)}.filter-mobile{display:none}.empty{padding:64px 18px;text-align:center;background:var(--soft);border-radius:6px;grid-column:1/-1}.empty h3{margin:12px 0 5px}.empty p{color:var(--muted);font-size:13px;margin-bottom:18px}.invite-note{display:flex;gap:8px;align-items:center;color:#557564;background:#f0f6f2;font-size:12px;padding:11px 14px;border-left:3px solid #7bad8d;margin-bottom:18px}.day-heading{display:flex;align-items:center;gap:12px;color:var(--muted);font-size:12px;margin:22px 0 10px}.day-heading:first-child{margin-top:0}.day-heading strong{font-size:15px;color:#3d4e43}.day-heading:after{content:"";height:1px;background:var(--line);flex:1}.invitation{display:grid;grid-template-columns:65px minmax(0,1fr) auto;gap:20px;padding:20px 0;border-bottom:1px solid var(--line)}.time-rail{padding-top:2px;font-size:20px;font-weight:700}.time-rail small{display:block;font-size:11px;color:var(--muted);font-weight:400}.invite-main .card-title{font-size:17px}.invite-main .meta{margin:7px 0 10px}.invite-main .badges{margin-bottom:10px}.invite-author{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)}.invite-author .avatar{width:23px;height:23px;font-size:10px}.invite-actions{text-align:right;min-width:112px;display:flex;flex-direction:column;align-items:flex-end;justify-content:center;gap:9px;font-size:12px}.slot{color:var(--green);font-weight:700}.breadcrumb{display:flex;align-items:center;gap:9px;font-size:13px;color:var(--muted);padding:24px 0 20px}.detail-layout{display:grid;grid-template-columns:minmax(0,1fr) 286px;gap:42px;padding-bottom:48px}.detail-heading{padding:20px 0 22px}.detail-heading h1{margin:9px 0 12px;font-size:28px}.detail-heading p{color:#667269;font-size:13px;margin:12px 0 0}.detail-cover{aspect-ratio:6.3;cursor:default}.detail-cover .cover-icon svg{width:40px;height:40px}.subtabs{display:flex;gap:26px;border-bottom:1px solid var(--line);margin-bottom:22px}.subtabs button{padding:13px 0;background:white;border:0;border-bottom:2px solid transparent;color:var(--muted);font-size:14px;white-space:nowrap}.subtabs button.active{color:var(--green);font-weight:700;border-bottom-color:var(--green)}.article-section{padding:0 0 22px}.article-section h3{margin:0 0 9px}.article-section p{color:#646f67;line-height:1.9;font-size:14px}.fact-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px 24px;margin-top:20px}.fact{border-bottom:1px solid var(--line);padding-bottom:13px}.fact small{display:block;color:var(--muted);margin-bottom:4px}.fact strong{font-size:14px;font-weight:600}.detail-side{border-left:1px solid var(--line);padding-left:26px}.side-section{padding:18px 0;border-bottom:1px solid var(--line)}.side-section:first-child{padding-top:0}.side-section h3{font-size:14px;margin-bottom:12px}.side-section p{font-size:12px;color:var(--muted);margin-top:9px}.side-section .button{width:100%;margin-top:8px}.side-stat{display:flex;align-items:center;gap:7px;font-size:13px}.source-box{display:grid;gap:9px;font-size:12px;color:#627269}.source-box span{display:flex;gap:7px;align-items:center}.source-box svg{width:16px;height:16px}.team-row{border-bottom:1px solid var(--line);padding:18px 0}.team-row:first-child{padding-top:0}.team-row-head{display:flex;align-items:center;justify-content:space-between;gap:12px}.team-row p{font-size:13px;color:var(--muted);margin:7px 0 10px}.team-row-foot{display:flex;align-items:center;justify-content:space-between;margin-top:12px;gap:10px}.resource-row{display:flex;align-items:center;gap:12px;border-bottom:1px solid var(--line);padding:16px 0}.resource-row .resource-text{flex:1}.resource-row small{display:block;color:var(--muted)}.resource-row button{flex-shrink:0}.invite-detail-banner{background:#edf5ef;color:#286548;padding:12px 16px;display:flex;align-items:center;gap:10px;margin-bottom:20px;border-left:3px solid #7fae91}.invite-person{display:flex;gap:10px;align-items:center;margin:24px 0}.invite-person p{font-size:12px;color:var(--muted)}.flowline{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:12px;color:#52675a;margin:18px 0}.flowline span{background:#edf4ee;border-radius:4px;padding:5px 9px}.flowline svg{height:14px;width:14px}.policy{padding:28px 0 54px}.policy .intro{color:var(--muted);margin-top:8px;max-width:780px;font-size:14px}.policy-section{margin-top:30px;padding-top:24px;border-top:1px solid var(--line)}.policy-section h2{margin-bottom:14px}.table-wrap{overflow-x:auto}.permission-table{width:100%;border-collapse:collapse;font-size:13px;min-width:740px}.permission-table th{text-align:left;background:#f3f6f3;color:#536257;font-size:12px}.permission-table td,.permission-table th{padding:13px 12px;border-bottom:1px solid var(--line);vertical-align:top}.permission-table td:first-child{font-weight:600}.yes{color:var(--green)}.no{color:#909993}.policy-routes{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:28px}.policy-routes section{border-left:3px solid #c7dcd0;padding-left:16px}.policy-routes h3{margin-bottom:9px}.policy-routes p{font-size:13px;color:#67756b;margin-bottom:9px}.policy-routes small{color:var(--muted)}.data-list{display:grid;grid-template-columns:180px 1fr;gap:10px 22px;font-size:13px}.data-list dt{font-weight:600}.data-list dd{margin:0;color:#667168}.policy-source-list{display:flex;gap:16px;flex-wrap:wrap;font-size:13px}dialog{border:1px solid var(--line);border-radius:8px;max-width:560px;width:calc(100vw - 40px);padding:24px;color:var(--ink)}dialog::backdrop{background:#17282055}dialog .modal-head{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:14px}dialog .modal-body{font-size:14px;color:#627067;line-height:1.9}dialog .modal-body p{margin-bottom:10px}dialog .modal-foot{border-top:1px solid var(--line);margin-top:20px;padding-top:12px;font-size:12px;color:var(--muted)}.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#263a2d;color:white;border-radius:6px;padding:10px 18px;font-size:13px;z-index:40;max-width:calc(100vw - 32px);width:max-content;box-shadow:0 4px 18px #0002}.footnote{border-top:1px solid var(--line);padding:18px 0;color:#8a948d;font-size:11px}.footnote .wrap{display:flex;justify-content:space-between;gap:12px}
+.dot.topic{background:#79518e}
+@media(min-width:1550px){.wrap{max-width:1520px}.topic-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.browse-layout{gap:32px}}
+@media(max-width:1000px){.wrap{padding:0 22px}.browse-layout{grid-template-columns:202px minmax(0,1fr);gap:22px}.sidebar{padding-right:18px}.channel small{font-size:11px}.channel{gap:9px}.channel strong{font-size:14px}.channel .channel-icon{height:36px;width:36px}.detail-layout{grid-template-columns:minmax(0,1fr) 236px;gap:24px}.detail-side{padding-left:20px}.invitation{grid-template-columns:54px minmax(0,1fr);gap:14px}.invite-actions{grid-column:2;flex-direction:row;justify-content:space-between;align-items:center}.header-row{gap:16px}.profile{padding-left:16px}.brand{font-size:20px}.campus-label{font-size:12px}}
+@media(max-width:760px){.wrap{padding:0 18px}.prototype .wrap{gap:8px;min-height:37px}.prototype .switcher{gap:12px}.prototype .detail-note{display:none}.header-row{min-height:66px;gap:12px}.brand{font-size:18px;gap:6px}.brand-symbol{width:26px;height:26px}.brand-symbol svg{width:18px}.profile{padding-left:12px;border-left:1px solid var(--line)}.profile .account-text{display:none}.header-right{gap:10px}.campus-label{font-size:11px}.campus-label svg{width:15px}.channels{gap:5px}.channel{min-height:91px;flex-direction:column;gap:5px;padding:12px 2px 9px;text-align:center}.channel strong{font-size:13px}.channel small{display:none}.channel .channel-icon{background:none!important;height:26px;width:26px}.channel svg{height:24px;width:24px}.browse-layout{display:block;padding-top:21px;padding-bottom:30px}.sidebar{display:none;border:1px solid var(--line);padding:18px;margin-bottom:18px;border-radius:6px}.sidebar.open{display:block}.filter-mobile{display:flex;align-items:center;gap:6px;border:1px solid var(--line);background:white;border-radius:5px;padding:7px 10px;font-size:12px;min-height:35px}.filter-mobile svg{height:15px;width:15px}.results-head{flex-wrap:wrap;align-items:center;gap:12px;margin-bottom:18px}.results-head h1{font-size:22px}.results-controls{display:flex;gap:8px}.sort label{display:none}.sort select{min-height:35px;font-size:12px;padding:7px}.results-head p{font-size:11px}.topic-grid{grid-template-columns:1fr;gap:18px}.cover{aspect-ratio:4.2;padding:14px 18px}.card-body{padding:15px 16px}.summary{min-height:0}.card-title{font-size:17px}.suggestions{width:100%;max-width:none}.legend{display:none}.filter-block:last-child{margin:0}.detail-layout{display:flex;flex-direction:column;gap:22px}.detail-side{border-left:0;padding:18px 0 0;border-top:1px solid var(--line)}.detail-heading h1{font-size:23px}.detail-cover{aspect-ratio:4.4}.detail-heading{padding:16px 0}.subtabs{gap:22px;overflow:auto}.subtabs button{font-size:13px}.fact-grid{gap:14px}.fact strong{font-size:13px}.breadcrumb{padding:20px 0;font-size:12px}.breadcrumb span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.invite-note{align-items:flex-start;font-size:11px}.invite-note svg{width:15px;height:15px;margin-top:2px}.time-rail{font-size:18px}.invitation{gap:12px;grid-template-columns:52px minmax(0,1fr);padding:18px 0}.invite-main .card-title{font-size:16px}.invite-main .meta{flex-wrap:wrap;font-size:11px}.invite-main .badge{font-size:10px}.invite-author{font-size:11px}.policy-routes{grid-template-columns:1fr;gap:20px}.policy h1{font-size:24px}.policy h2{font-size:18px}.policy .intro{font-size:13px}.data-list{grid-template-columns:1fr;gap:6px}.data-list dd{margin-bottom:8px}.footnote .wrap{display:block}.footnote span{display:block}.team-row-head{align-items:flex-start}.team-row-head h3{font-size:15px}.resource-row .button{padding:7px 9px}.resource-row{font-size:12px}.header-right .icon-button{display:none}}
+@media(prefers-reduced-motion:reduce){*{transition:none!important;scroll-behavior:auto!important}}
+</style>
+<style>.demo-controls{display:flex;align-items:center;gap:7px;margin-left:auto;font-size:11px}.prototype .switcher{margin-left:12px}.demo-controls select{font-size:11px;padding:3px 6px;max-width:100px;border:1px solid #ccdbd2;border-radius:4px;background:white;color:#405e4a}.demo-failure{display:flex;align-items:center;gap:4px;margin-left:8px}.demo-failure input{accent-color:var(--green);margin:0}.demo-controls button{padding:4px!important}.demo-controls svg{width:15px;height:15px}.profile{background:none;border-top:0;border-bottom:0;border-right:0;text-align:left;padding-top:0;padding-bottom:0}.account-label{display:block}.global-nav{display:flex;gap:23px;align-self:stretch;margin-left:auto}.global-nav button{border:0;background:none;display:flex;gap:6px;align-items:center;border-bottom:2px solid transparent;padding:0;font-size:13px;white-space:nowrap}.global-nav button.active{border-color:var(--green);color:var(--green);font-weight:700}.global-nav svg{width:17px;height:17px}.header-right{margin-left:8px;gap:8px}.header-row{gap:20px}.mobile-nav{display:none}.nav-counter{display:inline-grid;place-items:center;background:#e8f1eb;color:var(--green);min-width:17px;height:17px;padding:0 4px;border-radius:4px;font-size:10px}.workspace-head{padding:27px 0 21px;display:flex;justify-content:space-between;align-items:center;gap:16px}.workspace-head p{font-size:12px;color:var(--muted);margin-top:6px}.workspace-head h1{font-size:25px}.mode-switch{display:flex;gap:4px;padding:3px;background:#f0f3f1;border-radius:6px;width:max-content;margin:0 0 20px}.mode-switch button{padding:7px 16px;border:0;background:none;border-radius:4px;font-size:13px}.mode-switch button.active{background:white;box-shadow:0 1px 4px #1f3f2315;color:var(--green);font-weight:600}.project-card{border:1px solid var(--line);border-radius:7px;padding:19px;min-width:0}.project-top{display:flex;align-items:center;gap:7px;color:#707d72;font-size:12px;margin-bottom:10px}.project-top svg{width:17px;height:17px}.project-card .summary{min-height:40px}.project-facts{display:grid;grid-template-columns:1fr 1fr;gap:12px;border-top:1px solid #edf1ed;margin-top:15px;padding-top:12px;font-size:12px}.project-facts span{display:block;color:var(--muted);font-size:11px;margin-bottom:3px}.project-facts strong{font-weight:600}.project-card .card-foot{margin-top:14px}.status-strip{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:12px 0 20px;font-size:12px;color:#6b756d}.status-strip .status-label{color:#8a928c}.match-box{margin:18px 0;background:#f3f7f5;border-left:3px solid #81ad99;padding:15px 17px}.match-box h3{font-size:14px;display:flex;align-items:center;gap:6px}.match-box h3 small{margin-left:auto;color:#78917f;font-size:10px;font-weight:400}.match-box p{font-size:12px;color:#5e6e64;line-height:1.7;margin-top:7px}.match-box ul{margin:9px 0;padding-left:20px;font-size:12px;color:#52675a}.match-box li{margin:4px 0}.match-box .warning{color:#8e6a31}.match-box .button{margin-top:12px}.match-score{font-weight:700;font-size:17px;color:var(--green)}.modal-body .match-box{margin:15px 0}.modal-body .button{color:var(--ink)}.modal-body .button.primary{color:white}.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:13px 15px}.field{display:flex;flex-direction:column;gap:5px;font-size:12px;min-width:0}.field.full{grid-column:1/-1}.field input,.field select,.field textarea{border:1px solid #cfd9d1;border-radius:5px;min-height:38px;padding:8px 10px;width:100%;background:white;color:var(--ink);resize:vertical}.field textarea{min-height:72px}.form-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:18px}.form-error{color:var(--red);font-size:12px;margin-top:8px}.application-form h3{margin-bottom:14px}.inline-note{font-size:12px;color:var(--muted);border-left:3px solid #c4d6ca;padding-left:12px;margin:16px 0}.workspace-tabs{display:flex;gap:26px;border-bottom:1px solid var(--line);margin-bottom:0;overflow:auto}.workspace-tabs button{display:flex;align-items:center;gap:7px;white-space:nowrap;border:0;background:none;padding:11px 0 13px;font-size:13px;border-bottom:2px solid transparent;color:var(--muted)}.workspace-tabs button.active{color:var(--green);font-weight:600;border-bottom-color:var(--green)}.message-shell{display:grid;grid-template-columns:295px minmax(0,1fr);min-height:540px;margin:20px 0 32px;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}.thread-list{border-right:1px solid var(--line);max-height:660px;overflow:auto;padding:10px 14px 10px 0}.thread-button{width:100%;padding:14px 12px;text-align:left;border:0;border-bottom:1px solid #edf1ed;background:none;display:block;border-radius:4px}.thread-button.active{background:#edf5f0}.thread-button:hover{background:#f3f7f4}.thread-title{display:flex;gap:10px;align-items:center;margin-bottom:6px}.thread-title strong{font-size:13px}.thread-title .badge{margin-left:auto;font-size:10px}.thread-button p{font-size:12px;color:#6d7b70;white-space:nowrap;text-overflow:ellipsis;overflow:hidden}.thread-button small{font-size:11px;display:block;margin-top:4px;color:#939c96}.thread-content{padding:24px;min-width:0}.thread-content h2{font-size:19px}.thread-heading{display:flex;justify-content:space-between;gap:16px;align-items:flex-start}.thread-heading p{font-size:12px;color:var(--muted);margin-top:5px}.thread-heading .badge{white-space:nowrap}.application-facts{display:grid;grid-template-columns:110px 1fr;gap:11px;font-size:13px;margin:22px 0}.application-facts dt{color:var(--muted)}.application-facts dd{margin:0;overflow-wrap:anywhere}.progress-track{display:flex;gap:9px;margin:20px 0;font-size:11px;align-items:center;flex-wrap:wrap}.progress-track span{color:#8b958d;display:flex;gap:5px;align-items:center}.progress-track span.complete{color:var(--green)}.progress-track svg{width:15px;height:15px}.chat-safety{font-size:11px;padding:8px 11px;background:#f4f6f4;color:#75816f;display:flex;align-items:center;gap:7px}.chat-feed{min-height:160px;max-height:275px;overflow:auto;padding:19px 0;display:flex;flex-direction:column;gap:12px}.chat-line{display:flex;gap:9px;max-width:86%;align-items:flex-start}.chat-line.mine{align-self:flex-end;flex-direction:row-reverse}.chat-line .avatar{width:27px;height:27px;font-size:11px}.chat-bubble{border-radius:6px;background:#f0f3f1;padding:9px 12px;font-size:13px;white-space:pre-wrap;overflow-wrap:anywhere}.mine .chat-bubble{background:#e5f0e9}.chat-meta{font-size:10px;color:#93a097;margin:3px 0}.chat-composer{display:flex;align-items:flex-end;gap:8px;border-top:1px solid var(--line);padding-top:13px}.chat-composer textarea{flex:1;min-width:0;resize:vertical;min-height:68px;max-height:150px;border:1px solid #d8e1db;border-radius:6px;padding:9px 11px;font-size:13px;font-family:inherit}.chat-composer .icon-button{width:40px;height:40px;background:var(--green);color:white;border-color:var(--green)}.confirm-panel{margin:17px 0;padding-top:14px;border-top:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:16px}.confirm-state{font-size:12px;color:var(--muted);display:flex;gap:14px;flex-wrap:wrap}.confirm-state span{display:flex;align-items:center;gap:5px}.confirm-state .confirmed{color:var(--green)}.confirm-state svg{width:15px;height:15px}.confirm-buttons{display:flex;gap:8px;flex-wrap:wrap}.thread-back{display:none}.notice-row{padding:20px 0;border-bottom:1px solid var(--line);display:flex;gap:14px;align-items:flex-start}.notice-row .notice-icon{width:35px;height:35px;background:#edf4ee;display:grid;place-items:center;color:var(--green);border-radius:6px;flex-shrink:0}.notice-row p{font-size:13px;color:var(--muted);margin:5px 0 8px}.notice-row small{font-size:11px;color:#929d94}.notice-row .button{margin-left:auto;flex-shrink:0}.team-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:20px;padding:22px 0 40px}.team-card{border:1px solid var(--line);border-radius:7px;padding:20px;min-width:0}.team-card h3{font-size:17px;margin:10px 0}.member-stack{display:flex;gap:4px;margin:15px 0}.member-stack .avatar{width:29px;height:29px;font-size:11px;border:2px solid white}.team-progress{height:5px;background:#eaf0ec;border-radius:3px;overflow:hidden;margin-top:14px}.team-progress span{display:block;height:100%;background:#519877}.team-card p{font-size:12px;color:var(--muted)}.team-card .button{width:100%;margin-top:18px}.team-main-layout{display:grid;grid-template-columns:minmax(0,1fr) 270px;gap:34px;margin:22px 0 38px}.team-sidebar{border-left:1px solid var(--line);padding-left:24px}.team-sidebar h3{font-size:14px;margin-bottom:13px}.member-row{display:flex;gap:9px;align-items:center;margin-bottom:15px;font-size:12px}.member-row small{display:block;color:var(--muted)}.member-row .badge{margin-left:auto}.team-section{padding:20px 0;border-bottom:1px solid var(--line)}.team-section:first-child{padding-top:0}.team-section h3{margin-bottom:10px}.team-section p{color:var(--muted);font-size:13px}.task-toolbar{display:flex;justify-content:space-between;gap:15px;align-items:center;padding:17px 0}.task-list{border-top:1px solid var(--line)}.task-row{display:grid;grid-template-columns:20px minmax(0,1fr) 100px 62px 30px;gap:12px;align-items:center;padding:15px 0;border-bottom:1px solid var(--line);font-size:12px}.task-row input{accent-color:var(--green);height:16px;width:16px;margin:0}.task-row.done .task-name{text-decoration:line-through;color:var(--muted)}.task-name{font-weight:600;overflow-wrap:anywhere}.task-row .icon-button{width:28px;height:28px;border:0}.task-row .icon-button svg{width:15px;height:15px}.agenda-row{display:flex;gap:15px;padding:15px 0;border-bottom:1px solid var(--line)}.agenda-row span{color:var(--green);font-size:12px;min-width:48px}.agenda-row p{font-size:13px}.profile-grid{display:grid;grid-template-columns:260px minmax(0,1fr);gap:36px;margin:22px 0 36px}.profile-summary{border-right:1px solid var(--line);padding-right:25px}.profile-summary>.avatar{width:52px;height:52px;font-size:22px;margin-bottom:13px}.profile-summary h2{font-size:21px}.profile-summary p{font-size:12px;color:var(--muted);margin:8px 0 15px}.profile-summary .badges{margin-bottom:15px}.profile-summary .button{width:100%;margin-top:8px}.profile-stats{display:flex;gap:22px;border-top:1px solid var(--line);padding-top:18px;margin-top:18px;font-size:11px;color:var(--muted)}.profile-stats strong{display:block;font-size:21px;color:var(--ink)}.profile-row{padding:17px 0;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:15px}.profile-row p{font-size:12px;color:var(--muted);margin-top:5px}.profile-row h3{font-size:14px}.preference{display:flex;justify-content:space-between;gap:16px;align-items:center;padding:15px 0;border-bottom:1px solid var(--line);font-size:13px}.preference input{accent-color:var(--green);width:17px;height:17px}.tab-empty{padding:50px 15px;text-align:center;font-size:13px;color:var(--muted)}.plain-link{background:none;border:0;padding:0;color:var(--green);cursor:pointer;font-size:12px}.error-band{background:#fbf1ec;border-left:3px solid #c68a70;color:#8c593c;padding:13px 15px;font-size:12px;margin:16px 0}.loading-line{color:var(--green);font-size:13px;padding:25px 0;display:flex;align-items:center;gap:10px}.loading-line svg{animation:pulse 1s ease-in-out infinite}@keyframes pulse{50%{opacity:.3}}.readonly-contact{font-size:12px;line-height:1.8;color:var(--muted);padding:12px 0;border-top:1px solid var(--line)}.readonly-contact strong{color:var(--ink)}.field-hint{color:var(--muted);font-size:11px}.settings-note{font-size:12px;color:var(--muted);line-height:1.8}.workspace-subtitle{font-size:12px;color:var(--muted);margin-bottom:15px}
+@media(max-width:1100px){.global-nav{gap:17px}.global-nav button{font-size:12px}.header-row{gap:13px}.global-nav svg{display:none}.header-row .account-text{display:none}.team-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.message-shell{grid-template-columns:250px minmax(0,1fr)}.thread-content{padding:20px}.confirm-panel{align-items:flex-start;flex-direction:column}.prototype .wrap{gap:9px}.demo-failure{margin-left:3px}}
+@media(max-width:760px){body{padding-bottom:66px}.global-nav{display:none}.header-row{gap:12px}.header-right{margin-left:auto}.header-right .icon-button{display:inline-grid}.header-row .profile{margin-right:0}.header-row .brand{font-size:17px}.prototype .wrap{flex-wrap:wrap;padding-top:5px;padding-bottom:5px;gap:3px 8px}.prototype .switcher{order:1;margin-left:auto;gap:12px}.demo-controls{order:2;flex-basis:100%;margin-left:0;gap:7px;border-top:1px solid #dce7e0;padding-top:5px;padding-bottom:2px}.demo-controls .demo-failure{margin-left:auto}.demo-controls select{max-width:105px}.prototype .switcher button{padding:5px 0}.mobile-nav{position:fixed;bottom:0;left:0;right:0;z-index:20;background:#fff;border-top:1px solid var(--line);display:grid;grid-template-columns:repeat(4,minmax(0,1fr));padding-bottom:env(safe-area-inset-bottom,0);height:calc(61px + env(safe-area-inset-bottom,0))}.mobile-nav button{border:0;background:none;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;font-size:11px;color:#818d84;position:relative}.mobile-nav button.active{color:var(--green);font-weight:600}.mobile-nav svg{height:20px;width:20px}.mobile-nav .nav-counter{position:absolute;top:5px;right:22%;height:14px;min-width:14px;font-size:9px}.workspace-head{padding-top:22px}.workspace-head h1{font-size:23px}.workspace-head .button{font-size:11px;padding:7px 10px}.workspace-tabs{gap:23px}.workspace-tabs button{font-size:12px}.message-shell{display:block;border-top:0;margin-top:10px;min-height:340px}.thread-list{border:0;padding:0;max-height:none}.thread-content{display:none;padding:10px 0 20px}.message-shell.show-thread .thread-list{display:none}.message-shell.show-thread .thread-content{display:block}.thread-back{display:inline-flex;margin-bottom:17px}.thread-heading h2{font-size:17px}.thread-title .avatar{width:29px;height:29px}.thread-button{padding:16px 6px}.chat-feed{max-height:340px;min-height:140px}.chat-line{max-width:94%}.application-facts{grid-template-columns:76px 1fr;gap:10px;font-size:12px}.confirm-buttons{width:100%}.confirm-buttons .button{flex:1;font-size:12px}.team-grid{grid-template-columns:1fr;gap:16px}.team-main-layout{display:flex;flex-direction:column;gap:22px}.team-sidebar{border-left:0;border-top:1px solid var(--line);padding:22px 0 0}.task-row{grid-template-columns:18px minmax(0,1fr) 54px 27px;gap:8px}.task-row .task-date{grid-column:2;font-size:10px;color:var(--muted)}.task-row .task-owner{grid-column:3;grid-row:auto}.task-row .task-edit{grid-column:4;grid-row:1}.task-row{position:relative}.task-row .task-edit{grid-row:auto}.task-row .task-date{grid-row:2}.profile-grid{display:block}.profile-summary{border-right:0;border-bottom:1px solid var(--line);padding:0 0 21px;margin-bottom:20px}.profile-summary .button{width:auto;margin-right:7px}.profile-stats{border-top:0;margin:10px 0 0;padding:0}.profile-summary>.avatar{float:left;width:45px;height:45px;margin:0 13px 8px 0}.profile-summary .badges{clear:both;margin-bottom:10px}.profile-summary p{margin:4px 0 17px}.profile-summary h2{font-size:18px}.form-grid{grid-template-columns:1fr}.field.full{grid-column:auto}.notice-row{gap:10px;flex-wrap:wrap}.notice-row .notice-icon{width:28px;height:28px}.notice-row>div:nth-child(2){flex:1;min-width:0}.notice-row .button{margin:0 0 0 38px}.project-card{padding:17px}.mode-switch{margin-bottom:16px}.mode-switch button{padding:7px 14px;font-size:12px}.profile-row{align-items:flex-start}.profile-row>.button{flex-shrink:0;font-size:11px;padding:6px 9px}.team-card h3{font-size:17px}.match-box{padding:12px}.toast{bottom:80px}.detail-heading h1{overflow-wrap:anywhere}.header-row .account-text{display:none}.footnote{padding-bottom:14px}.workspace-head{align-items:flex-start}.workspace-head .muted{font-size:11px}}
+@media(prefers-reduced-motion:reduce){.loading-line svg{animation:none}}
+dialog{max-height:88vh;overflow-y:auto}.skill-options{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px 14px}
+.workspace-head>.badge,.member-row>.badge,.profile-row>.badge{white-space:nowrap;flex-shrink:0}.member-row>div{min-width:0}.profile-row>.button{flex-shrink:0}.workspace-head>div{min-width:0}
+.skill-options input{width:16px;min-height:16px;height:16px;flex-shrink:0;padding:0}.skill-options .radio-row{font-size:12px;white-space:nowrap;gap:7px}.field textarea{font:inherit}
+</style>
+<style>.create-button{white-space:nowrap}
+.create-button svg{width:17px;height:17px}
+.publish-modal{max-width:920px}
+.publish-modal .modal-body{color:var(--ink)}
+.identity-strip{display:flex;align-items:center;gap:12px;padding:13px 15px;background:#f4f7f5;border-left:3px solid #7dae91;margin-bottom:20px}
+.identity-strip>div{min-width:0;flex:1}
+.identity-strip strong,.identity-strip small{display:block}
+.identity-strip small{color:var(--muted)}
+.command-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1px;background:var(--line);border:1px solid var(--line)}
+.command-item{border:0;background:#fff;padding:18px;text-align:left;display:grid;grid-template-columns:36px minmax(0,1fr);gap:12px;min-height:112px;align-content:start}
+.command-item:hover:not(:disabled){background:#f5f9f6}
+.command-item:disabled{background:#f6f7f6;color:#88918c}
+.command-icon{width:34px;height:34px;display:grid;place-items:center;color:var(--green);background:#eaf3ee;border-radius:6px}
+.command-item:disabled .command-icon{color:#8c9690;background:#ecefed}
+.command-copy strong,.command-copy span,.command-copy small{display:block}
+.command-copy strong{font-size:14px;margin-bottom:3px}
+.command-copy span{font-size:12px;color:var(--muted)}
+.command-copy small{font-size:11px;color:#96602e;margin-top:7px}
+.publish-steps{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));margin:-4px 0 22px;border-bottom:1px solid var(--line)}
+.publish-step{padding:10px 6px;text-align:center;font-size:12px;color:var(--muted);border-bottom:2px solid transparent}
+.publish-step.active{color:var(--green);border-bottom-color:var(--green);font-weight:700}
+.composer-layout{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(270px,.85fr);gap:28px}
+.composer-main h3,.composer-side h3{font-size:14px;margin-bottom:10px}
+.composer-side{border-left:1px solid var(--line);padding-left:24px}
+.field textarea.publish-source{min-height:160px}
+.ai-boundary{font-size:11px;color:var(--muted);padding:10px 12px;background:#f5f7f6;margin-top:12px}
+.ai-question{border-left:3px solid #78a98d;padding:15px 18px;background:#f2f7f4;margin-bottom:18px}
+.ai-question header{display:flex;align-items:center;gap:8px;margin-bottom:8px;color:var(--green);font-weight:700}
+.ai-question p{font-size:16px;color:var(--ink);margin-bottom:13px}
+.quick-answers{display:flex;flex-wrap:wrap;gap:7px;margin-top:10px}
+.quick-answers button{border:1px solid #ccd9d1;background:white;border-radius:5px;padding:6px 10px;font-size:12px}
+.draft-progress{display:grid;gap:7px}
+.draft-field{display:flex;align-items:center;justify-content:space-between;gap:12px;border-bottom:1px solid var(--line);padding:9px 0;font-size:12px}
+.draft-field strong{font-size:12px;text-align:right}
+.field-state{font-size:10px;padding:2px 5px;border-radius:3px;background:#edf3ef;color:#3a7258;margin-left:6px}
+.field-state.pending{background:#f4f1ea;color:#92713a}
+.tag-confirm{display:flex;gap:7px;flex-wrap:wrap;margin:10px 0 16px}
+.tag-confirm .chip{font-size:12px}
+.tag-library{border-top:1px solid var(--line);padding-top:12px;margin-top:12px}
+.tag-library button{margin:0 5px 5px 0}
+.preview-card{border:1px solid var(--line);padding:20px;background:#fff}
+.preview-card .preview-kicker{display:flex;justify-content:space-between;gap:12px;color:var(--muted);font-size:12px;margin-bottom:10px}
+.preview-card h2{font-size:20px}
+.preview-card>p{color:var(--muted);margin:8px 0 14px}
+.preview-facts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));border-top:1px solid var(--line);margin-top:16px}
+.preview-facts div{padding:12px 8px 9px 0;border-bottom:1px solid var(--line)}
+.preview-facts small,.preview-facts strong{display:block}
+.preview-facts small{color:var(--muted)}
+.preview-actions{display:flex;justify-content:space-between;gap:12px;align-items:center;margin-top:20px}
+.validation-errors{color:var(--red);font-size:12px}
+.duplicate-box{border-left:3px solid #b78948;background:#fbf6ec;padding:14px 16px;margin:14px 0}
+.verification-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin:16px 0}
+.verification-card{border:1px solid var(--line);padding:16px;min-height:140px}
+.verification-card header{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+.verification-card p{font-size:12px;color:var(--muted)}
+.verification-card .badge{margin-top:12px}
+.verification-flow{display:flex;align-items:center;gap:7px;flex-wrap:wrap;font-size:11px;color:#53645a;margin-top:16px}
+.verification-flow span{background:#edf3ef;padding:5px 8px;border-radius:4px}
+.identity-panel{border-top:1px solid var(--line);margin-top:18px;padding-top:18px}
+.identity-panel-head{display:flex;justify-content:space-between;gap:12px;align-items:center}
+.identity-panel p{font-size:12px;color:var(--muted);margin-top:5px}
+.topic-form-note{font-size:12px;color:var(--muted);margin-bottom:14px}
+@media(max-width:760px){.create-button span{display:none}.create-button{width:36px;padding:7px}.publish-modal{width:calc(100vw - 20px);padding:18px}.command-list{grid-template-columns:1fr}.command-item{min-height:92px;padding:14px}.composer-layout{grid-template-columns:1fr;gap:18px}.composer-side{border-left:0;border-top:1px solid var(--line);padding:17px 0 0}.verification-grid{grid-template-columns:1fr}.preview-facts{grid-template-columns:1fr}.preview-actions{align-items:stretch;flex-direction:column-reverse}.preview-actions .button{width:100%}.publish-steps{font-size:11px}.header-right{gap:7px}}
+</style>
+</head>
+<body>
+<div class="prototype"><div class="wrap"><span>交互草图 <span class="detail-note">· 本地模拟，无真实提交</span></span><div class="demo-controls"><label for="demo-actor">体验身份</label><select id="demo-actor"><option value="pei">裴同学</option><option value="wang">小王</option><option value="lin">小林</option><option value="li">小李</option><option value="guest">未认证同学</option></select><label class="demo-failure"><input id="demo-ai-failure" type="checkbox">AI 异常</label><button id="reset-demo" type="button" title="重置示例" aria-label="重置示例"><span data-icon="RotateCcw"></span></button></div><div class="switcher"><button id="view-browse" class="active" type="button">浏览体验</button><button id="view-policy" type="button">权限与信息架构</button></div></div></div>
+<header class="app-header"><div class="wrap header-row"><a class="brand" id="brand" href="#"><span class="brand-symbol" data-icon="Users"></span>CampusMate</a><button class="profile" id="profile-shortcut" type="button" aria-label="我的资料"><span class="avatar" id="user-avatar">裴</span><span class="account-text"><strong class="small" id="user-name">裴同学</strong><span class="account-label" id="user-verification">校园已认证</span></span></button><nav id="global-nav" class="global-nav" aria-label="主导航"></nav><div class="header-right"><button class="button primary create-button" id="create-button" type="button"><span data-icon="Plus"></span>创建</button><button class="icon-button" id="notifications-button" type="button" title="通知" aria-label="通知"><span data-icon="Bell"></span></button><button class="icon-button" id="saved-button" type="button" title="我的关注" aria-label="我的关注"><span data-icon="Bookmark"></span></button></div></div></header>
+<main class="wrap">
+<nav class="channels" aria-label="内容频道" id="channels"></nav>
+<div id="browse"><div class="browse-layout"><aside class="sidebar" id="sidebar"><div class="search-wrap"><div class="search-box"><span data-icon="Search"></span><input id="tag-search" aria-label="搜索话题、活动或标准标签" placeholder="搜索话题、活动或标准标签" autocomplete="off" role="combobox" aria-expanded="false" aria-controls="suggestions" aria-autocomplete="list"></div><div id="suggestions" class="suggestions" role="listbox" hidden></div></div><div id="selected-tags" class="selected-tags" aria-label="已选标签"></div></aside><section class="results"><div class="results-head"><div><h1 id="list-title">官方赛事与项目</h1><p id="result-count" aria-live="polite"></p></div><div class="results-controls"><button type="button" class="filter-mobile" id="mobile-filters" aria-expanded="false" aria-controls="sidebar"><span data-icon="Search"></span><span id="mobile-filter-label">搜索</span></button><div class="sort"><label for="sort">排序</label><select id="sort"><option value="recommended">推荐</option><option value="soon">时间最近</option><option value="popular">关注最多</option></select></div></div></div><div id="list-content"></div></section></div></div>
+<div id="detail" hidden></div>
+<section id="workspace" hidden></section>
+<section class="policy" id="policy" hidden>
+<h1>三类来源，完整的组队与协作路径</h1><p class="intro">官方赛事与组织活动保留公共话题；学生的课程、科研项目可以独立招募，日常搭子可以直接邀约。发现、消息、团队和个人中心是全局导航，不与来源频道混用。</p>
+<section class="policy-section"><h2>自主组队与成员确认</h2><p class="muted">同学自主组队包含“项目协作”和“日常搭子”。课程项目强调角色、周期与每周投入，日常邀约强调时间、地点与人数。每一位新成员都需与招募者分别确认；确认两个人不等于三人队满员，后续成员加入同一个团队。</p></section>
+<section class="policy-section"><h2>谁可以发布什么</h2><div class="table-wrap"><table class="permission-table"><thead><tr><th>用户身份</th><th>官方赛事话题</th><th>组织活动话题</th><th>话题内组队帖</th><th>独立搭子邀约</th></tr></thead><tbody><tr><td>未登录用户</td><td class="no">必须先登录</td><td class="no">必须先登录</td><td class="no">必须先登录</td><td class="no">必须先登录</td></tr><tr><td>校园已认证学生</td><td>提交来源线索，审核后收录</td><td class="no">不能代表组织发布</td><td class="yes">可发布自己的招募</td><td class="yes">可直接发起邀约</td></tr><tr><td>认证组织的授权负责人</td><td>提交官方材料；无权自行加权威标识</td><td class="yes">仅发布、维护本组织话题</td><td>以个人身份招募；组织角色不豁免审核</td><td>以已认证个人身份发起</td></tr><tr><td>平台内容编辑 / 审核员</td><td class="yes">核验来源、去重、发布、更新</td><td>审核、下架；修改保留记录</td><td>处理违规，不冒充作者</td><td>处理违规，不冒充发起人</td></tr><tr><td>AI / 定时采集任务</td><td>提取、查重、生成待审草稿</td><td>辅助整理与规范标签</td><td>辅助起草与审核</td><td>辅助起草与审核</td></tr></tbody></table></div><p class="muted small" style="margin-top:12px">学生发布与申请还需满足话题的开放状态、参赛范围与组队规则。组织负责人不是“所有内容的管理员”。</p></section>
+<section class="policy-section"><h2>不同内容，不强制走同一条路</h2><div class="policy-routes"><section><h3>官方赛事与项目</h3><p>发现赛事 → 简介 / 资料 / 时间安排 → 招募列表 → 临时沟通 → 双方确认组队</p><small>一个赛事的一届对应一个公共话题。个人赛可以只有信息和原站报名入口，不强制开组队区。</small></section><section><h3>认证组织活动</h3><p>发现活动 → 活动详情 → 按活动要求报名或进入组队区</p><small>讲座按人报名，团队赛可组队。发布者需要该组织的明确授权。</small></section><section><h3>校园搭子</h3><p>发现具体邀约 → 时间 / 地点 / 人数 → 申请沟通 → 双方确认</p><small>“今天打羽毛球”直接是一条邀约，不需要先创建“羽毛球话题”。羽毛球属于聚合标签。</small></section></div></section>
+<section class="policy-section"><h2>尽可能全面收录，但不重复造话题</h2><div class="flowline"><span>权威来源 / 用户线索</span><span data-icon="ArrowRight"></span><span>AI 提取与候选查重</span><span data-icon="ArrowRight"></span><span>审核确认</span><span data-icon="ArrowRight"></span><span>标准话题</span><span data-icon="ArrowRight"></span><span>时间与规则持续更新</span></div><p class="muted">保留原始来源链接、发布者、原文时间、核验时间与变更记录。同一赛事的新闻、报名通知、规则附件并入同一届话题；不同届次独立保留。已审核来源之后可逐步增加受控的自动更新。</p></section>
+<section class="policy-section"><h2>标签、认证与业务字段分开管理</h2><dl class="data-list"><dt>可信来源 / 组织身份</dt><dd>由平台核验的身份和来源属性，不是用户或 AI 随意添加的标签。“官网收录”不等于学校为平台背书。</dd><dt>赛事级别</dt><dd>国家级、校级等，需要来源依据；学院或书院名称另存组织归属，不能仅凭主办单位推断赛事级别。</dd><dt>活动主题</dt><dd>数学建模、羽毛球、程序设计等使用标准 tag_id；“羽球”只解析为已有的“羽毛球”，不创建新标签。</dd><dt>地点 / 时间 / 人数</dt><dd>使用可检索的结构化字段。已满、已截止等是由状态和时间计算出的业务信息，不建成随意文本标签。</dd><dt>组队帖关联</dt><dd>比赛招募必须有 topic_id；日常邀约使用独立类型 invitation，不要求 topic_id。</dd></dl></section>
+<section class="policy-section"><h2>参考站点</h2><div class="policy-source-list"><a href="https://www.meetup.com/find/" target="_blank" rel="noopener">Meetup · 发现与时间地点筛选</a><a href="https://help.devpost.com/article/75-participants-page-forming-a-team" target="_blank" rel="noopener">Devpost · 赛事内寻找队友</a><a href="https://luma.com/discover" target="_blank" rel="noopener">Luma · 活动与日历发现</a><a href="https://www.kaggle.com/docs/competitions" target="_blank" rel="noopener">Kaggle · 比赛信息与组队规则</a></div></section>
+</section>
+</main>
+<footer class="footnote"><div class="wrap"><span>CampusMate · 全流程交互草图</span><span>虚构数据 · 操作仅保留在本次浏览会话 · AI 为示例结果 · 发布及真实后端未接入</span></div></footer>
+<nav id="mobile-nav" class="mobile-nav" aria-label="手机主导航"></nav>
+<dialog id="modal"><div class="modal-head"><h2 id="modal-title"></h2><button type="button" class="icon-button" id="close-modal" aria-label="关闭" title="关闭"><span data-icon="X"></span></button></div><div id="modal-body" class="modal-body"></div><div class="modal-foot">交互草图，本次操作不会发送数据。</div></dialog><div id="toast" class="toast" role="status" hidden></div>
+<script>window.ICONS = {"Trophy":"<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"lucide lucide-trophy\" aria-hidden=\"true\"><path d=\"M6 9H4.5a2.5 2.5 0 0 1 0-5H6\"></path><path d=\"M18 9h1.5a2.5 2.5 0 0 0 0-5H18\"></path><path d=\"M4 22h16\"></path><path d=\"M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22\"></path><path d=\"M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22\"></path><path d=\"M18 2H6v7a6 6 0 0 0 12 0V2Z\"></path></svg>","BadgeCheck":"<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"lucide lucide-badge-check\" aria-hidden=\"true\"><path d=\"M3.85 8.62a4 4 0 0 1 4.78-4.77 4 4 0 0 1 6.74 0 4 4 0 0 1 4.78 4.78 4 4 0 0 1 0 6.74 4 4 0 0 1-4.77 4.78 4 4 0 0 1-6.75 0 4 4 0 0 1-4.78-4.77 4 4 0 0 1 0-6.76Z\"></path><path d=\"m9 12 2 2 4-4\"></path></svg>","Users":"<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"lucide lucide-users\" aria-hidden=\"true\"><path d=\"M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2\"></path><circle cx=\"9\" cy=\"7\" r=\"4\"></circle><path d=\"M22 21v-2a4 4 0 0 0-3-3.87\"></path><path d=\"M16 3.13a4 4 0 0 1 0 7.75\"></path></svg>","Search":"<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"lucide lucide-search\" aria-hidden=\"true\"><circle cx=\"11\" cy=\"11\" r=\"8\"></circle><path d=\"m21 21-4.3-4.3\"></path></svg>","X":"<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"lucide lucide-x\" aria-hidden=\"true\"><path d=\"M18 6 6 18\"></path><path d=\"m6 6 12 12\"></path></svg>","ChevronDown":"<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"lucide lucide-chevron-down\" aria-hidden=\"true\"><path d=\"m6 9 6 6 6-6\"></path></svg>","ChevronRight":"<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"lucide lucide-chevron-right\" aria-hidden=\"true\"><path d=\"m9 18 6-6-6-6\"></path></svg>","ArrowLeft":"<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"lucide lucide-arrow-left\" aria-hidden=\"true\"><path d=\"m12 19-7-7 7-7\"></path><path d=\"M19 12H5\"></path></svg>","ArrowRight":"<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"lucide lucide-arrow-right\" aria-hidden=\"true\"><path d=\"M5 12h14\"></path><path d=\"m12 5 7 7-7 7\"></path></svg>","SlidersHorizontal":"<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"lucide lucide-sliders-horizontal\" aria-hidden=\"true\"><line x1=\"21\" x2=\"14\" y1=\"4\" y2=\"4\"></line><line x1=\"10\" x2=\"3\" y1=\"4\" y2=\"4\"></line><line x1=\"21\" x2=\"12\" y1=\"12\" y2=\"12\"></line><line x1=\"8\" x2=\"3\" y1=\"12\" y2=\"12\"></line><line x1=\"21\" x2=\"16\" y1=\"20\" y2=\"20\"></line><line x1=\"12\" x2=\"3\" y1=\"20\" y2=\"20\"></line><line x1=\"14\" x2=\"14\" y1=\"2\" y2=\"6\"></line><line x1=\"8\" x2=\"8\" y1=\"10\" y2=\"14\"></line><line x1=\"16\" x2=\"16\" y1=\"18\" y2=\"22\"></line></svg>","MapPin":"<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"lucide lucide-map-pin\" aria-hidden=\"true\"><path d=\"M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0\"></path><circle cx=\"12\" cy=\"10\" r=\"3\"></circle></svg>","CalendarDays":"<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"lucide lucide-calendar-days\" aria-hidden=\"true\"><path d=\"M8 2v4\"></path><path d=\"M16 2v4\"></path><rect width=\"18\" height=\"18\" x=\"3\" y=\"4\" rx=\"2\"></rect><path d=\"M3 10h18\"></path><path d=\"M8 14h.01\"></path><path d=\"M12 14h.01\"></path><path d=\"M16 14h.01\"></path><path d=\"M8 18h.01\"></path><path d=\"M12 18h.01\"></path><path d=\"M16 18h.01\"></path></svg>","Clock":"<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"lucide lucide-clock\" aria-hidden=\"true\"><circle cx=\"12\" cy=\"12\" r=\"10\"></circle><polyline points=\"12 6 12 12 16 14\"></polyline></svg>","Heart":"<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"lucide lucide-heart\" aria-hidden=\"true\"><path d=\"M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z\"></path></svg>","Bookmark":"<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"lucide lucide-bookmark\" aria-hidden=\"true\"><path d=\"m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z\"></path></svg>","FileText":"<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"lucide lucide-file-text\" aria-hidden=\"true\"><path d=\"M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z\"></path><path d=\"M14 2v4a2 2 0 0 0 2 2h4\"></path><path d=\"M10 9H8\"></path><path d=\"M16 13H8\"></path><path d=\"M16 17H8\"></path></svg>","ExternalLink":"<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"lucide lucide-external-link\" aria-hidden=\"true\"><path d=\"M15 3h6v6\"></path><path d=\"M10 14 21 3\"></path><path d=\"M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6\"></path></svg>","ShieldCheck":"<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"lucide lucide-shield-check\" aria-hidden=\"true\"><path d=\"M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z\"></path><path d=\"m9 12 2 2 4-4\"></path></svg>","Building2":"<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"lucide lucide-building2\" aria-hidden=\"true\"><path d=\"M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z\"></path><path d=\"M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2\"></path><path d=\"M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2\"></path><path d=\"M10 6h4\"></path><path d=\"M10 10h4\"></path><path d=\"M10 14h4\"></path><path d=\"M10 18h4\"></path></svg>","GraduationCap":"<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"lucide lucide-graduation-cap\" aria-hidden=\"true\"><path d=\"M21.42 10.922a1 1 0 0 0-.019-1.838L12.83 5.18a2 2 0 0 0-1.66 0L2.6 9.08a1 1 0 0 0 0 1.832l8.57 3.908a2 2 0 0 0 1.66 0z\"></path><path d=\"M22 10v6\"></path><path d=\"M6 12.5V16a6 3 0 0 0 12 0v-3.5\"></path></svg>","Tag":"<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"lucide lucide-tag\" aria-hidden=\"true\"><path d=\"M12.586 2.586A2 2 0 0 0 11.172 2H4a2 2 0 0 0-2 2v7.172a2 2 0 0 0 .586 1.414l8.704 8.704a2.426 2.426 0 0 0 3.42 0l6.58-6.58a2.426 2.426 0 0 0 0-3.42z\"></path><circle cx=\"7.5\" cy=\"7.5\" r=\".5\" fill=\"currentColor\"></circle></svg>","Check":"<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"lucide lucide-check\" aria-hidden=\"true\"><path d=\"M20 6 9 17l-5-5\"></path></svg>","BookOpen":"<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"lucide lucide-book-open\" aria-hidden=\"true\"><path d=\"M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z\"></path><path d=\"M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z\"></path></svg>","Code2":"<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"lucide lucide-code-xml\" aria-hidden=\"true\"><path d=\"m18 16 4-4-4-4\"></path><path d=\"m6 8-4 4 4 4\"></path><path d=\"m14.5 4-5 16\"></path></svg>","CircleDot":"<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"lucide lucide-circle-dot\" aria-hidden=\"true\"><circle cx=\"12\" cy=\"12\" r=\"10\"></circle><circle cx=\"12\" cy=\"12\" r=\"1\"></circle></svg>","UserRound":"<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"lucide lucide-user-round\" aria-hidden=\"true\"><circle cx=\"12\" cy=\"8\" r=\"5\"></circle><path d=\"M20 21a8 8 0 0 0-16 0\"></path></svg>","Info":"<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"lucide lucide-info\" aria-hidden=\"true\"><circle cx=\"12\" cy=\"12\" r=\"10\"></circle><path d=\"M12 16v-4\"></path><path d=\"M12 8h.01\"></path></svg>","LockKeyhole":"<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"lucide lucide-lock-keyhole\" aria-hidden=\"true\"><circle cx=\"12\" cy=\"16\" r=\"1\"></circle><rect x=\"3\" y=\"10\" width=\"18\" height=\"12\" rx=\"2\"></rect><path d=\"M7 10V7a5 5 0 0 1 10 0v3\"></path></svg>","Flag":"<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"lucide lucide-flag\" aria-hidden=\"true\"><path d=\"M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z\"></path><line x1=\"4\" x2=\"4\" y1=\"22\" y2=\"15\"></line></svg>","Bell":"<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"lucide lucide-bell\" aria-hidden=\"true\"><path d=\"M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9\"></path><path d=\"M10.3 21a1.94 1.94 0 0 0 3.4 0\"></path></svg>","Image":"<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"lucide lucide-image\" aria-hidden=\"true\"><rect width=\"18\" height=\"18\" x=\"3\" y=\"3\" rx=\"2\" ry=\"2\"></rect><circle cx=\"9\" cy=\"9\" r=\"2\"></circle><path d=\"m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21\"></path></svg>","CheckCircle2":"<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"lucide lucide-circle-check\" aria-hidden=\"true\"><circle cx=\"12\" cy=\"12\" r=\"10\"></circle><path d=\"m9 12 2 2 4-4\"></path></svg>","Compass":"<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"lucide lucide-compass\" aria-hidden=\"true\"><path d=\"m16.24 7.76-1.804 5.411a2 2 0 0 1-1.265 1.265L7.76 16.24l1.804-5.411a2 2 0 0 1 1.265-1.265z\"></path><circle cx=\"12\" cy=\"12\" r=\"10\"></circle></svg>","MessageSquare":"<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"lucide lucide-message-square\" aria-hidden=\"true\"><path d=\"M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z\"></path></svg>","Send":"<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"lucide lucide-send\" aria-hidden=\"true\"><path d=\"M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.496.496 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11z\"></path><path d=\"m21.854 2.147-10.94 10.939\"></path></svg>","Sparkles":"<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"lucide lucide-sparkles\" aria-hidden=\"true\"><path d=\"M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z\"></path><path d=\"M20 3v4\"></path><path d=\"M22 5h-4\"></path><path d=\"M4 17v2\"></path><path d=\"M5 18H3\"></path></svg>","ListTodo":"<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"lucide lucide-list-todo\" aria-hidden=\"true\"><rect x=\"3\" y=\"5\" width=\"6\" height=\"6\" rx=\"1\"></rect><path d=\"m3 17 2 2 4-4\"></path><path d=\"M13 6h8\"></path><path d=\"M13 12h8\"></path><path d=\"M13 18h8\"></path></svg>","Plus":"<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"lucide lucide-plus\" aria-hidden=\"true\"><path d=\"M5 12h14\"></path><path d=\"M12 5v14\"></path></svg>","Pencil":"<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"lucide lucide-pencil\" aria-hidden=\"true\"><path d=\"M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z\"></path><path d=\"m15 5 4 4\"></path></svg>","RotateCcw":"<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"lucide lucide-rotate-ccw\" aria-hidden=\"true\"><path d=\"M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8\"></path><path d=\"M3 3v5h5\"></path></svg>","Mail":"<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"lucide lucide-mail\" aria-hidden=\"true\"><rect width=\"20\" height=\"16\" x=\"2\" y=\"4\" rx=\"2\"></rect><path d=\"m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7\"></path></svg>","CircleAlert":"<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"lucide lucide-circle-alert\" aria-hidden=\"true\"><circle cx=\"12\" cy=\"12\" r=\"10\"></circle><line x1=\"12\" x2=\"12\" y1=\"8\" y2=\"12\"></line><line x1=\"12\" x2=\"12.01\" y1=\"16\" y2=\"16\"></line></svg>","CheckCheck":"<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"lucide lucide-check-check\" aria-hidden=\"true\"><path d=\"M18 6 7 17l-5-5\"></path><path d=\"m22 10-7.5 7.5L13 16\"></path></svg>","LogIn":"<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"lucide lucide-log-in\" aria-hidden=\"true\"><path d=\"M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4\"></path><polyline points=\"10 17 15 12 10 7\"></polyline><line x1=\"15\" x2=\"3\" y1=\"12\" y2=\"12\"></line></svg>","FolderKanban":"<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"lucide lucide-folder-kanban\" aria-hidden=\"true\"><path d=\"M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z\"></path><path d=\"M8 10v4\"></path><path d=\"M12 10v2\"></path><path d=\"M16 10v6\"></path></svg>"};</script>
+<script>(function attachDiscoverySearch(root) {
+  const normalize = value => String(value || '')
+    .toLowerCase()
+    .replace(/[\s·•—–_\-:：，,。.!！?？()（）\[\]【】]/g, '');
+
+  const textScore = (value, query, exact, starts, contains) => {
+    const normalized = normalize(value);
+    if (!normalized) return 0;
+    if (normalized === query) return exact;
+    if (normalized.startsWith(query)) return starts;
+    if (normalized.includes(query)) return contains;
+    return 0;
+  };
+
+  const tagScore = (tag, query) => Math.max(
+    textScore(tag.name, query, 76, 68, 60),
+    ...(tag.aliases || []).map(alias => textScore(alias, query, 78, 70, 62))
+  );
+
+  const recordScore = (record, query, tagMap) => {
+    const linkedTagScore = (record.tags || []).reduce((best, id) => {
+      const tag = tagMap.get(id);
+      return tag ? Math.max(best, tagScore(tag, query)) : best;
+    }, 0);
+    return Math.max(
+      textScore(record.title, query, 100, 94, 88),
+      textScore(record.short, query, 98, 92, 86),
+      textScore(record.organizer, query, 72, 66, 58),
+      linkedTagScore
+    );
+  };
+
+  const getSearchSuggestions = ({ query, channel, topics = [], tags = [], casualItems = [], selectedTagIds = [] }) => {
+    const normalizedQuery = normalize(query);
+    if (!normalizedQuery) return { direct: [], tags: [] };
+    const tagMap = new Map(tags.map(tag => [tag.id, tag]));
+    const source = channel === 'casual'
+      ? casualItems.map(item => ({ ...item, kind: 'item' }))
+      : topics.filter(topic => topic.channel === channel).map(topic => ({ ...topic, kind: 'topic' }));
+    const direct = source
+      .map(record => ({ record, score: recordScore(record, normalizedQuery, tagMap) }))
+      .filter(entry => entry.score > 0)
+      .sort((left, right) => right.score - left.score || left.record.title.localeCompare(right.record.title, 'zh-CN'))
+      .slice(0, 5)
+      .map(entry => entry.record);
+    const selected = new Set(selectedTagIds);
+    const matchedTags = tags
+      .filter(tag => !selected.has(tag.id))
+      .map(tag => ({ tag, score: tagScore(tag, normalizedQuery) }))
+      .filter(entry => entry.score > 0)
+      .sort((left, right) => right.score - left.score || left.tag.name.localeCompare(right.tag.name, 'zh-CN'))
+      .slice(0, 6)
+      .map(entry => entry.tag);
+    return { direct, tags: matchedTags };
+  };
+
+  const api = { getSearchSuggestions, normalize };
+  if (typeof module !== 'undefined' && module.exports) module.exports = api;
+  if (root) root.DiscoverySearch = api;
+})(typeof window !== 'undefined' ? window : globalThis);
+
+</script>
+<script>(function (root, factory) {
+  const api = factory();
+  if (typeof module === 'object' && module.exports) module.exports = api;
+  else root.Collaboration = api;
+})(typeof window === 'undefined' ? globalThis : window, function () {
+  function canViewContact(store, postId, actor) {
+    return !!store.teams[postId] && !!store.posts[postId]?.members.includes(actor);
+  }
+  function reduce(source, action) {
+    const store = structuredClone(source);
+    if (action.type === 'apply') {
+      const post = store.posts[action.postId];
+      if (!action.verified) throw new Error('请先完成校园认证');
+      if (!post) throw new Error('招募不存在');
+      if (post.owner === action.actor) throw new Error('不能申请自己的招募');
+      if (post.status !== 'open' || post.members.length >= post.capacity) throw new Error('当前没有可用名额');
+      if (post.members.includes(action.actor)) throw new Error('你已在该团队中');
+      if (store.applications.some(a => a.postId === post.id && a.applicant === action.actor && ['pending', 'chatting', 'joined'].includes(a.status))) throw new Error('已经申请，请查看申请状态');
+      if (['role', 'experience', 'hours', 'reason'].some(key => !action.fields?.[key]?.trim())) throw new Error('请补全角色、经验、时间与原因');
+      let id = 'app-' + (store.applications.length + 1);
+      while (store.applications.some(a => a.id === id)) id += '-new';
+      store.applications.push({ id, postId: post.id, applicant: action.actor, status: 'pending', confirmations: [], fields: action.fields });
+      return store;
+    }
+    const app = store.applications.find(a => a.id === action.appId);
+    const post = app && store.posts[app.postId];
+    if (!app || !post) throw new Error('申请不存在');
+    if (![post.owner, app.applicant].includes(action.actor)) throw new Error('没有操作权限');
+    if (['accept', 'reject'].includes(action.type)) {
+      if (action.actor !== post.owner) throw new Error('只有发布者有处理权限');
+      if (app.status !== 'pending') throw new Error('这条申请已处理');
+      if (action.type === 'accept' && (post.status !== 'open' || post.members.length >= post.capacity)) throw new Error('当前没有可用名额');
+      app.status = action.type === 'accept' ? 'chatting' : 'rejected';
+      if (action.type === 'accept') store.messages[app.id] = [];
+    } else if (action.type === 'withdraw') {
+      if (action.actor !== app.applicant) throw new Error('只有申请者有撤回权限');
+      if (!['pending', 'chatting'].includes(app.status)) throw new Error('申请已结束');
+      app.status = 'withdrawn'; app.confirmations = [];
+    } else if (action.type === 'close') {
+      if (app.status !== 'chatting') throw new Error('沟通已结束');
+      app.status = 'closed'; app.confirmations = [];
+    } else if (action.type === 'confirm') {
+      if (app.status !== 'chatting') throw new Error('需在有效沟通中确认');
+      if (post.status !== 'open' || post.members.length >= post.capacity) throw new Error('当前没有可用名额');
+      if (!app.confirmations.includes(action.actor)) app.confirmations.push(action.actor);
+      if (app.confirmations.includes(post.owner) && app.confirmations.includes(app.applicant)) {
+        if (!post.members.includes(app.applicant)) post.members.push(app.applicant);
+        app.status = 'joined';
+        store.teams[post.id] ||= { postId: post.id, tasks: [], plan: null };
+        if (post.members.length >= post.capacity) post.status = 'full';
+      }
+    } else if (action.type === 'message') {
+      if (!['chatting', 'joined'].includes(app.status)) throw new Error('沟通尚未开始或已结束');
+      const text = String(action.text || '').trim();
+      if (!text) throw new Error('请输入消息');
+      const safe = app.status === 'joined' ? text : text.replace(/1[3-9]\d{9}/g, '[联系方式已隐藏]').replace(/(?:微信|wechat|wx|qq)\s*[:：]?\s*[A-Za-z0-9_-]{5,}/gi, '[联系方式已隐藏]');
+      (store.messages[app.id] ||= []).push({ from: action.actor, text: safe, time: action.time || '刚刚' });
+    } else throw new Error('不支持的操作');
+    return store;
+  }
+  return { reduce, canViewContact };
+});
+</script>
+<script>(function (root, factory) {
+  const api = factory();
+  if (typeof module === 'object' && module.exports) module.exports = api;
+  else root.Publishing = api;
+})(typeof window === 'undefined' ? globalThis : window, function () {
+  const questionOrder = ['time', 'location', 'capacity', 'requirement'];
+  const labels = {
+    time: '计划什么时候进行？',
+    location: '计划在哪里进行？',
+    capacity: '团队一共需要几人？',
+    requirement: '对伙伴有什么要求？',
+  };
+
+  function canCreate(identity, kind) {
+    if (!identity?.verified) return { allowed: false, reason: '完成校园身份认证后才能创建内容' };
+    if (kind === 'organization_topic' && !['publisher', 'owner'].includes(identity.orgRole)) {
+      return { allowed: false, reason: '需要认证组织授予发布者权限' };
+    }
+    if (kind === 'official_topic' && identity.siteRole !== 'operator') {
+      return { allowed: false, reason: '只有平台内容运营可以发布官方话题' };
+    }
+    return { allowed: true, reason: '' };
+  }
+
+  function activeTags(tags) {
+    return tags.filter(tag => tag.active !== false);
+  }
+
+  function tagMatches(text, tag) {
+    const source = String(text || '').toLowerCase();
+    return [tag.name, ...(tag.aliases || [])].some(name => source.includes(String(name).toLowerCase()));
+  }
+
+  function validateTagIds(ids, tags) {
+    const allowed = new Set(activeTags(tags).map(tag => tag.id));
+    return [...new Set(ids)].filter(id => allowed.has(id));
+  }
+
+  function field(value = '', status = 'unasked') {
+    return { value, status };
+  }
+
+  function createDraft(kind, text, context = {}) {
+    const source = String(text || '').trim();
+    const tagIds = activeTags(context.tags || []).filter(tag => tagMatches(source, tag)).map(tag => tag.id);
+    const requirementNone = /(无所谓|无要求|没有要求|不需要)/.test(source);
+    const timeMatch = source.match(/(今天|今晚|明天|周[一二三四五六日天](?:上午|下午|晚上)?|本周末|下周末)/);
+    const locationMatch = source.match(/(仙林|鼓楼)(?:校区)?|线上|体育馆|图书馆|篮球场|田径场/);
+    const capacityMatch = source.match(/([一二两三四五六七八九十\d]+)个?人/);
+    const inferredTitle = kind === 'recruitment'
+      ? '寻找一起完成活动的队友'
+      : tagIds.length ? `一起${context.tags.find(tag => tag.id === tagIds[0])?.name || '参加活动'}` : '发起一次校园邀约';
+    return {
+      kind,
+      rawText: source,
+      title: inferredTitle,
+      summary: source,
+      topicId: context.topicId || null,
+      tagIds,
+      fields: {
+        time: timeMatch ? field(timeMatch[0], 'answered') : field(),
+        location: locationMatch ? field(locationMatch[0].includes('校区') ? locationMatch[0] : locationMatch[0] + (/仙林|鼓楼/.test(locationMatch[0]) ? '校区' : ''), 'answered') : field(),
+        capacity: capacityMatch ? field(capacityMatch[1].replace('一', '1').replace('两', '2').replace('二', '2').replace('三', '3').replace('四', '4'), 'answered') : field(),
+        requirement: requirementNone ? field('无要求', 'none') : field(),
+      },
+    };
+  }
+
+  function answerDraft(source, key, value, action = 'answer') {
+    const draft = structuredClone(source);
+    if (!draft.fields[key]) throw new Error('未知字段');
+    const terminal = {
+      none: { value: key === 'requirement' ? '无要求' : '无', status: 'none' },
+      unknown: { value: '暂时不知道', status: 'unknown' },
+      skip: { value: '待商定', status: 'skipped' },
+    };
+    if (terminal[action]) draft.fields[key] = terminal[action];
+    else {
+      const clean = String(value || '').trim();
+      if (!clean) throw new Error('请输入内容，或选择无要求、暂时不知道、待商定');
+      draft.fields[key] = { value: clean, status: 'answered' };
+    }
+    return draft;
+  }
+
+  function nextQuestion(draft) {
+    const key = questionOrder.find(name => draft.fields[name]?.status === 'unasked');
+    return key ? { field: key, text: labels[key] } : null;
+  }
+
+  function validateForPreview(draft) {
+    const errors = [];
+    if (!String(draft.title || '').trim()) errors.push('缺少标题');
+    if (!String(draft.summary || '').trim()) errors.push('缺少简介');
+    if (!draft.tagIds?.length) errors.push('至少选择一个活动标签');
+    if (draft.kind === 'recruitment' && !draft.topicId) errors.push('赛事招募必须关联话题');
+    if (draft.fields?.capacity?.status === 'unasked') errors.push('请确认团队人数或标记为待商定');
+    return errors;
+  }
+
+  function topicKey(topic) {
+    return [topic.seriesId, topic.edition, topic.organizerId].map(value => String(value || '').trim().toLowerCase()).join('::');
+  }
+
+  function findDuplicateTopic(candidate, topics) {
+    const key = topicKey(candidate);
+    return topics.find(topic => topicKey(topic) === key) || null;
+  }
+
+  return { canCreate, createDraft, answerDraft, nextQuestion, validateTagIds, validateForPreview, topicKey, findDuplicateTopic };
+});
+</script>
+<script>
+const $ = id => document.getElementById(id);
+const escapeHTML = value => String(value).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const icon = name => window.ICONS[name] || '';
+const hydrateIcons = () => document.querySelectorAll('[data-icon]').forEach(node => {node.innerHTML = icon(node.dataset.icon);});
+const tags = [
+ {id:'model',name:'数学建模',kind:'topic',aliases:['数模','建模','数学模型']},
+ {id:'code',name:'程序设计',kind:'topic',aliases:['编程','写代码','码代码']},
+ {id:'ai',name:'人工智能',kind:'topic',aliases:['ai','大模型','智能体']},
+ {id:'innovation',name:'创新创业',kind:'topic',aliases:['双创','创业']},
+ {id:'badminton',name:'羽毛球',kind:'topic',aliases:['羽球','羽毛','打羽毛球']},
+ {id:'basketball',name:'篮球',kind:'topic',aliases:['打篮球','投篮']},
+ {id:'running',name:'跑步',kind:'topic',aliases:['夜跑','慢跑']},
+ {id:'reading',name:'阅读交流',kind:'topic',aliases:['读书','读书会']},
+ {id:'study',name:'学习自习',kind:'topic',aliases:['自习','学习搭子']},
+ {id:'photo',name:'摄影',kind:'topic',aliases:['拍照','拍摄']},
+ {id:'national',name:'国家级',kind:'level',aliases:['国赛','国家级赛事','全国赛']},
+ {id:'school',name:'校级',kind:'level',aliases:['校赛','校级赛事']},
+ {id:'college',name:'学院级',kind:'level',aliases:['院赛','学院比赛']},
+ {id:'cs-org',name:'计算机学院',kind:'org',aliases:['计院','计算机系']},
+ {id:'badminton-org',name:'羽毛球社',kind:'org',aliases:['羽协','羽毛球协会']},
+ {id:'reading-org',name:'书友社',kind:'org',aliases:['读书社']},
+ {id:'photo-org',name:'摄影社',kind:'org',aliases:['摄影协会']}
+];
+const tagById = id => tags.find(t => t.id === id);
+const channelDefs = {
+ official:{name:'官方赛事与项目',short:'官方赛事',subtitle:'权威信息 · 赛事资料 · 参赛组队',icon:'Trophy',noun:'话题'},
+ organization:{name:'认证组织活动',short:'组织活动',subtitle:'学院 · 书院 · 认证社团',icon:'BadgeCheck',noun:'话题'},
+ casual:{name:'同学自主组队',short:'自主组队',subtitle:'课程与科研 · 项目协作 · 日常搭子',icon:'Users',noun:'邀约'}
+};
+const topics = [
+ {id:'math-2026',channel:'official',title:'大学生数学建模竞赛 · 2026',short:'数学建模',cover:'blue',icon:'Trophy',source:'赛事官网收录',organizer:'赛事组委会',tags:['national','model'],summary:'围绕实际问题建立数学模型，用分析、编程与论文协作完成参赛作品。',date:'2026-09-12',dateLabel:'09.12 报名截止',followers:328,campus:'不限校区',group:true,capacity:'每队 3 人，以官方规则为准',teams:[{title:'数模队招募论文写作队友',name:'小王',need:'论文写作',summary:'已有建模和 Python 分工，寻找愿意一起打磨论文的队友。',slots:'2 / 3 人',skills:['数学建模','论文写作']},{title:'一起完成第一次数学建模参赛',name:'小林',need:'编程 / 建模',summary:'以完整参赛为目标，晚间可以稳定投入两个小时。',slots:'1 / 3 人',skills:['Python','数学建模']}]},
+ {id:'ai-2026',channel:'official',title:'校园 AI 应用创新挑战赛',short:'AI 应用创新',cover:'green',icon:'Code2',source:'学校教务通知收录',organizer:'学校教务部门',tags:['school','ai','innovation'],summary:'从真实校园问题出发，设计一个能够演示和验证效果的智能应用。',date:'2026-09-20',dateLabel:'09.20 报名截止',followers:186,campus:'不限校区',group:true,capacity:'每队 2–4 人',teams:[{title:'校园工具方向，招前端伙伴',name:'小陈',need:'前端开发',summary:'题目已确定，希望一起完成可用的界面和演示流程。',slots:'2 / 4 人',skills:['前端开发','人工智能']}]},
+ {id:'programming-2026',channel:'official',title:'大学生程序设计挑战赛',short:'程序设计',cover:'stone',icon:'Code2',source:'赛事官网收录',organizer:'赛事组委会',tags:['national','code'],summary:'面向算法与程序设计的个人挑战，收录报名方式、赛制和备赛资料。',date:'2026-09-18',dateLabel:'09.18 报名截止',followers:241,campus:'不限校区',group:false,capacity:'个人参赛',teams:[]},
+ {id:'innovation-2026',channel:'official',title:'大学生创新创业项目征集',short:'创新创业',cover:'rose',icon:'Flag',source:'学校创新中心通知收录',organizer:'学校创新中心',tags:['school','innovation'],summary:'围绕创新实践形成项目方案，寻找不同专业伙伴共同推进原型验证。',date:'2026-09-25',dateLabel:'09.25 申报截止',followers:109,campus:'不限校区',group:true,capacity:'每队 3–5 人',teams:[{title:'低碳校园项目招募产品与调研伙伴',name:'小周',need:'用户调研',summary:'已有技术原型，想补充真实需求访谈和项目策划。',slots:'2 / 5 人',skills:['用户调研','项目策划']}]},
+ {id:'badminton-cup',channel:'organization',title:'羽毛球社秋季双打交流赛',short:'秋季双打交流赛',cover:'green',icon:'CircleDot',source:'认证组织发布',organizer:'羽毛球社',tags:['badminton-org','badminton'],summary:'面向全校同学的双打交流活动，可自带队友，也可以在话题内寻找搭档。',date:'2026-09-13',dateLabel:'09.13 14:00 开始',followers:86,campus:'仙林校区',group:true,capacity:'双人搭档',teams:[{title:'找一位一起参加交流赛的搭档',name:'小方',need:'双打配合',summary:'平时每周打一到两次，右手持拍，重在交流。',slots:'1 / 2 人',skills:['羽毛球']}]},
+ {id:'ai-talk',channel:'organization',title:'计算机学院 AI 实践分享会',short:'AI 实践分享',cover:'blue',icon:'GraduationCap',source:'认证组织发布',organizer:'计算机学院',tags:['cs-org','ai'],summary:'从课程项目到实际应用，分享智能体设计、工具调用和产品验证经验。',date:'2026-09-10',dateLabel:'09.10 19:00 开始',followers:124,campus:'仙林校区',group:false,capacity:'按人报名，共 60 席',teams:[]},
+ {id:'reading-night',channel:'organization',title:'书友社 · 九月读书交流夜',short:'九月读书交流',cover:'rose',icon:'BookOpen',source:'认证组织发布',organizer:'书友社',tags:['reading-org','reading'],summary:'带一本最近读过的书，围坐交流。无需组队，按人参加。',date:'2026-09-11',dateLabel:'09.11 18:30 开始',followers:42,campus:'鼓楼校区',group:false,capacity:'按人报名，共 20 席',teams:[]},
+ {id:'photo-walk',channel:'organization',title:'摄影社 · 校园影像工作坊',short:'校园影像工作坊',cover:'stone',icon:'Image',source:'认证组织发布',organizer:'摄影社',tags:['photo-org','photo'],summary:'从构图与光线入门，跟随社团完成一次校园摄影练习。',date:'2026-09-12',dateLabel:'09.12 15:00 开始',followers:57,campus:'仙林校区',group:false,capacity:'按人报名，共 15 席',teams:[]}
+];
+const invitations = [
+ {id:'play-badminton',title:'今晚羽毛球，双打还差一位',tags:['badminton'],date:'2026-09-08',time:'18:30',end:'20:00',campus:'仙林校区',place:'校内体育馆',author:'小方',major:'大二 · 理学院',total:4,joined:3,summary:'场地已预约，普通业余水平，轻松打球。自带球拍即可，不要求比赛经验。',requirement:'会基本发球和接球即可，按时到场。',cost:'无平台收费；本次场地免费',status:'open'},
+ {id:'basketball',title:'傍晚篮球半场，一起活动一下',tags:['basketball'],date:'2026-09-08',time:'17:30',end:'19:00',campus:'仙林校区',place:'校内篮球场',author:'小赵',major:'大一 · 工学院',total:6,joined:4,summary:'打半场，节奏轻松，欢迎新同学加入。',requirement:'没有技术门槛，注意碰撞，带好饮水。',cost:'免费',status:'open'},
+ {id:'evening-run',title:'校园慢跑三公里，跑完一起拉伸',tags:['running'],date:'2026-09-08',time:'19:00',end:'19:40',campus:'鼓楼校区',place:'校内田径场',author:'小许',major:'大二 · 文学院',total:4,joined:4,summary:'不拼速度，按舒适配速慢跑，结束后统一拉伸。',requirement:'运动鞋，身体状态适合运动。',cost:'免费',status:'full'},
+ {id:'study-tomorrow',title:'明早图书馆自习，找个互相督促的搭子',tags:['study'],date:'2026-09-09',time:'09:00',end:'11:30',campus:'仙林校区',place:'校内图书馆',author:'小吴',major:'大三 · 商学院',total:2,joined:1,summary:'各自学习，开始前说一下目标，结束后简单复盘。',requirement:'安静自习，座位自行预约。',cost:'免费',status:'open'},
+ {id:'photo-campus',title:'周六校园摄影散步，手机也欢迎',tags:['photo'],date:'2026-09-12',time:'16:00',end:'17:30',campus:'鼓楼校区',place:'校内公共步行区',author:'小唐',major:'大二 · 艺术学院',total:4,joined:2,summary:'只在校内拍摄，练习观察光线和建筑。手机、相机都可以。',requirement:'尊重他人，不未经同意拍摄可识别的人像。',cost:'免费',status:'open'}
+];
+const freshFilter = () => ({tags:[],level:'',campus:'',day:'',open:false,sort:'recommended'});
+let state = {channel:'official',view:'browse',detailId:null,subtab:'overview',filters:{official:freshFilter(),organization:freshFilter(),casual:freshFilter()},followed:new Set(),mobile:false,casualMode:'projects',inbox:'received',selectedApp:null,teamId:null,teamTab:'overview',profileTab:'overview',aiFailure:false};
+const filter = () => state.filters[state.channel];
+const badge = id => {const t=tagById(id); return t ? `<span class="badge ${t.kind}">${escapeHTML(t.name)}</span>`:'';};
+function renderChannels(){ $('channels').innerHTML=Object.entries(channelDefs).map(([key,c])=>`<button type="button" class="channel ${state.channel===key?'active':''}" data-channel="${key}" aria-current="${state.channel===key?'page':'false'}"><span class="channel-icon">${icon(c.icon)}</span><span><strong>${c.name}</strong><small>${c.subtitle}</small></span></button>`).join(''); }
+function closeSuggestions(){ $('suggestions').hidden=true; $('tag-search').setAttribute('aria-expanded','false'); }
+function changeChannel(key){state.channel=key;state.view='browse';state.detailId=null;state.mobile=false;render();window.scrollTo(0,0);}
+function render(){
+ renderChannels(); $('browse').hidden=state.view!=='browse';$('detail').hidden=state.view!=='detail';$('policy').hidden=state.view!=='policy';
+ $('channels').hidden=!['browse','detail'].includes(state.view);$('workspace').hidden=!['messages','teams','team','profile'].includes(state.view);
+ $('view-browse').classList.toggle('active',state.view!=='policy');$('view-policy').classList.toggle('active',state.view==='policy');
+ renderGlobalNav();if(state.view==='browse')renderBrowse();if(state.view==='detail')renderDetail();if(!$('workspace').hidden)renderWorkspace();hydrateIcons();persistDemo();
+}
+function renderBrowse(){
+ const f=filter();$('tag-search').value='';closeSuggestions();$('list-title').textContent=channelDefs[state.channel].name;
+ $('tag-search').placeholder=state.channel==='casual'?'搜索具体邀约、项目或标准标签':'搜索话题名称、简称或标准标签';
+ $('sort').innerHTML=state.channel==='casual'?'<option value="recommended">时间最近</option><option value="few">缺人最少</option>':'<option value="recommended">推荐</option><option value="soon">时间最近</option><option value="popular">关注最多</option>';
+ $('sort').value=f.sort;renderSelected();renderList();setMobileFilters();
+}
+function renderSelected(){ $('selected-tags').innerHTML=filter().tags.map(id=>`<span class="chip">${escapeHTML(tagById(id).name)}<button type="button" data-remove="${id}" aria-label="取消${escapeHTML(tagById(id).name)}" title="取消${escapeHTML(tagById(id).name)}">${icon('X')}</button></span>`).join(''); }
+function matchingItems(){
+ if(state.channel==='casual'&&state.casualMode==='projects')return matchingProjects();
+ const f=filter();let items=state.channel==='casual'?[...invitations]:topics.filter(t=>t.channel===state.channel);
+ items=items.filter(t=>f.tags.every(id=>t.tags.includes(id))&&(!f.level||t.tags.includes(f.level))&&(!f.campus||t.campus===f.campus)&&(!f.open||t.status==='open')&&(!f.day||(f.day==='today'?t.date==='2026-09-08':f.day==='tomorrow'?t.date==='2026-09-09':['2026-09-12','2026-09-13'].includes(t.date))));
+ if(f.sort==='soon'||(state.channel==='casual'&&f.sort!=='few'))items.sort((a,b)=>(a.date+(a.time||'')).localeCompare(b.date+(b.time||'')));
+ if(f.sort==='popular')items.sort((a,b)=>b.followers-a.followers);if(f.sort==='few')items.sort((a,b)=>(a.status==='full')-(b.status==='full')||(a.total-a.joined)-(b.total-b.joined));return items;
+}
+function renderList(){
+ syncRecruitments();
+ if(state.channel==='casual'&&state.casualMode==='projects'){renderProjectList();return;}
+ const items=matchingItems(),c=channelDefs[state.channel];const f=filter();
+ $('result-count').textContent=`${items.length} 个${c.noun}${f.tags.length?' · '+f.tags.map(id=>tagById(id).name).join(' + '):''}${state.channel==='casual'?' · 2026.09.08 周二':' · 先了解活动，再决定参与'} `;
+ const count=f.tags.length;$('mobile-filter-label').textContent='搜索'+(count?` (${count})`:'');
+ if(!items.length){$('list-content').innerHTML=(state.channel==='casual'?casualModeSwitch():'')+`<div class="empty">${icon('Search')}<h3>暂无符合条件的${c.noun}</h3><p>可以减少标签，或清空筛选后查看其他内容。</p><button type="button" class="button" data-action="clear">清空筛选</button></div>`;return;}
+ if(state.channel==='casual'){
+ let previous='';let content='';items.forEach(t=>{if(t.date!==previous){content+=`<div class="day-heading"><strong>${dateHeading(t.date)}</strong><span>${t.date.slice(5).replace('-','月')}日</span></div>`;previous=t.date;}content+=invitationRow(t);});
+ $('list-content').innerHTML=casualModeSwitch()+`<div class="invite-note">${icon('MapPin')}<span>校内具体邀约 · 公开展示场所范围，集合细节在确认后沟通</span></div>${content}`;
+ }else $('list-content').innerHTML=`<div class="topic-grid">${items.map(topicCard).join('')}</div>`;
+}
+function dateHeading(date){return({'2026-09-08':'今天 · 周二','2026-09-09':'明天 · 周三','2026-09-12':'周六','2026-09-13':'周日'})[date]||date;}
+function topicCard(t){return `<article class="topic-card"><button type="button" class="cover ${t.cover}" data-open="${t.id}" aria-label="查看${t.title}"><span><small>${state.channel==='official'?'COMPETITION / PROJECT':'CAMPUS / COMMUNITY'}</small><strong>${t.short}</strong></span><span class="cover-icon">${icon(t.icon)}</span></button><div class="card-body"><div class="card-source">${icon(t.channel==='official'?'ShieldCheck':'BadgeCheck')}${t.source} · ${t.organizer}</div><button type="button" class="card-title" data-open="${t.id}">${t.title}</button><p class="summary">${t.summary}</p><div class="badges">${t.tags.map(badge).join('')}</div><div class="card-date meta">${icon('CalendarDays')}${t.dateLabel}</div><div class="card-foot"><span class="meta">${icon('Heart')}<span class="count">${t.followers+Number(state.followed.has(t.id))}</span>人关注</span><button type="button" class="text-button" data-open="${t.id}" ${t.group?'data-subtab="teams"':''}>${t.group?`${t.teams.length} 条组队招募`:'查看活动详情'}${icon('ArrowRight')}</button></div></div></article>`;}
+function invitationRow(t){return `<article class="invitation"><div class="time-rail">${t.time}<small>至 ${t.end}</small></div><div class="invite-main"><button type="button" class="card-title" data-open="${t.id}">${t.title}</button><div class="meta">${icon('MapPin')}${t.campus} · ${t.place}</div><div class="badges">${t.tags.map(badge).join('')}<span class="badge">${t.joined}/${t.total} 人</span></div><div class="invite-author"><span class="avatar">${t.author.slice(-1)}</span>${t.author}${icon('BadgeCheck')}<span>校园已认证</span></div></div><div class="invite-actions"><span class="${t.status==='open'?'slot':'muted'}">${t.status==='open'?'还差 '+(t.total-t.joined)+' 人':'已满员'}</span><button type="button" class="button" data-open="${t.id}">查看邀约${icon('ChevronRight')}</button></div></article>`;}
+function openDetail(id,subtab='overview'){const record=topics.find(t=>t.id===id)||invitations.find(t=>t.id===id)||projects.find(t=>t.id===id);if(!record)return;state.channel=record.channel||'casual';if(state.channel==='casual')state.casualMode=projects.some(p=>p.id===id)?'projects':'daily';state.view='detail';state.detailId=id;state.subtab=subtab;render();window.scrollTo(0,0);}
+function backToList(){state.view='browse';state.detailId=null;render();window.scrollTo(0,0);}
+function renderDetail(){
+ if(projects.some(t=>t.id===state.detailId)){renderProjectDetail(projects.find(t=>t.id===state.detailId));return;}
+ syncRecruitments();
+ const t=topics.find(t=>t.id===state.detailId)||invitations.find(t=>t.id===state.detailId);const isInvite=!t.channel;
+ const crumb=`<div class="breadcrumb"><button type="button" class="text-button" data-action="back">${icon('ArrowLeft')}返回${isInvite?'校园搭子':'话题列表'}</button>${icon('ChevronRight')}<span>${isInvite?'邀约详情':'话题详情'}</span></div>`;
+ if(isInvite){$('detail').innerHTML=crumb+invitationDetail(t);const disabled=$('detail').querySelector('.detail-side button');disabled.outerHTML=applicationAction(t.id);return;}
+ const tabNames=[['overview','活动介绍'],['resources','相关资料'],...(t.group?[['teams',`组队招募 (${t.teams.length})`]]:[])];if(!t.group&&state.subtab==='teams')state.subtab='overview';
+ $('detail').innerHTML=crumb+`<div class="detail-layout"><section><div class="cover detail-cover ${t.cover}"><span><small>TOPIC / ${t.channel==='official'?'OFFICIAL SOURCE':'VERIFIED ORGANIZATION'}</small><strong>${t.short}</strong></span><span class="cover-icon">${icon(t.icon)}</span></div><div class="detail-heading"><div class="card-source">${icon('ShieldCheck')}${t.source} · ${t.organizer}</div><h1>${t.title}</h1><div class="badges">${t.tags.map(badge).join('')}</div><p>${t.summary}</p></div><nav class="subtabs" aria-label="话题内容">${tabNames.map(([key,label])=>`<button type="button" data-subtab-change="${key}" class="${state.subtab===key?'active':''}" aria-current="${state.subtab===key?'page':'false'}">${label}</button>`).join('')}</nav><div>${topicSection(t)}</div></section><aside class="detail-side"><section class="side-section"><h3>关注这个话题</h3><div class="side-stat">${icon('Heart')}<strong>${t.followers+Number(state.followed.has(t.id))}</strong>人关注</div><button type="button" class="button ${state.followed.has(t.id)?'chosen':''}" data-follow="${t.id}">${icon(state.followed.has(t.id)?'Check':'Bookmark')}${state.followed.has(t.id)?'已关注':'关注话题'}</button></section><section class="side-section"><h3>${t.group?'寻找队友':'活动参与'}</h3><p>${t.group?'本话题下有 '+t.teams.length+' 条学生招募。组队确认不等于已完成赛事官方报名。':'本活动按个人参与，不设置组队区。'}</p><button type="button" class="button primary" ${t.group?'data-subtab-change="teams"':'data-info="registration"'}>${t.group?'查看组队招募':'查看报名信息'}${icon('ArrowRight')}</button></section><section class="side-section"><h3>来源与更新</h3><div class="source-box"><span>${icon('Building2')}${t.organizer}</span><span>${icon('Clock')}示例核验时间：2026.09.08</span></div><p>${t.channel==='official'?'收录官方公开信息，不代表平台是赛事主办方。':'组织身份已核验；具体活动级别以活动通知为准。'}</p><button type="button" class="text-button small" data-info="source" style="margin-top:10px">查看来源记录${icon('ExternalLink')}</button></section></aside></div>`;
+}
+function topicSection(t){
+ if(state.subtab==='resources')return `<section class="article-section"><h3>相关资料</h3>${['活动通知与报名说明',t.group?'组队规则与参赛要求':'参与须知与时间安排','资料更新记录'].map((name,i)=>`<div class="resource-row">${icon('FileText')}<div class="resource-text"><strong>${name}</strong><small>${t.organizer} · 示例条目</small></div><button type="button" class="button" data-resource="${i}">查看${icon('ExternalLink')}</button></div>`).join('')}</section>`;
+ if(state.subtab==='teams')return `<section>${t.teams.map((team,i)=>`<article class="team-row"><div class="team-row-head"><h3>${team.title}</h3>${statusBadge(demoStore.posts[t.id+'-team-'+i].status)}</div><p>${team.summary}</p><div class="badges">${team.skills.map(skill=>`<span class="badge topic">${skill}</span>`).join('')}</div><div class="team-row-foot"><span class="meta">${icon('UserRound')}${team.name} · 校园已认证 · ${team.slots}</span><button type="button" class="button" data-team="${i}">查看招募${icon('ChevronRight')}</button></div></article>`).join('')}</section>`;
+ return `<section class="article-section"><h3>活动概况</h3><p>${t.summary}本页统一整理活动信息与来源资料${t.group?'，学生招募集中在独立的组队区，避免散落在不同通知下':''}。</p><div class="fact-grid"><div class="fact"><small>关键时间</small><strong>${t.dateLabel}</strong></div><div class="fact"><small>参赛 / 活动人数</small><strong>${t.capacity}</strong></div><div class="fact"><small>活动归属</small><strong>${t.organizer}</strong></div><div class="fact"><small>校区范围</small><strong>${t.campus}</strong></div></div></section><section class="article-section"><h3>${t.group?'组队与报名':'参与安排'}</h3><p>${t.group?'先核对参赛资格、人数与截止时间，再联系合适的队友。双方在平台确认组队后，仍需按主办方要求另行完成正式报名。':'本活动按个人参与。请先查看相关资料中的报名渠道与参与要求，不需要创建队伍或招募帖。'}</p></section>`;
+}
+function invitationDetail(t){return `<div class="detail-layout"><section><div class="invite-detail-banner">${icon('Clock')}<strong>${dateHeading(t.date)} ${t.time}–${t.end}</strong><span class="small">${t.status==='full'?'已满员':'还差 '+(t.total-t.joined)+' 人'}</span></div><div class="detail-heading"><h1>${t.title}</h1><div class="badges">${t.tags.map(badge).join('')}<span class="badge">校内邀约</span></div></div><div class="invite-person"><span class="avatar">${t.author.slice(-1)}</span><div><strong>${t.author}</strong> <span class="badge org">校园已认证</span><p>${t.major}</p></div></div><section class="article-section"><h3>这次打算</h3><p>${t.summary}</p><div class="fact-grid"><div class="fact"><small>活动地点</small><strong>${t.campus} · ${t.place}</strong></div><div class="fact"><small>活动时间</small><strong>${t.date} ${t.time}–${t.end}</strong></div><div class="fact"><small>当前人数</small><strong>${t.joined} / ${t.total} 人（含发起人）</strong></div><div class="fact"><small>费用情况</small><strong>${t.cost}</strong></div></div></section><section class="article-section"><h3>希望你</h3><p>${t.requirement}</p></section><section class="article-section"><h3>参与确认</h3><div class="flowline"><span>表达意向</span>${icon('ArrowRight')}<span>临时沟通</span>${icon('ArrowRight')}<span>双方确认</span></div><p>具体集合位置在确认后沟通。请勿在公开内容中提供手机号或私人住址。</p></section></section><aside class="detail-side"><section class="side-section"><h3>本次邀约</h3><div class="side-stat">${icon('Users')}<strong>${t.joined} / ${t.total}</strong>人已确认</div><button type="button" class="button" disabled>${icon(t.status==='full'?'LockKeyhole':'Users')}${t.status==='full'?'已满员':'申请加入 · 暂未接入'}</button><p>本次邀约到 ${t.date.slice(5)} ${t.time} 截止。</p></section><section class="side-section"><h3>集合与变更</h3><p>场所范围：${t.campus} · ${t.place}。无法按时参加时，请提前与发起人沟通。</p></section></aside></div>`;}
+function searchSuggestions(){
+ const raw=$('tag-search').value.trim();if(!raw){closeSuggestions();return;}
+ const casualItems=state.channel==='casual'?(state.casualMode==='projects'?projects:invitations):[];
+ const result=window.DiscoverySearch.getSearchSuggestions({query:raw,channel:state.channel,topics,tags,casualItems,selectedTagIds:filter().tags});
+ let content=result.direct.length?`<div class="suggestion-heading">${state.channel==='casual'?(state.casualMode==='projects'?'项目直达':'邀约直达'):'话题直达'}</div>`+result.direct.map(t=>`<button type="button" role="option" aria-selected="false" class="suggestion" data-open="${t.id}">${icon(state.channel==='casual'?'Users':'FileText')}<span class="suggestion-text"><strong>${escapeHTML(t.title)}</strong>${state.channel==='casual'?'':`<small>${escapeHTML(t.organizer)} · 点击进入话题</small>`}</span>${icon('ChevronRight')}</button>`).join(''):'';
+ if(result.tags.length)content+='<div class="suggestion-heading">标准标签</div>'+result.tags.map(t=>`<button type="button" role="option" aria-selected="false" class="suggestion" data-add="${t.id}">${icon('Tag')}<span class="suggestion-text">${escapeHTML(t.name)}<small>用于筛选当前频道</small></span><span class="muted">${({level:'级别',org:'组织',topic:'主题'})[t.kind]}</span></button>`).join('');
+ if(!content)content='<div class="no-suggestion">未找到标准标签或相关内容。可以换个名称试试，不会新建标签。</div>';
+ $('suggestions').innerHTML=content;$('suggestions').hidden=false;$('tag-search').setAttribute('aria-expanded','true');
+}
+function clearFilters(){state.filters[state.channel]=freshFilter();renderBrowse();hydrateIcons();}
+function setMobileFilters(){$('sidebar').classList.toggle('open',state.mobile);$('mobile-filters').setAttribute('aria-expanded',String(state.mobile));}
+function showModal(title,body){$('modal-title').textContent=title;$('modal-body').innerHTML=body;$('modal').showModal();}
+let toastTimer;function toast(message){clearTimeout(toastTimer);$('toast').textContent=message;$('toast').hidden=false;toastTimer=setTimeout(()=>$('toast').hidden=true,2600);}
+document.addEventListener('click',event=>{
+ const button=event.target.closest('button');if(!button){if(!event.target.closest('.search-wrap'))closeSuggestions();return;}
+ if(button.dataset.channel){changeChannel(button.dataset.channel);return;}
+ if(button.dataset.open){openDetail(button.dataset.open,button.dataset.subtab||'overview');closeSuggestions();return;}
+ if(button.dataset.add){const id=button.dataset.add;if(!filter().tags.includes(id))filter().tags.push(id);$('tag-search').value='';closeSuggestions();renderSelected();renderList();$('tag-search').focus();return;}
+ if(button.dataset.remove){filter().tags=filter().tags.filter(id=>id!==button.dataset.remove);renderSelected();renderList();return;}
+ if(button.dataset.action==='clear'){clearFilters();return;}if(button.dataset.action==='back'){backToList();return;}
+ if(button.dataset.subtabChange){state.subtab=button.dataset.subtabChange;renderDetail();return;}
+ if(button.dataset.follow){const id=button.dataset.follow;state.followed.has(id)?state.followed.delete(id):state.followed.add(id);persistDemo();renderDetail();toast(state.followed.has(id)?'已在本次草图中关注':'已取消关注');return;}
+ if(button.dataset.team!==undefined){openRecruitment(state.detailId+'-team-'+button.dataset.team);return;}
+ if(button.dataset.info||button.dataset.resource!==undefined){const t=topics.find(t=>t.id===state.detailId);const key=button.dataset.info;showModal(key==='registration'?'报名信息':key==='source'?'来源记录':'资料预览',key==='registration'?`<p>${t.title}按个人参与，报名渠道应来自主办方的原始通知。</p><p>本话题为示例，尚未配置真实报名链接，不会跳转到不明地址。</p>`:`<p><strong>${t.title}</strong><br>归属：${t.organizer}<br>资料类型：${t.channel==='official'?'官方通知收录':'认证组织提交'}<br>示例核验时间：2026.09.08</p><p>正式版本将保留原文链接、发布时间、规则附件与变更记录。本草图未配置真实文件或原始通知。</p>`);}
+});
+$('tag-search').addEventListener('input',searchSuggestions);$('tag-search').addEventListener('focus',searchSuggestions);
+$('tag-search').addEventListener('keydown',event=>{if(event.key==='Escape')closeSuggestions();if(event.key==='ArrowDown'&&!$('suggestions').hidden){event.preventDefault();$('suggestions').querySelector('button')?.focus();}if(event.key==='Enter'){event.preventDefault();if(!$('suggestions').hidden)$('suggestions').querySelector('button')?.click();}});
+$('suggestions').addEventListener('keydown',event=>{const nodes=[...$('suggestions').querySelectorAll('button')],index=nodes.indexOf(document.activeElement);if(['ArrowDown','ArrowUp'].includes(event.key)){event.preventDefault();nodes[(index+(event.key==='ArrowDown'?1:-1)+nodes.length)%nodes.length]?.focus();}if(event.key==='Escape'){$('tag-search').focus();closeSuggestions();}});
+$('sort').onchange=event=>{filter().sort=event.target.value;renderList();};
+$('mobile-filters').onclick=()=>{state.mobile=!state.mobile;setMobileFilters();if(state.mobile)$('sidebar').scrollIntoView({block:'start',behavior:'smooth'});};
+$('view-policy').onclick=()=>{state.view='policy';render();window.scrollTo(0,0);};$('view-browse').onclick=backToList;
+$('brand').onclick=event=>{event.preventDefault();changeChannel('official');};$('close-modal').onclick=()=>$('modal').close();
+$('modal').addEventListener('click',event=>{if(event.target===$('modal')){const r=$('modal').getBoundingClientRect();if(event.clientX<r.left||event.clientX>r.right||event.clientY<r.top||event.clientY>r.bottom)$('modal').close();}});
+$('saved-button').onclick=()=>{state.profileTab='saved';goWorkspace('profile');};
+const projects = [
+ {id:'course-db',title:'数据库课程项目：校园二手书检索',kind:'课程作业',icon:'BookOpen',tags:['course','code'],owner:'pei',campus:'仙林校区',date:'2026-09-15',period:'6 周 · 09.16–10.28',hours:'每周 6 小时',roles:['前端开发','数据库设计'],summary:'一起完成课程项目的检索、数据建模和可视化界面。已有需求草案，希望每周做一次短同步。',goal:'完成可运行原型、测试报告与课程展示，重视代码和文档的共同维护。',requirement:'本课程选课同学，熟悉基础 SQL；分工不代替个人课程学习。',capacity:3,members:['pei']},
+ {id:'research-reading',title:'多模态模型复现与论文阅读小组',kind:'自主科研',icon:'GraduationCap',tags:['research','ai'],owner:'lin',campus:'仙林校区',date:'2026-09-18',period:'8 周 · 本学期',hours:'每周 8 小时',roles:['模型复现','论文阅读'],summary:'从一篇公开论文开始，协作复现实验并整理实验记录，不涉及付费代做。',goal:'完成一个可复现实验仓库与一份结果分析报告。',requirement:'了解 Python 和基础深度学习；研究经验非必需。',capacity:3,members:['lin']},
+ {id:'campus-data',title:'校园数据可视化工具',kind:'开发项目',icon:'Code2',tags:['code','innovation'],owner:'pei',campus:'鼓楼校区',date:'2026-09-21',period:'4 周 · 09.09–10.07',hours:'每周 4 小时',roles:['可视化设计','前端开发'],summary:'用公开示例数据制作课程时间与学习计划的可视化工具，已有数据处理伙伴。',goal:'完成桌面和手机都可浏览的交互原型。',requirement:'愿意共同迭代界面，时间可以协调。',capacity:3,members:['pei','chen']},
+ {id:'study-economics',title:'计量经济学课程复习小组',kind:'课程学习',icon:'BookOpen',tags:['course','study'],owner:'li',campus:'鼓楼校区',date:'2026-09-16',period:'5 周 · 每周一次讨论',hours:'每周 3 小时',roles:['知识整理','习题讨论'],summary:'各自完成练习后讨论思路，轮流整理知识点，共同备考。',goal:'形成覆盖本学期重点内容的复习提纲。',requirement:'同课程同学；不共享未公开试题或代做作业。',capacity:4,members:['li']}
+];
+tags.push({id:'course',name:'课程协作',kind:'topic',aliases:['课设','课程项目','课程作业','课程学习']},{id:'research',name:'科研协作',kind:'topic',aliases:['科研','论文复现','科研项目']});
+const initialUsers = {
+ pei:{name:'裴同学',major:'计算机专业 · 大二',campus:'仙林校区',skills:['Python','数据处理','论文整理'],hours:'每周 6 小时',bio:'希望把课堂知识用到一个完整项目中。',verified:true},
+ wang:{name:'小王',major:'数学专业 · 大三',campus:'仙林校区',skills:['数学建模','Python'],hours:'每周 8 小时',bio:'正在准备数学建模比赛。',verified:true},
+ lin:{name:'小林',major:'计算机专业 · 大二',campus:'仙林校区',skills:['前端开发','Python'],hours:'每周 6 小时',bio:'想和伙伴完成课程与科研项目。',verified:true},
+ li:{name:'小李',major:'外语专业 · 大二',campus:'鼓楼校区',skills:['英文写作','论文排版'],hours:'每周 6 小时',bio:'擅长文档与英文写作。',verified:true},
+ chen:{name:'小陈',major:'计算机专业 · 大二',campus:'鼓楼校区',skills:['前端开发','数据处理'],hours:'每周 4 小时',bio:'关注校园应用。',verified:true},
+ zhou:{name:'小周',major:'商学院 · 大二',campus:'仙林校区',skills:['用户调研','项目策划'],hours:'每周 5 小时',bio:'希望共同验证真实需求。',verified:true},
+ fang:{name:'小方',major:'理学院 · 大二',campus:'仙林校区',skills:['羽毛球'],hours:'每周 2 小时',bio:'喜欢校内运动。',verified:true},
+ zhao:{name:'小赵',major:'工学院 · 大一',campus:'仙林校区',skills:['篮球'],hours:'每周 2 小时',bio:'一起活动。',verified:true},
+ xu:{name:'小许',major:'文学院 · 大二',campus:'鼓楼校区',skills:['跑步'],hours:'每周 2 小时',bio:'轻松运动。',verified:true},
+ wu:{name:'小吴',major:'商学院 · 大三',campus:'仙林校区',skills:['学习自习'],hours:'每周 4 小时',bio:'按计划学习。',verified:true},
+ tang:{name:'小唐',major:'艺术学院 · 大二',campus:'鼓楼校区',skills:['摄影'],hours:'每周 2 小时',bio:'记录校园。',verified:true},
+ guest:{name:'新同学',major:'尚未填写资料',campus:'仙林校区',skills:[],hours:'尚未填写',bio:'',verified:false}
+};
+const nameId = name => Object.keys(initialUsers).find(id=>initialUsers[id].name===name)||'wang';
+function seedCollaboration(){
+ const result={posts:{},applications:[],messages:{},teams:{}};
+ for(const t of topics)for(const [i,r] of t.teams.entries()){
+  const id=t.id+'-team-'+i, owner=nameId(r.name),capacity=Number(r.slots.match(/\/\s*(\d+)/)?.[1]||3);
+  result.posts[id]={id,title:r.title,owner,capacity,members:[owner],status:'open',roles:r.need.split(' / '),summary:r.summary,topicId:t.id,kind:'recruitment',campus:'仙林校区',hours:'每周 6–8 小时',date:t.date};
+ }
+ for(const p of projects)result.posts[p.id]={...p,status:'open',members:[...p.members]};
+ for(const t of invitations){const owner=nameId(t.author);result.posts[t.id]={id:t.id,title:t.title,owner,capacity:t.total,members:[owner,...Object.keys(initialUsers).filter(id=>id!==owner&&id!=='guest'&&id!=='pei').slice(0,t.joined-1)],status:t.status,roles:['活动伙伴'],summary:t.summary,kind:'invitation',campus:t.campus,hours:t.time+'–'+t.end,date:t.date};}
+ result.applications=[
+  {id:'demo-math',postId:'math-2026-team-0',applicant:'pei',status:'chatting',confirmations:[],fields:{role:'论文协作',experience:'用 Python 完成过数据处理课程项目，也负责过报告整理。',hours:'每周 6 小时',reason:'希望完整参与一次数学建模比赛。'}},
+  {id:'demo-course',postId:'course-db',applicant:'lin',status:'pending',confirmations:[],fields:{role:'前端开发',experience:'完成过 React 课程小项目，可以负责检索与可视化界面。',hours:'每周 6 小时',reason:'我们在同一门课，希望一起完成项目。'}},
+  {id:'demo-li',postId:'math-2026-team-0',applicant:'li',status:'pending',confirmations:[],fields:{role:'英文写作',experience:'有课程英文报告和论文排版经历。',hours:'每周 6 小时',reason:'希望参与团队的英文写作与报告整理。'}}
+ ];
+ result.messages['demo-math']=[{from:'wang',text:'你好，看到你的项目经验了。我们可以先聊一下分工和每周时间。',time:'今天 10:20'},{from:'pei',text:'我可以负责数据整理，每周大概能投入 6 小时，也愿意参与报告。',time:'今天 10:23'}];
+ result.teams['campus-data']={postId:'campus-data',plan:{roles:[{user:'pei',role:'数据处理与项目推进'},{user:'chen',role:'前端开发与图表'}],agenda:['确认原型范围与目标用户','核对数据字段与页面分工','确定第一次交付与下次同步时间'],risks:['仅使用公开或授权数据','确认每周可投入时间']},tasks:[{id:'seed-1',title:'整理公开示例数据与字段说明',owner:'pei',due:'2026-09-10',done:true},{id:'seed-2',title:'完成第一版图表与筛选布局',owner:'chen',due:'2026-09-12',done:false},{id:'seed-3',title:'一起检查手机端浏览效果',owner:'pei',due:'2026-09-13',done:false}]};
+ return result;
+}
+let users=structuredClone(initialUsers),actor='pei',demoStore=seedCollaboration(),preferences={deadline:true,updates:true},readNotices=[];
+const storageKey='campusmate-interaction-v2';
+try{const saved=JSON.parse(sessionStorage.getItem(storageKey)||'null');if(saved?.version===2&&saved.store?.posts?.['course-db']){demoStore=saved.store;users=saved.users;actor=saved.actor;state.followed=new Set(saved.followed||[]);preferences=saved.preferences||preferences;readNotices=saved.readNotices||[];}}catch{}
+function persistDemo(){try{sessionStorage.setItem(storageKey,JSON.stringify({version:2,store:demoStore,users,actor,followed:[...state.followed],preferences,readNotices}));}catch{}}
+const user = id => users[id]||{name:'同学',major:'校园已认证',skills:[],verified:true};
+const displayName = id => escapeHTML(user(id).name);
+const avatar = id => `<span class="avatar">${escapeHTML(user(id).name.slice(0,1))}</span>`;
+const statusName = status => ({pending:'待处理',chatting:'沟通中',joined:'已加入',rejected:'已拒绝',withdrawn:'已撤回',closed:'已结束',open:'招募中',full:'已满员'})[status]||status;
+const statusBadge = status => `<span class="badge ${['joined','open'].includes(status)?'org':['pending','chatting'].includes(status)?'status':''}">${statusName(status)}</span>`;
+const relevantApplications = () => demoStore.applications.filter(a=>a.applicant===actor||demoStore.posts[a.postId].owner===actor);
+function appsFor(view){return relevantApplications().filter(a=>view==='received'?demoStore.posts[a.postId].owner===actor&&a.status==='pending':view==='sent'?a.applicant===actor:['chatting','joined'].includes(a.status));}
+function renderGlobalNav(){
+ const active=state.view==='messages'?'messages':['teams','team'].includes(state.view)?'teams':state.view==='profile'?'profile':'browse';
+ const items=[['browse','发现','Compass'],['messages','消息','MessageSquare'],['teams','我的团队','Users'],['profile','我的','UserRound']];
+ const content=items.map(([key,name,i])=>`<button type="button" data-nav="${key}" class="${active===key?'active':''}" aria-current="${active===key?'page':'false'}">${icon(i)}<span>${name}</span>${key==='messages'&&appsFor('received').length?`<span class="nav-counter">${appsFor('received').length}</span>`:''}</button>`).join('');
+ $('global-nav').innerHTML=content;$('mobile-nav').innerHTML=content;$('user-name').textContent=user(actor).name;$('user-avatar').textContent=user(actor).name.slice(0,1);$('user-verification').textContent=user(actor).verified?'校园已认证':'待校园认证';
+ $('demo-actor').innerHTML=Object.entries(users).map(([id,u])=>`<option value="${id}">${escapeHTML(u.name)}${u.verified?'':'（未认证）'}</option>`).join('');$('demo-actor').value=actor;$('demo-ai-failure').checked=state.aiFailure;
+}
+function goWorkspace(view){
+ if(['messages','teams','team'].includes(view)&&!user(actor).verified){showCertification();return;}
+ state.view=view;state.mobile=false;closeSuggestions();if($('modal').open)$('modal').close();render();window.scrollTo(0,0);
+}
+function syncRecruitments(){
+ for(const t of topics)for(const [i,r] of t.teams.entries()){const p=demoStore.posts[t.id+'-team-'+i];r.slots=`${p.members.length} / ${p.capacity} 人`;}
+ for(const t of invitations){const p=demoStore.posts[t.id];t.joined=p.members.length;t.status=p.status;}
+}
+function casualModeSwitch(){return `<div class="mode-switch" role="group" aria-label="自主组队类型"><button type="button" data-casual-mode="projects" class="${state.casualMode==='projects'?'active':''}" aria-pressed="${state.casualMode==='projects'}">项目协作</button><button type="button" data-casual-mode="daily" class="${state.casualMode==='daily'?'active':''}" aria-pressed="${state.casualMode==='daily'}">日常搭子</button></div>`;}
+function matchingProjects(){const f=filter();return projects.filter(p=>f.tags.every(id=>p.tags.includes(id))&&(!f.campus||p.campus===f.campus)).sort((a,b)=>f.sort==='soon'?a.date.localeCompare(b.date):0);}
+function renderProjectList(){
+ const list=matchingProjects();$('result-count').textContent=`${list.length} 个项目 · 课程、科研与自主开发`;const f=filter();$('mobile-filter-label').textContent='筛选'+(f.tags.length||f.campus?` (${f.tags.length+Number(!!f.campus)})`:'');
+ $('sort').innerHTML='<option value="recommended">推荐</option><option value="soon">截止时间</option>';$('sort').value=['soon','recommended'].includes(f.sort)?f.sort:'recommended';
+ $('list-content').innerHTML=casualModeSwitch()+(list.length?`<div class="topic-grid">${list.map(p=>{const live=demoStore.posts[p.id];return `<article class="project-card"><div class="project-top">${icon(p.icon)}${p.kind}<span style="margin-left:auto">${statusBadge(live.status)}</span></div><button type="button" data-open="${p.id}" class="card-title">${p.title}</button><p class="summary">${p.summary}</p><div class="badges">${p.tags.map(badge).join('')}</div><div class="project-facts"><div><span>协作周期</span><strong>${p.period}</strong></div><div><span>投入时间</span><strong>${p.hours}</strong></div><div><span>需要角色</span><strong>${p.roles.join(' / ')}</strong></div><div><span>团队人数</span><strong>${live.members.length} / ${p.capacity} 人</strong></div></div><div class="card-foot"><span class="meta">${icon('UserRound')}${displayName(p.owner)} · 校园已认证</span><button class="text-button" type="button" data-open="${p.id}">查看项目${icon('ArrowRight')}</button></div></article>`;}).join('')}</div>`:`<div class="empty"><h3>暂无符合条件的项目</h3><p>试试减少筛选条件。</p><button class="button" type="button" data-action="clear">清空筛选</button></div>`);
+}
+function currentApplication(postId){return demoStore.applications.find(a=>a.postId===postId&&a.applicant===actor&&['pending','chatting','joined'].includes(a.status));}
+function applicationAction(postId){
+ const p=demoStore.posts[postId],a=currentApplication(postId);if(!p)return '';
+ if(p.owner===actor)return `<button class="button primary" type="button" data-post-applications="${postId}">${icon('MessageSquare')}查看收到的申请</button>`;
+ if(p.members.includes(actor))return demoStore.teams[postId]?`<button class="button primary" type="button" data-team-open="${postId}">${icon('Users')}进入我的团队</button>`:`<button class="button" type="button" disabled>已加入</button>`;
+ if(a)return `<button class="button ${a.status==='chatting'?'primary':''}" type="button" data-app-open="${a.id}">${icon('MessageSquare')}${a.status==='pending'?'已申请 · 查看进度':a.status==='joined'?'查看组队结果':'继续沟通'}</button>`;
+ if(p.status!=='open')return `<button type="button" class="button" disabled>${statusName(p.status)}</button>`;
+ return `<button class="button primary" type="button" data-apply="${postId}">${icon('Users')}${user(actor).verified?'申请加入':'认证后申请'}</button>`;
+}
+function matchPanel(p){
+ if(p.owner===actor)return `<div class="match-box"><h3>${icon('Sparkles')}招募条件</h3><p>需要 ${escapeHTML(p.roles.join(' / '))}，${escapeHTML(p.hours)}。收到申请后，可结合经验与时间安排进一步沟通。</p></div>`;
+ if(state.aiFailure)return `<div class="error-band">AI 建议暂不可用。可先核对角色、投入时间和人数，仍能手动申请。</div>`;
+ if(!user(actor).verified)return `<div class="match-box"><h3>${icon('Sparkles')}匹配建议</h3><p>完成校园认证并补充技能后，可查看与你有关的匹配建议。</p></div>`;
+ const skills=user(actor).skills;let reasons=[],warning='建议先确认每周投入时间和协作目标。',score=76;
+ if(p.kind==='invitation'){reasons=[`活动位于${p.campus}`,`目前还缺 ${Math.max(0,p.capacity-p.members.length)} 人`];score=80;warning='请自行确认活动时间、运动强度与场地安排。';}
+ else if(p.id.includes('math')){reasons=[skills.includes('Python')?'你的 Python 经验可用于数据处理':'你的文档与写作经验可以补充团队表达',`团队需要 ${p.roles.join(' / ')}`];warning='你的经验尚不能证明已满足全部角色要求，建议先交流作品与时间。';}
+ else{reasons=[`你的技能：${skills.join('、')||'尚未补充'}`,`项目需要 ${p.roles.join(' / ')}`];warning=p.kind==='课程作业'?'请先确认同课程资格和个人作业要求。':'建议先对齐交付目标、可投入时间与协作方式。';}
+ return `<div class="match-box"><h3>${icon('Sparkles')}匹配建议 <small>示例结果，非真实模型</small></h3><p><span class="match-score">${score}</span> / 100 · 待双方进一步确认</p><ul>${reasons.map(r=>`<li>${escapeHTML(r)}</li>`).join('')}</ul><p class="warning">${escapeHTML(warning)}</p></div>`;
+}
+function renderProjectDetail(p){
+ const live=demoStore.posts[p.id];$('detail').innerHTML=`<div class="breadcrumb"><button class="text-button" type="button" data-action="back">${icon('ArrowLeft')}返回项目协作</button>${icon('ChevronRight')}自主项目</div><div class="detail-layout"><section><div class="project-top">${icon(p.icon)}${p.kind} · 学生自主发起</div><div class="detail-heading"><h1>${p.title}</h1><div class="badges">${p.tags.map(badge).join('')}</div><p>${p.summary}</p></div><div class="status-strip"><span class="status-label">项目</span><span class="badge">筹备中</span><span class="status-label">招募</span>${statusBadge(live.status)}<span class="status-label">我的状态</span><span>${live.owner===actor?'发起人':live.members.includes(actor)?'团队成员':currentApplication(p.id)?statusName(currentApplication(p.id).status):'尚未申请'}</span></div><section class="article-section"><h3>目标与交付</h3><p>${p.goal}</p><div class="fact-grid"><div class="fact"><small>项目周期</small><strong>${p.period}</strong></div><div class="fact"><small>每周投入</small><strong>${p.hours}</strong></div><div class="fact"><small>需要角色</small><strong>${p.roles.join(' / ')}</strong></div><div class="fact"><small>招募截止</small><strong>${p.date}</strong></div></div></section><section class="article-section"><h3>协作要求</h3><p>${p.requirement}</p></section>${matchPanel(live)}<section class="article-section"><h3>相关项目</h3>${projects.filter(item=>item.id!==p.id&&item.tags.some(tag=>p.tags.includes(tag))).slice(0,2).map(item=>`<div class="profile-row"><div><h3>${item.title}</h3><p>${item.kind} · ${item.hours}</p></div><button type="button" class="button" data-open="${item.id}">查看${icon('ChevronRight')}</button></div>`).join('')||'<p>暂时没有相似项目。</p>'}</section></section><aside class="detail-side"><section class="side-section"><h3>发起同学</h3><div class="member-row">${avatar(p.owner)}<div><strong>${displayName(p.owner)}</strong><small>${escapeHTML(user(p.owner).major)}</small></div></div><span class="badge org">校园已认证</span></section><section class="side-section"><h3>组队进度</h3><div class="side-stat">${icon('Users')}<strong>${live.members.length} / ${p.capacity}</strong>人已加入</div>${applicationAction(p.id)}<p>双方确认后加入，未满员时继续招募。</p></section><section class="side-section"><h3>协作范围</h3><p>${p.campus} · ${p.requirement}</p></section></aside></div>`;
+}
+function openRecruitment(id){const p=demoStore.posts[id];showModal(p.title,`<p>${escapeHTML(p.summary)}</p><div class="status-strip">${statusBadge(p.status)}<span>${p.members.length}/${p.capacity} 人</span><span>${displayName(p.owner)} · 校园已认证</span></div><div class="fact-grid"><div class="fact"><small>所需角色</small><strong>${escapeHTML(p.roles.join(' / '))}</strong></div><div class="fact"><small>每周投入</small><strong>${escapeHTML(p.hours)}</strong></div></div>${matchPanel(p)}${applicationAction(id)}`);}
+function openApplyForm(id){
+ if(!user(actor).verified){showCertification();return;}const p=demoStore.posts[id];
+ showModal('申请加入',`<form id="application-form" data-post-id="${id}" class="application-form"><h3>${escapeHTML(p.title)}</h3><div class="form-grid"><label class="field">希望承担的角色<select name="role" required>${p.roles.map(r=>`<option>${escapeHTML(r)}</option>`).join('')}</select></label><label class="field">可投入时间<input name="hours" value="${escapeHTML(user(actor).hours)}" maxlength="80" required></label><label class="field full">相关经验<textarea name="experience" maxlength="400" required placeholder="介绍相关课程、项目或活动经验"></textarea></label><label class="field full">加入原因<textarea name="reason" maxlength="300" required placeholder="你希望与队友共同完成什么"></textarea></label><label class="field full">想提前确认的问题（选填）<input name="question" maxlength="180" placeholder="例如每周讨论时间"></label></div><p class="form-error" id="application-error" role="alert"></p><div class="form-actions"><button type="button" class="button" data-close-dialog>取消</button><button type="submit" class="button primary">提交申请${icon('ArrowRight')}</button></div></form>`);
+}
+function dispatchCollaboration(action){demoStore=Collaboration.reduce(demoStore,{...action,actor});persistDemo();syncRecruitments();}
+function showCertification(){showModal('校园认证',`<div class="progress-track"><span class="complete">${icon('CheckCircle2')}账户资料</span>${icon('ChevronRight')}<span>校园邮箱验证</span>${icon('ChevronRight')}<span>获得申请权限</span></div><p>当前身份尚未完成校园认证。公开活动仍可浏览。</p><label class="field">校园邮箱<input type="email" placeholder="你的校园邮箱" disabled></label><div class="form-actions"><button type="button" class="button" disabled>验证邮件服务尚未接入</button></div>`);}
+function renderWorkspace(){if(state.view==='messages')renderMessages();else if(state.view==='teams')renderTeamList();else if(state.view==='team')renderTeamWorkspace();else renderProfile();}
+function renderMessages(){
+ const tabs=[['received','收到申请'],['sent','我的申请'],['chat','临时沟通'],['notifications','通知']];
+ let content=`<div class="workspace-head"><div><h1>消息与申请</h1><p>查看申请进度，与队友保持联系</p></div><span class="muted small">${displayName(actor)} · 校园已认证</span></div><div class="workspace-tabs">${tabs.map(([key,label])=>`<button type="button" data-inbox="${key}" class="${state.inbox===key?'active':''}">${label}${key!=='notifications'&&appsFor(key).length?`<span class="nav-counter">${appsFor(key).length}</span>`:''}</button>`).join('')}</div>`;
+ if(state.inbox==='notifications'){content+=renderNotifications();$('workspace').innerHTML=content;return;}
+ const list=appsFor(state.inbox),selected=list.find(a=>a.id===state.selectedApp)||list[0];
+ content+=`<div class="message-shell ${state.selectedApp?'show-thread':''}"><aside class="thread-list" aria-label="申请会话列表">${list.map(a=>{const p=demoStore.posts[a.postId],other=a.applicant===actor?p.owner:a.applicant,last=demoStore.messages[a.id]?.at(-1);return `<button type="button" class="thread-button ${selected?.id===a.id?'active':''}" data-thread="${a.id}"><span class="thread-title">${avatar(other)}<strong>${displayName(other)}</strong>${statusBadge(a.status)}</span><p>${escapeHTML(p.title)}</p><small>${last?escapeHTML(last.text):escapeHTML(a.fields?.role||'待进一步沟通')}</small></button>`;}).join('')||'<div class="tab-empty">暂无这类申请</div>'}</aside><section class="thread-content">${selected?renderThread(selected):'<div class="tab-empty">新的申请和沟通会显示在这里。</div>'}</section></div>`;
+ $('workspace').innerHTML=content;
+}
+function renderThread(a){
+ const p=demoStore.posts[a.postId],other=a.applicant===actor?p.owner:a.applicant,isOwner=p.owner===actor;
+ let html=`<button type="button" class="text-button thread-back" data-thread-back>${icon('ArrowLeft')}返回列表</button><div class="thread-heading"><div><h2>${displayName(other)}</h2><p>${escapeHTML(p.title)}</p></div>${statusBadge(a.status)}</div><div class="progress-track"><span class="complete">${icon('CheckCircle2')}申请已提交</span>${icon('ChevronRight')}<span class="${['chatting','joined'].includes(a.status)?'complete':''}">${icon('MessageSquare')}临时沟通</span>${icon('ChevronRight')}<span class="${a.status==='joined'?'complete':''}">${icon('Users')}双方确认加入</span></div>`;
+ if(a.status==='pending'){
+  html+=`<dl class="application-facts"><dt>希望承担</dt><dd>${escapeHTML(a.fields.role)}</dd><dt>相关经验</dt><dd>${escapeHTML(a.fields.experience)}</dd><dt>可投入时间</dt><dd>${escapeHTML(a.fields.hours)}</dd><dt>加入原因</dt><dd>${escapeHTML(a.fields.reason)}</dd>${a.fields.question?`<dt>希望确认</dt><dd>${escapeHTML(a.fields.question)}</dd>`:''}</dl><p class="inline-note">接受申请后先进入临时沟通，双方确认前不交换联系方式。</p><div class="form-actions">${isOwner?`<button class="button" type="button" data-app-action="reject" data-id="${a.id}">暂不接受</button><button class="button primary" type="button" data-app-action="accept" data-id="${a.id}">接受并沟通${icon('ArrowRight')}</button>`:`<button class="button" type="button" data-app-action="withdraw" data-id="${a.id}">撤回申请</button>`}</div>`;
+ }else if(['chatting','joined'].includes(a.status)){
+  const joined=a.status==='joined';
+  html+=`<div class="chat-safety">${icon(joined?'ShieldCheck':'LockKeyhole')}${joined?'已加入同一团队，联系方式可在团队内查看。':'双方确认前，联系方式保持隐藏。'}</div><div class="chat-feed" id="chat-feed">${(demoStore.messages[a.id]||[]).map(m=>`<div class="chat-line ${m.from===actor?'mine':''}">${avatar(m.from)}<div><div class="chat-bubble">${escapeHTML(m.text)}</div><div class="chat-meta">${displayName(m.from)} · ${escapeHTML(m.time||'刚刚')}</div></div></div>`).join('')||'<div class="tab-empty">申请已接受，可以先交流角色和时间安排。</div>'}</div><form class="chat-composer" id="chat-form" data-app-id="${a.id}"><textarea name="message" maxlength="800" aria-label="聊天消息" placeholder="输入消息" required></textarea><button class="icon-button" type="submit" aria-label="发送消息" title="发送消息">${icon('Send')}</button></form>`;
+  if(joined)html+=`<div class="confirm-panel"><div><strong class="small">已加入团队 · ${p.members.length}/${p.capacity} 人</strong><p class="muted small">${p.members.length<p.capacity?'团队仍有名额，可继续招募。':'本次招募已满员。'}</p></div><button class="button primary" type="button" data-team-open="${p.id}">进入团队${icon('ArrowRight')}</button></div>`;
+  else html+=`<div class="confirm-panel"><div class="confirm-state"><span class="${a.confirmations.includes(actor)?'confirmed':''}">${icon(a.confirmations.includes(actor)?'CheckCircle2':'Clock')}你${a.confirmations.includes(actor)?'已确认':'待确认'}</span><span class="${a.confirmations.includes(other)?'confirmed':''}">${icon(a.confirmations.includes(other)?'CheckCircle2':'Clock')}对方${a.confirmations.includes(other)?'已确认':'待确认'}</span></div><div class="confirm-buttons"><button class="button" type="button" data-app-action="close" data-id="${a.id}">结束沟通</button><button class="button primary" type="button" data-app-action="confirm" data-id="${a.id}" ${a.confirmations.includes(actor)?'disabled':''}>${a.confirmations.includes(actor)?'等待对方确认':isOwner?'确认接纳':'确认加入'}</button></div></div>`;
+ }else html+=`<div class="tab-empty">${statusName(a.status)}。这条申请不会再产生新的成员确认。</div><button class="button" type="button" data-nav="browse">继续发现${icon('ArrowRight')}</button>`;
+ return html;
+}
+function renderNotifications(){
+ const notices=[];for(const t of topics.filter(t=>state.followed.has(t.id))){if(preferences.deadline)notices.push({id:t.id+'-deadline',title:t.title+' · 截止提醒',body:t.dateLabel+'，组队与主办方正式报名分别进行。',topic:t.id});if(preferences.updates)notices.push({id:t.id+'-update',title:t.title+' · 资料记录',body:'关注的话题可查看来源记录、资料与核验时间。',topic:t.id});}
+ return `<div style="padding:10px 0 38px">${notices.map(n=>`<article class="notice-row"><div class="notice-icon">${icon('Bell')}</div><div><h3>${n.title}</h3><p>${n.body}</p><small>${readNotices.includes(n.id)?'已读':'未读'} · 示例通知</small></div><button class="button" type="button" data-notice="${n.id}" data-notice-topic="${n.topic}">查看话题${icon('ChevronRight')}</button></article>`).join('')||`<div class="tab-empty">暂无关注提醒。关注话题后，可在这里查看截止与资料更新消息。</div>`}</div>`;
+}
+function memberTeams(){return Object.values(demoStore.teams).filter(t=>demoStore.posts[t.postId].members.includes(actor));}
+function renderTeamList(){
+ const list=memberTeams();$('workspace').innerHTML=`<div class="workspace-head"><div><h1>我的团队</h1><p>${list.length} 个正在协作的团队</p></div><button class="button" type="button" data-nav="browse">寻找更多项目${icon('ArrowRight')}</button></div><div class="team-grid">${list.map(t=>{const p=demoStore.posts[t.postId],done=t.tasks.filter(task=>task.done).length;return `<article class="team-card"><div class="project-top">${icon(p.kind==='invitation'?'CircleDot':'FolderKanban')}${p.kind==='invitation'?'活动小组':p.topicId?'参赛团队':'项目团队'}<span style="margin-left:auto">${statusBadge(p.status)}</span></div><h3>${escapeHTML(p.title)}</h3><div class="member-stack">${p.members.map(avatar).join('')}</div><p>${p.members.length}/${p.capacity} 人 · ${p.members.length<p.capacity?'仍有 '+(p.capacity-p.members.length)+' 个名额':'人员已齐'}</p><div class="team-progress"><span style="width:${t.tasks.length?done/t.tasks.length*100:0}%"></span></div><p style="margin-top:8px">${done}/${t.tasks.length} 项任务已完成</p><button class="button" type="button" data-team-open="${p.id}">进入团队${icon('ArrowRight')}</button></article>`;}).join('')||`<div class="empty"><h3>还没有加入团队</h3><p>与招募者双方确认后，团队会显示在这里。</p><button class="button" type="button" data-nav="messages">查看我的申请</button></div>`}</div>`;
+}
+let planningFor=null;
+function renderTeamWorkspace(){
+ const team=demoStore.teams[state.teamId],p=demoStore.posts[state.teamId];
+ if(!team||!p?.members.includes(actor)){$('workspace').innerHTML=`<div class="empty"><h3>仅团队成员可查看</h3><p>当前身份尚未加入这个团队。</p><button class="button" type="button" data-nav="teams">返回我的团队</button></div>`;return;}
+ const tabs=[['overview','协作概览'],['tasks','任务清单'],['meeting','首次会议']];
+ let html=`<div class="breadcrumb"><button class="text-button" type="button" data-nav="teams">${icon('ArrowLeft')}我的团队</button>${icon('ChevronRight')}团队空间</div><div class="workspace-head" style="padding-top:0"><div><h1>${escapeHTML(p.title)}</h1><p>${p.members.length}/${p.capacity} 人 · ${p.members.length<p.capacity?'继续招募中':'人员已齐'} · ${p.topicId?'官方报名需另行完成':'按协作目标推进'}</p></div>${statusBadge(p.status)}</div><div class="workspace-tabs">${tabs.map(([key,name])=>`<button type="button" data-team-tab="${key}" class="${state.teamTab===key?'active':''}">${name}${key==='tasks'?`<span class="nav-counter">${team.tasks.length}</span>`:''}</button>`).join('')}</div><div class="team-main-layout"><section>`;
+ if(state.teamTab==='tasks')html+=taskList(team,p);
+ else if(state.teamTab==='meeting')html+=`<section class="team-section"><h3>第一次会议</h3><p>建议用 30 分钟对齐目标、角色和近期交付。</p>${team.plan?team.plan.agenda.map((item,i)=>`<div class="agenda-row"><span>${i*10}–${(i+1)*10} 分钟</span><p>${escapeHTML(item)}</p></div>`).join(''):planPanel(team,p)}</section>`;
+ else html+=`<section class="team-section"><h3>下一步</h3><p>${p.members.length<p.capacity?'已有成员可以先开始协作，同时继续寻找剩余伙伴。':'人员已齐，先确认角色分工和第一次会议安排。'}</p></section>${planPanel(team,p)}<section class="team-section"><h3>近期任务</h3>${team.tasks.length?taskList(team,p,true):'<p>暂无任务，可以手动添加，或查看 AI 分工建议。</p>'}</section>`;
+ html+=`</section><aside class="team-sidebar"><h3>团队成员 · ${p.members.length}/${p.capacity}</h3>${p.members.map(id=>`<div class="member-row">${avatar(id)}<div><strong>${displayName(id)}</strong><small>${escapeHTML(user(id).skills.join('、'))}</small></div>${p.owner===id?'<span class="badge org">发起人</span>':''}</div>`).join('')}<section class="side-section"><h3>联系方式</h3>${Collaboration.canViewContact(demoStore,p.id,actor)?`<div class="source-box"><span>${icon('ShieldCheck')}成员确认后可见</span></div>${p.members.filter(id=>id!==actor).map(id=>`<div class="readonly-contact"><strong>${displayName(id)}</strong><br>站内联系：${escapeHTML('demo_'+id)}<br><span class="small">虚构账号，仅用于草图</span></div>`).join('')}`:`<p>尚未解锁</p>`}</section><section class="side-section"><h3>人数与招募</h3><p>${p.members.length} 人已经确认，${Math.max(0,p.capacity-p.members.length)} 个剩余名额。</p>${p.topicId?`<button type="button" class="button" data-open="${p.topicId}" data-subtab="teams">查看关联话题</button>`:p.kind==='invitation'?`<button type="button" class="button" data-open="${p.id}">查看本次邀约</button>`:`<button type="button" class="button" data-open="${p.id}">查看项目招募</button>`}</section></aside></div>`;
+ $('workspace').innerHTML=html;
+}
+function planPanel(team,p){
+ if(planningFor===p.id)return `<div class="loading-line" role="status">${icon('Sparkles')}正在整理成员能力与分工建议…</div>`;
+ if(team.plan)return `<section class="team-section"><h3>${icon('Sparkles')}分工建议 <span class="badge">AI 示例，可调整</span></h3>${team.plan.roles.map(r=>`<div class="profile-row"><div><h3>${displayName(r.user)}</h3><p>${escapeHTML(r.role)}</p></div><button class="icon-button" type="button" data-edit-role="${r.user}" title="修改${user(r.user).name}的分工" aria-label="修改${user(r.user).name}的分工">${icon('Pencil')}</button></div>`).join('')}<div class="inline-note">${team.plan.risks.map(escapeHTML).join('；')}。</div></section>`;
+ return `<section class="team-section"><div class="match-box"><h3>${icon('Sparkles')}把团队目标变成第一步 <small>AI 示例</small></h3><p>根据已确认成员的技能，整理分工、首次会议与近期任务。</p><button class="button primary" type="button" data-generate-plan="${p.id}">生成协作建议${icon('ArrowRight')}</button></div>${state.planError===p.id?'<div class="error-band" role="alert">AI 服务暂不可用，团队已成功建立。可以重试或手动添加任务。</div>':''}<button class="text-button small" type="button" data-new-task>${icon('Plus')}手动添加任务</button></section>`;
+}
+function taskList(team,p,compact=false){const tasks=compact?team.tasks.slice(0,3):team.tasks;return `<div class="task-toolbar"><span class="muted small">${team.tasks.filter(t=>t.done).length}/${team.tasks.length} 已完成</span><button class="button" type="button" data-new-task>${icon('Plus')}添加任务</button></div><div class="task-list">${tasks.map(t=>`<div class="task-row ${t.done?'done':''}"><input type="checkbox" data-task-check="${t.id}" ${t.done?'checked':''} aria-label="完成任务：${escapeHTML(t.title)}"><span class="task-name">${escapeHTML(t.title)}</span><span class="task-date">${escapeHTML(t.due)}</span><span class="task-owner">${displayName(t.owner)}</span><button class="icon-button task-edit" type="button" data-edit-task="${t.id}" title="编辑任务" aria-label="编辑任务：${escapeHTML(t.title)}">${icon('Pencil')}</button></div>`).join('')||'<div class="tab-empty">暂无任务</div>'}</div>`;}
+function openTaskForm(taskId){const team=demoStore.teams[state.teamId],p=demoStore.posts[state.teamId];if(!p.members.includes(actor))return;const task=team.tasks.find(t=>t.id===taskId);showModal(task?'编辑任务':'添加任务',`<form id="task-form" data-task-id="${taskId||''}"><div class="form-grid"><label class="field full">任务标题<input name="title" required maxlength="100" value="${escapeHTML(task?.title||'')}" placeholder="这一步要完成什么"></label><label class="field">负责人<select name="owner">${p.members.map(id=>`<option value="${id}" ${task?.owner===id?'selected':''}>${displayName(id)}</option>`).join('')}</select></label><label class="field">截止日期<input name="due" type="date" required value="${task?.due||'2026-09-12'}"></label></div><div class="form-actions"><button class="button" type="button" data-close-dialog>取消</button><button class="button primary" type="submit">保存任务</button></div></form>`);}
+function renderProfile(){
+ const u=user(actor),posts=Object.values(demoStore.posts).filter(p=>p.owner===actor),applications=demoStore.applications.filter(a=>a.applicant===actor);const tabs=[['overview','我的动态'],['saved','我的关注'],['settings','偏好设置']];
+ let html=`<div class="workspace-head"><div><h1>我的</h1><p>管理资料、关注与参与记录</p></div></div><div class="profile-grid"><aside class="profile-summary">${avatar(actor)}<h2>${displayName(actor)}</h2><p>${escapeHTML(u.major)} · ${escapeHTML(u.campus)}</p><div class="badges"><span class="badge ${u.verified?'org':'status'}">${u.verified?'校园已认证':'待校园认证'}</span>${u.skills.map(s=>`<span class="badge topic">${escapeHTML(s)}</span>`).join('')}</div><p>${escapeHTML(u.bio||'尚未填写个人介绍')}</p><button class="button" type="button" data-edit-profile>${icon('Pencil')}编辑资料</button><button class="button" type="button" data-certification>${icon('BadgeCheck')}认证管理</button><div class="profile-stats"><span><strong>${posts.length}</strong>我的招募</span><span><strong>${applications.length}</strong>我的申请</span><span><strong>${memberTeams().length}</strong>我的团队</span></div></aside><section><div class="workspace-tabs">${tabs.map(([key,name])=>`<button class="${state.profileTab===key?'active':''}" type="button" data-profile-tab="${key}">${name}</button>`).join('')}</div>`;
+ if(state.profileTab==='saved')html+=topics.filter(t=>state.followed.has(t.id)).map(t=>`<div class="profile-row"><div><h3>${t.title}</h3><p>${t.dateLabel} · ${t.source}</p></div><button class="button" type="button" data-open="${t.id}">查看话题</button><button class="icon-button" type="button" data-unsave="${t.id}" title="取消关注" aria-label="取消关注${t.title}">${icon('X')}</button></div>`).join('')||'<div class="tab-empty">还没有关注话题</div>';
+ else if(state.profileTab==='settings')html+=`<label class="preference"><span>关注话题的截止提醒</span><input type="checkbox" data-preference="deadline" ${preferences.deadline?'checked':''}></label><label class="preference"><span>关注话题的资料更新提醒</span><input type="checkbox" data-preference="updates" ${preferences.updates?'checked':''}></label><div class="side-section"><h3>公开资料</h3><p class="settings-note">公开展示昵称、专业年级与技能；联系方式仅在确认加入的团队中可见。</p></div>`;
+ else html+=`<section class="team-section" style="padding-top:20px"><h3>我的招募</h3>${posts.map(p=>`<div class="profile-row"><div><h3>${escapeHTML(p.title)}</h3><p>${p.members.length}/${p.capacity} 人 · ${p.kind==='invitation'?'日常邀约':p.topicId?'赛事招募':'自主项目'}</p></div>${statusBadge(p.status)}<button class="button" type="button" data-post-applications="${p.id}">查看申请</button></div>`).join('')||'<p>暂无已发布招募。</p>'}</section><section class="team-section"><h3>我的申请</h3>${applications.map(a=>`<div class="profile-row"><div><h3>${escapeHTML(demoStore.posts[a.postId].title)}</h3><p>${escapeHTML(a.fields?.role||'活动伙伴')}</p></div>${statusBadge(a.status)}<button class="button" type="button" data-app-open="${a.id}">查看进度</button></div>`).join('')||'<p>暂无申请记录。</p>'}</section>`;
+ $('workspace').innerHTML=html+'</section></div>';
+}
+function openProfileForm(){const u=user(actor);const skillOptions=['Python','数据处理','前端开发','数学建模','英文写作','论文整理','论文排版','用户调研','项目策划','羽毛球'];showModal('编辑资料',`<form id="profile-form"><div class="form-grid"><label class="field">昵称<input name="name" maxlength="12" required value="${escapeHTML(u.name)}"></label><label class="field">专业与年级<input name="major" maxlength="40" required value="${escapeHTML(u.major)}"></label><label class="field">所在校区<select name="campus">${['仙林校区','鼓楼校区'].map(c=>`<option ${c===u.campus?'selected':''}>${c}</option>`).join('')}</select></label><label class="field">可投入时间<input name="hours" maxlength="40" required value="${escapeHTML(u.hours)}"></label><div class="field full"><span>技能</span><div class="skill-options">${skillOptions.map(s=>`<label class="radio-row"><input type="checkbox" name="skills" value="${s}" ${u.skills.includes(s)?'checked':''}>${s}</label>`).join('')}</div></div><label class="field full">个人介绍<textarea name="bio" maxlength="180">${escapeHTML(u.bio)}</textarea></label></div><div class="form-actions"><button class="button" type="button" data-close-dialog>取消</button><button class="button primary" type="submit">保存资料</button></div></form>`);}
+document.addEventListener('click',event=>{
+ const b=event.target.closest('button');if(!b)return;
+ try{
+ if(b.dataset.nav){state.selectedApp=null;goWorkspace(b.dataset.nav);return;}
+ if(b.dataset.casualMode){state.casualMode=b.dataset.casualMode;state.filters.casual=freshFilter();state.mobile=false;render();return;}
+ if(b.dataset.apply){openApplyForm(b.dataset.apply);return;}
+ if(b.hasAttribute('data-close-dialog')){$('modal').close();return;}
+ if(b.dataset.inbox){state.inbox=b.dataset.inbox;state.selectedApp=null;render();return;}
+ if(b.dataset.thread){state.selectedApp=b.dataset.thread;render();return;}
+ if(b.hasAttribute('data-thread-back')){state.selectedApp=null;render();return;}
+ if(b.dataset.appOpen){const a=demoStore.applications.find(a=>a.id===b.dataset.appOpen);state.inbox=['chatting','joined'].includes(a.status)?'chat':a.applicant===actor?'sent':'received';state.selectedApp=a.id;goWorkspace('messages');return;}
+ if(b.dataset.postApplications){const postId=b.dataset.postApplications;const a=demoStore.applications.find(a=>a.postId===postId&&a.status==='pending')||demoStore.applications.find(a=>a.postId===postId&&['chatting','joined'].includes(a.status));if(!a){showModal('暂无进行中的申请',`<p>${escapeHTML(demoStore.posts[postId].title)}</p><p>这个招募目前没有待处理申请或进行中的沟通。</p><button type="button" class="button" data-nav="messages">查看全部申请</button>`);return;}state.inbox=a.status==='pending'?'received':'chat';state.selectedApp=a.id;goWorkspace('messages');return;}
+ if(b.dataset.appAction){dispatchCollaboration({type:b.dataset.appAction,appId:b.dataset.id});state.selectedApp=b.dataset.id;if(b.dataset.appAction==='accept')state.inbox='chat';render();toast(({accept:'已接受，可以开始沟通',reject:'已拒绝申请',confirm:'确认状态已更新',withdraw:'申请已撤回',close:'沟通已结束'})[b.dataset.appAction]);return;}
+ if(b.dataset.teamOpen){state.teamId=b.dataset.teamOpen;state.teamTab='overview';goWorkspace('team');return;}
+ if(b.dataset.teamTab){state.teamTab=b.dataset.teamTab;render();return;}
+ if(b.dataset.profileTab){state.profileTab=b.dataset.profileTab;render();return;}
+ if(b.hasAttribute('data-edit-profile')){openProfileForm();return;}
+ if(b.hasAttribute('data-certification')){if(user(actor).verified)showModal('认证管理',`<p>${displayName(actor)} · 校园已认证</p><div class="source-box"><span>${icon('BadgeCheck')}示例校园邮箱认证</span><span>${icon('ShieldCheck')}仅保存认证结果，不展示证明材料</span></div><p class="inline-note">组织发布权限需另行申请，本人的校园认证不代表组织授权。</p>`);else showCertification();return;}
+ if(b.dataset.unsave){state.followed.delete(b.dataset.unsave);render();return;}
+ if(b.dataset.notice){if(!readNotices.includes(b.dataset.notice))readNotices.push(b.dataset.notice);openDetail(b.dataset.noticeTopic);return;}
+ if(b.hasAttribute('data-new-task')){openTaskForm();return;}
+ if(b.dataset.editTask){openTaskForm(b.dataset.editTask);return;}
+ if(b.dataset.editRole){const team=demoStore.teams[state.teamId],r=team.plan.roles.find(r=>r.user===b.dataset.editRole);showModal('修改分工',`<form id="role-form" data-user-id="${r.user}"><label class="field">${displayName(r.user)}的分工<input name="role" maxlength="100" required value="${escapeHTML(r.role)}"></label><div class="form-actions"><button class="button primary" type="submit">保存分工</button></div></form>`);return;}
+ if(b.dataset.generatePlan){const id=b.dataset.generatePlan;if(planningFor)return;planningFor=id;state.planError=null;render();setTimeout(()=>{planningFor=null;if(state.aiFailure){state.planError=id;render();return;}const team=demoStore.teams[id],p=demoStore.posts[id];team.plan={roles:p.members.map((member,i)=>({user:member,role:i===0?'目标协调、进度与核心方案':user(member).skills.slice(0,2).join('与')+'，协作完成交付'})),agenda:['确认项目目标、边界和报名要求','根据成员技能核对分工与时间','确定首个交付与后续同步安排'],risks:['AI 建议需由成员确认','队伍人数变化后重新核对分工与时间','联系方式只在已加入成员间共享']};if(!team.tasks.length)team.tasks=p.members.map((member,i)=>({id:'plan-'+i,title:i===0?'整理目标、规则与第一周计划':'整理资料并完成分工初稿',owner:member,due:'2026-09-12',done:false}));render();toast('已生成示例协作建议');},500);return;}
+ }catch(error){toast(error.message);}
+});
+document.addEventListener('submit',event=>{
+ const form=event.target;if(!['application-form','chat-form','profile-form','task-form','role-form'].includes(form.id))return;event.preventDefault();const data=new FormData(form);
+ try{
+ if(form.id==='application-form'){dispatchCollaboration({type:'apply',postId:form.dataset.postId,verified:user(actor).verified,fields:Object.fromEntries(data)});const a=demoStore.applications.at(-1);state.selectedApp=a.id;state.inbox='sent';goWorkspace('messages');toast('申请已提交（本地示例）');}
+ if(form.id==='chat-form'){dispatchCollaboration({type:'message',appId:form.dataset.appId,text:data.get('message')});render();const feed=$('chat-feed');if(feed)feed.scrollTop=feed.scrollHeight;}
+ if(form.id==='profile-form'){users[actor]={...user(actor),name:String(data.get('name')).trim(),major:String(data.get('major')).trim(),campus:String(data.get('campus')),hours:String(data.get('hours')).trim(),bio:String(data.get('bio')).trim(),skills:data.getAll('skills')};$('modal').close();render();toast('资料已保存到本次会话');}
+ if(form.id==='task-form'){const team=demoStore.teams[state.teamId],old=team.tasks.find(t=>t.id===form.dataset.taskId);const values={title:String(data.get('title')).trim(),owner:String(data.get('owner')),due:String(data.get('due'))};if(!values.title)throw new Error('请填写任务标题');if(old)Object.assign(old,values);else team.tasks.push({id:'task-'+Date.now(),...values,done:false});$('modal').close();render();toast('任务已保存');}
+ if(form.id==='role-form'){demoStore.teams[state.teamId].plan.roles.find(r=>r.user===form.dataset.userId).role=String(data.get('role')).trim();$('modal').close();render();toast('分工已更新');}
+ }catch(error){if($('application-error'))$('application-error').textContent=error.message;else toast(error.message);}
+});
+document.addEventListener('change',event=>{const e=event.target;if(e.dataset.taskCheck){const p=demoStore.posts[state.teamId];if(p?.members.includes(actor)){demoStore.teams[state.teamId].tasks.find(t=>t.id===e.dataset.taskCheck).done=e.checked;render();}}if(e.dataset.preference){preferences[e.dataset.preference]=e.checked;persistDemo();}});
+$('profile-shortcut').onclick=()=>goWorkspace('profile');$('notifications-button').onclick=()=>{state.inbox='notifications';goWorkspace('messages');};
+$('demo-actor').onchange=e=>{actor=e.target.value;state.selectedApp=null;state.planError=null;if(!user(actor).verified&&['messages','teams','team'].includes(state.view))state.view='profile';if($('modal').open)$('modal').close();render();};
+$('demo-ai-failure').onchange=e=>{state.aiFailure=e.target.checked;render();};
+$('reset-demo').onclick=()=>showModal('重置示例',`<p>将清除这份草图本次会话中的申请、任务修改与关注，恢复预置示例。不会影响真实项目数据。</p><div class="form-actions"><button type="button" class="button" data-close-dialog>取消</button><button type="button" class="button primary" id="confirm-reset-demo">恢复示例</button></div>`);
+document.addEventListener('click',e=>{if(e.target.closest('#confirm-reset-demo')){if(typeof resetPublishingDemo==='function')resetPublishingDemo();demoStore=seedCollaboration();users=structuredClone(initialUsers);actor='pei';state.followed=new Set();preferences={deadline:true,updates:true};readNotices=[];state.view='browse';state.channel='official';state.filters={official:freshFilter(),organization:freshFilter(),casual:freshFilter()};state.aiFailure=false;state.selectedApp=null;state.teamId=null;$('modal').close();render();}});
+
+initialUsers.operator = {name:'内容运营',major:'CampusMate 内容团队',campus:'不限校区',skills:['来源核验','内容审核'],hours:'工作时间',bio:'负责活动来源核验、重复合并与话题更新。',verified:true};
+users.operator ||= structuredClone(initialUsers.operator);
+
+const identityRoles = {
+  li:{orgRole:'publisher',orgName:'书友社',orgExpires:'2027-02-28'},
+  operator:{siteRole:'operator'}
+};
+let publishDraft = null;
+let publishTopicCandidate = null;
+const initialInvitationCount = invitations.length;
+const initialTopicTeamCounts = Object.fromEntries(topics.map(topic=>[topic.id,topic.teams.length]));
+
+function resetPublishingDemo(){
+  invitations.splice(initialInvitationCount);
+  topics.forEach(topic=>topic.teams.splice(initialTopicTeamCounts[topic.id]||0));
+  publishDraft=null;
+  publishTopicCandidate=null;
+}
+
+function publishingIdentity(id=actor){return {verified:user(id).verified,...(identityRoles[id]||{})};}
+function identityLabel(id=actor){const identity=publishingIdentity(id);if(identity.siteRole==='operator')return '平台内容运营';if(identity.orgRole)return `${identity.orgName} · 授权发布者`;return identity.verified?'校园已认证':'待校园认证';}
+function preparePublishModal(){const modal=$('modal');modal.classList.add('publish-modal');}
+function permissionFor(kind){return Publishing.canCreate(publishingIdentity(),kind);}
+
+const publishingCommands = [
+  {kind:'clue',icon:'FileText',title:'提交活动线索',description:'提供官网、校院通知或活动页面，交由运营核验收录'},
+  {kind:'recruitment',icon:'Users',title:'发起组队招募',description:'选择一个允许组队的话题，再由 AI 整理你的队友需求'},
+  {kind:'invitation',icon:'CalendarDays',title:'发起校园搭子',description:'直接发布一次有时间、地点和人数的校内邀约'},
+  {kind:'organization_topic',icon:'BadgeCheck',title:'发布组织活动',description:'仅限获得组织发布授权的负责人或发布者'},
+  {kind:'official_topic',icon:'ShieldCheck',title:'发布官方话题',description:'核验来源、届次和主办方后建立唯一公共话题'}
+];
+
+function openCreateMenu(){
+  preparePublishModal();
+  const identity=publishingIdentity();
+  showModal('创建内容',`<div class="identity-strip">${icon(identity.verified?'BadgeCheck':'CircleAlert')}<div><strong>${displayName(actor)}</strong><small>${escapeHTML(identityLabel())}</small></div><button class="button" type="button" data-identity-center>认证与授权</button></div><div class="command-list">${publishingCommands.map(item=>{const permission=permissionFor(item.kind);return `<button class="command-item" type="button" data-create-kind="${item.kind}" ${permission.allowed?'':`disabled aria-disabled="true"`}><span class="command-icon">${icon(item.icon)}</span><span class="command-copy"><strong>${item.title}</strong><span>${item.description}</span>${permission.allowed?'':`<small>${escapeHTML(permission.reason)}</small>`}</span></button>`;}).join('')}</div>`);
+}
+
+function openIdentityCenter(){
+  preparePublishModal();
+  const identity=publishingIdentity();
+  const campusStatus=identity.verified?'已完成':'未完成';
+  const orgStatus=identity.orgName?`${identity.orgName}已核验`:'尚未加入认证组织';
+  const roleStatus=identity.siteRole==='operator'?'平台内容运营':identity.orgRole?`组织发布者 · 至 ${identity.orgExpires}`:'无组织发布权限';
+  showModal('认证与发布权限',`<div class="verification-grid"><section class="verification-card"><header>${icon('GraduationCap')}<strong>校园身份</strong></header><p>通过校园邮箱或学校统一身份页面确认在校身份。</p><span class="badge ${identity.verified?'org':'status'}">${campusStatus}</span></section><section class="verification-card"><header>${icon('Building2')}<strong>组织资质</strong></header><p>学院、书院或社团提交官方页面和证明，由平台人工核验。</p><span class="badge ${identity.orgName?'org':''}">${escapeHTML(orgStatus)}</span></section><section class="verification-card"><header>${icon('ShieldCheck')}<strong>角色授权</strong></header><p>组织通过后，由负责人邀请成员或发布者，权限设有效期。</p><span class="badge ${identity.orgRole||identity.siteRole?'org':'status'}">${escapeHTML(roleStatus)}</span></section></div><div class="verification-flow"><span>提交申请</span>${icon('ChevronRight')}<span>校园邮箱 / 官方页面验证</span>${icon('ChevronRight')}<span>填写或上传证明</span>${icon('ChevronRight')}<span>人工审核</span>${icon('ChevronRight')}<span>设置有效期</span>${icon('ChevronRight')}<span>到期复核</span></div><div class="inline-note">校园认证只开放学生功能，不自动获得代表学院或社团发布话题的权限。证明材料不在公开页面展示。</div>`);
+}
+
+function openClueForm(){
+  preparePublishModal();
+  showModal('提交活动线索',`<p class="topic-form-note">线索不会直接成为公开话题。运营人员将核验来源、届次、主办方并合并重复内容。</p><form id="clue-form"><div class="form-grid"><label class="field full">活动页面或通知链接<input name="source" type="url" required placeholder="https://"></label><label class="field full">你看到的活动名称<input name="title" required maxlength="100" placeholder="活动或比赛名称"></label><label class="field full">补充说明<textarea name="note" maxlength="300" placeholder="可以说明学校、报名截止时间或适合哪些同学"></textarea></label></div><div class="form-actions"><button class="button" type="button" data-create-back>返回</button><button class="button primary" type="submit">提交核验</button></div></form>`);
+}
+
+function openDraftIntake(kind,topicId=''){
+  preparePublishModal();
+  const isRecruitment=kind==='recruitment';
+  const allowedTopics=topics.filter(topic=>topic.group);
+  const example=isRecruitment?'想参加数学建模，已有会 Python 的同学，还缺论文写作队友':'想在仙林找人打羽球';
+  showModal(isRecruitment?'发起组队招募':'发起校园搭子',`<div class="publish-steps"><span class="publish-step active">1 描述需求</span><span class="publish-step">2 AI 补全</span><span class="publish-step">3 确认发布</span></div><div class="composer-layout"><form id="publish-intake" data-kind="${kind}" class="composer-main">${isRecruitment?`<label class="field">关联话题<select name="topicId" required>${allowedTopics.map(topic=>`<option value="${topic.id}" ${topic.id===topicId?'selected':''}>${topic.title}</option>`).join('')}</select></label>`:''}<label class="field">用自己的话描述<textarea class="publish-source" name="description" required maxlength="800">${example}</textarea></label><div class="form-actions"><button class="button" type="button" data-create-back>返回</button><button class="button primary" type="submit">${icon('Sparkles')}让 AI 整理</button></div></form><aside class="composer-side"><h3>本次只整理这些内容</h3><div class="draft-progress"><div class="draft-field"><span>活动或比赛</span><strong>从描述或关联话题获取</strong></div><div class="draft-field"><span>时间与地点</span><strong>可以选择待商定</strong></div><div class="draft-field"><span>人数与要求</span><strong>允许无要求或不知道</strong></div><div class="draft-field"><span>标准标签</span><strong>只能从标签库选择</strong></div></div><div class="ai-boundary">AI 不创建新标签，不认定赛事级别，也不替用户发布。</div></aside></div>`);
+}
+
+function statusText(field){return ({answered:'已回答',none:'无要求',unknown:'暂不确定',skipped:'待商定',unasked:'待补充'})[field.status]||field.status;}
+function displayField(field){return field.status==='unasked'?'尚未填写':field.value;}
+function questionOptions(key){return ({time:[['answer','周五 19:00'],['skip','待商定'],['unknown','暂时不知道']],location:[['answer','仙林校区'],['answer','鼓楼校区'],['answer','线上'],['skip','待商定']],capacity:[['answer','2'],['answer','3'],['answer','4'],['unknown','人数待定']],requirement:[['none','无要求'],['answer','需要基础经验'],['unknown','暂时不知道'],['skip','跳过']]})[key]||[];}
+
+function renderDraftAssistant(){
+  preparePublishModal();
+  const question=Publishing.nextQuestion(publishDraft);
+  if(!question){renderDraftPreview();return;}
+  if(state.aiFailure){showModal('AI 整理暂不可用',`<div class="error-band" role="alert">AI 服务异常。草稿仍保留，你可以取消异常开关后重试，正式产品还应提供普通表单作为回退。</div><div class="form-actions"><button class="button" type="button" data-create-back>退出草稿</button><button class="button primary" type="button" data-retry-draft>重试</button></div>`);return;}
+  showModal('AI 补全组队信息',`<div class="publish-steps"><span class="publish-step">1 描述需求</span><span class="publish-step active">2 AI 补全</span><span class="publish-step">3 确认发布</span></div><div class="composer-layout"><section class="composer-main"><div class="ai-question"><header>${icon('Sparkles')}只补充一项</header><p>${escapeHTML(question.text)}</p><form id="ai-answer-form" data-field="${question.field}"><label class="field"><input name="answer" maxlength="100" placeholder="直接输入回答"></label><div class="quick-answers">${questionOptions(question.field).map(([action,value])=>`<button type="button" data-draft-answer="${question.field}" data-answer-action="${action}" data-answer-value="${value}">${value}</button>`).join('')}</div><div class="form-actions"><button class="button" type="button" data-create-back>退出草稿</button><button class="button primary" type="submit">继续</button></div></form></div></section><aside class="composer-side"><h3>AI 已整理</h3><div class="draft-progress">${Object.entries(publishDraft.fields).map(([key,value])=>`<div class="draft-field"><span>${({time:'时间',location:'地点',capacity:'团队人数',requirement:'伙伴要求'})[key]}</span><strong>${escapeHTML(displayField(value))}<span class="field-state ${value.status==='unasked'?'pending':''}">${statusText(value)}</span></strong></div>`).join('')}</div><div class="tag-confirm">${publishDraft.tagIds.map(id=>badge(id)).join('')||'<span class="muted small">尚未识别标准标签</span>'}</div></aside></div>`);
+}
+
+function renderDraftPreview(){
+  preparePublishModal();
+  publishDraft.tagIds=Publishing.validateTagIds(publishDraft.tagIds,tags);
+  const errors=Publishing.validateForPreview(publishDraft);
+  const available=tags.filter(tag=>tag.kind==='topic'&&!publishDraft.tagIds.includes(tag.id)).slice(0,8);
+  showModal('确认组队内容',`<div class="publish-steps"><span class="publish-step">1 描述需求</span><span class="publish-step">2 AI 补全</span><span class="publish-step active">3 确认发布</span></div><form id="publish-preview-form"><div class="composer-layout"><section class="composer-main"><label class="field">标题<input name="title" maxlength="80" required value="${escapeHTML(publishDraft.title)}"></label><label class="field">简介<textarea name="summary" maxlength="260" required>${escapeHTML(publishDraft.summary)}</textarea></label><h3>保留的标准标签</h3><div class="tag-confirm">${publishDraft.tagIds.map(id=>`<span class="chip">${escapeHTML(tagById(id).name)}<button type="button" data-draft-remove-tag="${id}" title="移除${escapeHTML(tagById(id).name)}" aria-label="移除${escapeHTML(tagById(id).name)}">${icon('X')}</button></span>`).join('')||'<span class="muted small">请从标签库选择至少一个活动标签</span>'}</div><div class="tag-library"><span class="small muted">标准标签库</span><div>${available.map(tag=>`<button class="button" type="button" data-draft-add-tag="${tag.id}">${icon('Plus')}${tag.name}</button>`).join('')}</div></div></section><aside class="composer-side"><div class="preview-card"><div class="preview-kicker"><span>${publishDraft.kind==='recruitment'?'话题内组队帖':'校园搭子'}</span><span class="badge org">招募中</span></div><h2>${escapeHTML(publishDraft.title)}</h2><p>${escapeHTML(publishDraft.summary)}</p><div class="badges">${publishDraft.tagIds.map(id=>badge(id)).join('')}</div><div class="preview-facts"><div><small>时间</small><strong>${escapeHTML(displayField(publishDraft.fields.time))}</strong></div><div><small>地点</small><strong>${escapeHTML(displayField(publishDraft.fields.location))}</strong></div><div><small>团队人数</small><strong>${escapeHTML(displayField(publishDraft.fields.capacity))}</strong></div><div><small>伙伴要求</small><strong>${escapeHTML(displayField(publishDraft.fields.requirement))}</strong></div></div></div></aside></div><div class="preview-actions"><span class="validation-errors">${errors.map(escapeHTML).join('；')}</span><div><button class="button" type="button" data-edit-draft>返回补充</button> <button class="button primary" type="submit" ${errors.length?'disabled':''}>发布到草图</button></div></div></form>`);
+}
+
+function openTopicForm(kind){
+  preparePublishModal();
+  const identity=publishingIdentity();
+  const isOfficial=kind==='official_topic';
+  const organizer=isOfficial?'赛事组委会':identity.orgName||'';
+  showModal(isOfficial?'建立官方赛事话题':'发布组织活动',`<p class="topic-form-note">同一赛事系列、届次和主办范围只保留一个话题。宣传新闻、延期通知和规则附件应更新原话题。</p><form id="topic-form" data-kind="${kind}"><div class="form-grid"><label class="field">赛事 / 活动系列<input name="title" required value="${isOfficial?'全国大学生数学建模竞赛':'书友社秋季交流会'}"></label><label class="field">届次或学期<input name="edition" required value="2026"></label><label class="field">主办方标识<input name="organizerId" required value="${isOfficial?'mcm-committee':'book-club'}" ${isOfficial?'':'readonly'}></label><label class="field">主办方名称<input name="organizer" required value="${escapeHTML(organizer)}" ${isOfficial?'':'readonly'}></label><label class="field full">来源页面<input name="source" type="url" required value="https://example.edu/activity"></label><label class="field full">内容摘要<textarea name="summary" required maxlength="300">填写活动时间、资格和参与方式，正式发布前仍需核验来源。</textarea></label></div><div id="topic-duplicate-result"></div><div class="form-actions"><button class="button" type="button" data-create-back>返回</button><button class="button primary" type="submit">检查重复并预览</button></div></form>`);
+}
+
+function submitDraftToPrototype(){
+  const capacity=Math.max(2,Number.parseInt(publishDraft.fields.capacity.value,10)||3);
+  const id=`draft-${Date.now()}`;
+  if(publishDraft.kind==='invitation'){
+    const location=publishDraft.fields.location.value||'待商定';
+    const campus=location.includes('鼓楼')?'鼓楼校区':'仙林校区';
+    invitations.unshift({id,title:publishDraft.title,tags:[...publishDraft.tagIds],date:'2026-09-12',time:publishDraft.fields.time.value||'待定',end:'待定',campus,place:location,author:user(actor).name,major:user(actor).major,total:capacity,joined:1,summary:publishDraft.summary,requirement:publishDraft.fields.requirement.value||'暂无',cost:'暂无',status:'open'});
+    demoStore.posts[id]={id,title:publishDraft.title,owner:actor,capacity,members:[actor],status:'open',roles:['活动伙伴'],summary:publishDraft.summary,kind:'invitation',campus,hours:publishDraft.fields.time.value||'待商定',date:'2026-09-12'};
+    state.channel='casual';state.casualMode='daily';state.view='browse';
+  }else{
+    const topic=topics.find(item=>item.id===publishDraft.topicId);const index=topic.teams.length;
+    topic.teams.push({title:publishDraft.title,name:user(actor).name,need:publishDraft.fields.requirement.value||'暂无',summary:publishDraft.summary,slots:`1 / ${capacity} 人`,skills:publishDraft.tagIds.map(id=>tagById(id).name)});
+    const postId=`${topic.id}-team-${index}`;
+    demoStore.posts[postId]={id:postId,title:publishDraft.title,owner:actor,capacity,members:[actor],status:'open',roles:[publishDraft.fields.requirement.value||'暂无'],summary:publishDraft.summary,topicId:topic.id,kind:'recruitment',campus:publishDraft.fields.location.value||'待商定',hours:publishDraft.fields.time.value||'待商定',date:topic.date};
+    state.detailId=topic.id;state.channel=topic.channel;state.subtab='teams';state.view='detail';
+  }
+  $('modal').close();publishDraft=null;render();window.scrollTo(0,0);toast('已发布到本地草图，不会写入真实数据');
+}
+
+const baseRenderGlobalNav=renderGlobalNav;
+renderGlobalNav=function(){baseRenderGlobalNav();$('user-verification').textContent=identityLabel();};
+const baseRenderProfile=renderProfile;
+renderProfile=function(){baseRenderProfile();const host=$('workspace').querySelector('.profile-grid>section');if(host)host.insertAdjacentHTML('beforeend',`<section class="identity-panel"><div class="identity-panel-head"><div><h3>身份与发布权限</h3><p>校园身份、组织资质与组织角色分别核验。</p></div><button class="button" type="button" data-identity-center>${icon('BadgeCheck')}查看认证</button></div></section>`);};
+const baseRenderDetail=renderDetail;
+renderDetail=function(){baseRenderDetail();const topic=topics.find(item=>item.id===state.detailId);if(!topic?.group)return;const section=$('detail').querySelector('.detail-side .side-section:nth-child(2)');if(section&&!section.querySelector('[data-quick-recruitment]'))section.insertAdjacentHTML('beforeend',`<button type="button" class="button" data-quick-recruitment="${topic.id}" ${permissionFor('recruitment').allowed?'':'disabled'}>${icon('Plus')}发起组队招募</button>`);};
+
+document.addEventListener('click',event=>{
+  const button=event.target.closest('button');if(!button)return;
+  try{
+    if(button.id==='create-button'){openCreateMenu();return;}
+    if(button.hasAttribute('data-identity-center')){openIdentityCenter();return;}
+    if(button.hasAttribute('data-create-back')){openCreateMenu();return;}
+    if(button.dataset.createKind==='clue'){openClueForm();return;}
+    if(button.dataset.createKind==='recruitment'){openDraftIntake('recruitment');return;}
+    if(button.dataset.createKind==='invitation'){openDraftIntake('invitation');return;}
+    if(['organization_topic','official_topic'].includes(button.dataset.createKind)){openTopicForm(button.dataset.createKind);return;}
+    if(button.dataset.quickRecruitment){openDraftIntake('recruitment',button.dataset.quickRecruitment);return;}
+    if(button.hasAttribute('data-retry-draft')){renderDraftAssistant();return;}
+    if(button.dataset.draftAnswer){publishDraft=Publishing.answerDraft(publishDraft,button.dataset.draftAnswer,button.dataset.answerValue,button.dataset.answerAction);renderDraftAssistant();return;}
+    if(button.dataset.draftRemoveTag){publishDraft.tagIds=publishDraft.tagIds.filter(id=>id!==button.dataset.draftRemoveTag);renderDraftPreview();return;}
+    if(button.dataset.draftAddTag){publishDraft.tagIds=Publishing.validateTagIds([...publishDraft.tagIds,button.dataset.draftAddTag],tags);renderDraftPreview();return;}
+    if(button.hasAttribute('data-edit-draft')){const key=Object.keys(publishDraft.fields).find(name=>publishDraft.fields[name].status!=='answered')||'requirement';publishDraft.fields[key].status='unasked';renderDraftAssistant();return;}
+    if(button.hasAttribute('data-submit-topic-review')){$('modal').close();toast(publishTopicCandidate.kind==='official_topic'?'官方话题草稿已建立':'组织活动已提交审核');publishTopicCandidate=null;return;}
+  }catch(error){toast(error.message);}
+});
+
+document.addEventListener('submit',event=>{
+  const form=event.target;
+  try{
+    if(form.id==='publish-intake'){
+      event.preventDefault();const data=new FormData(form);const kind=form.dataset.kind;const result=permissionFor(kind);if(!result.allowed)throw new Error(result.reason);
+      publishDraft=Publishing.createDraft(kind,data.get('description'),{tags,topicId:data.get('topicId')||null});renderDraftAssistant();return;
+    }
+    if(form.id==='ai-answer-form'){
+      event.preventDefault();const data=new FormData(form);publishDraft=Publishing.answerDraft(publishDraft,form.dataset.field,data.get('answer'),'answer');renderDraftAssistant();return;
+    }
+    if(form.id==='publish-preview-form'){
+      event.preventDefault();const data=new FormData(form);publishDraft.title=String(data.get('title')).trim();publishDraft.summary=String(data.get('summary')).trim();const errors=Publishing.validateForPreview(publishDraft);if(errors.length)throw new Error(errors.join('；'));submitDraftToPrototype();return;
+    }
+    if(form.id==='clue-form'){
+      event.preventDefault();$('modal').close();toast('活动线索已进入核验队列（本地示例）');return;
+    }
+    if(form.id==='topic-form'){
+      event.preventDefault();const data=new FormData(form);const title=String(data.get('title'));const seriesId=/数学建模/.test(title)?'mcm':title.trim().toLowerCase().replace(/\s+/g,'-');const candidate={kind:form.dataset.kind,seriesId,edition:String(data.get('edition')),organizerId:String(data.get('organizerId')),title,organizer:String(data.get('organizer')),source:String(data.get('source')),summary:String(data.get('summary'))};const existing=[{id:'math-2026',seriesId:'mcm',edition:'2026',organizerId:'mcm-committee',title:'大学生数学建模竞赛 · 2026'}];const duplicate=Publishing.findDuplicateTopic(candidate,existing);const result=$('topic-duplicate-result');
+      if(duplicate){result.innerHTML=`<div class="duplicate-box"><strong>${icon('CircleAlert')}发现同届同主办话题</strong><p>${duplicate.title} 已存在。应把新来源和规则更新到原话题，不再创建重复话题。</p><button class="button" type="button" data-open="${duplicate.id}">查看已有话题</button></div>`;hydrateIcons();return;}
+      publishTopicCandidate=candidate;result.innerHTML=`<div class="preview-card"><div class="preview-kicker"><span>${candidate.kind==='official_topic'?'官方话题草稿':'认证组织活动'}</span><span class="badge status">待核验</span></div><h2>${escapeHTML(candidate.title)} · ${escapeHTML(candidate.edition)}</h2><p>${escapeHTML(candidate.summary)}</p><div class="source-box"><span>${icon('Building2')}${escapeHTML(candidate.organizer)}</span><span>${icon('ExternalLink')}${escapeHTML(candidate.source)}</span></div></div><div class="form-actions"><button class="button primary" type="button" data-submit-topic-review>${candidate.kind==='official_topic'?'建立待发布草稿':'提交人工审核'}</button></div>`;hydrateIcons();return;
+    }
+  }catch(error){event.preventDefault();toast(error.message);}
+});
+
+$('modal').addEventListener('close',()=>{$('modal').classList.remove('publish-modal');});
+
+render();
+</script>
+</body>
+</html>

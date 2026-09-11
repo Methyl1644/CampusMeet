@@ -7,7 +7,6 @@ const {
   completeProfile,
   sendCampusCode,
   verifyCampus,
-  skipCampusVerification,
   submitOrganizationApplication,
   reviewOrganizationApplication,
   createRoleInvite,
@@ -91,11 +90,11 @@ test('accepting an invite grants only its organization-scoped role', () => {
   assert.equal(accepted.pendingInvite, null);
 });
 
-test('skipping campus verification preserves browse-only permissions', () => {
-  const skipped = skipCampusVerification(registeredState());
-  assert.equal(skipped.authView, 'public_browse');
-  assert.equal(derivePermissions(skipped).canBrowse, true);
-  assert.equal(derivePermissions(skipped).canCreateStudentPost, false);
+test('anonymous visitors cannot browse internal content', () => {
+  const permissions = derivePermissions(createAuthState());
+  assert.equal(permissions.canBrowse, false);
+  assert.equal(permissions.canCreateStudentPost, false);
+  assert.equal(derivePermissions(registeredState()).canBrowse, true);
 });
 
 test('reset clears all fictional account and verification data', () => {

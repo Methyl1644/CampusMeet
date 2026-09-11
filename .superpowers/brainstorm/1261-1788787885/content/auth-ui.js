@@ -4,17 +4,13 @@ let panel = 'main';
 let errorMessage = '';
 let countdown = 0;
 let countdownTimer = null;
+let previousStage = 0;
 
 const destinationHref = () => window.location.pathname.toLowerCase().includes('campusmate-auth-prototype')
   ? 'CampusMate-interactive-prototype.html'
   : 'topic-and-invitation.html';
 
-const steps = [
-  { key: 'account', label: '账号', note: '登录或注册' },
-  { key: 'profile', label: '资料', note: '完善基本信息' },
-  { key: 'campus', label: '校园认证', note: '解锁学生权限' },
-  { key: 'identity', label: '认证中心', note: '组织与角色' }
-];
+const registrationSteps = ['创建账号', '完善资料', '校园认证'];
 
 const stageIndex = () => {
   if (state.authView === 'login' || state.authView === 'register_account') return 0;
@@ -57,18 +53,15 @@ const pageHead = (eyebrow, iconName, title, description) => `
     <p>${escapeHTML(description)}</p>
   </header>`;
 
-const renderJourney = () => {
+const renderRegistrationProgress = () => {
+  if (!['register_account', 'register_profile', 'campus_verify'].includes(state.authView)) return '';
   const current = stageIndex();
-  $('journey-list').innerHTML = steps.map((step, index) => `
-    <li class="journey-step ${index === current ? 'active' : ''} ${index < current ? 'done' : ''}">
-      <span class="step-dot">${index < current ? icon('Check') : index + 1}</span>
-      <span><strong>${step.label}</strong><small>${step.note}</small></span>
-    </li>`).join('');
+  return `<nav class="registration-progress" aria-label="注册进度"><ol class="progress-list">${registrationSteps.map((label, index) => `<li class="progress-step ${index === current ? 'active' : ''} ${index < current ? 'done' : ''}"><span class="progress-dot"></span><span>${label}</span></li>`).join('')}</ol><div class="registration-privacy"><span data-icon="LockKeyhole"></span><span>校园认证材料仅供审核使用，不进入公开资料，也不交给 AI 处理。</span></div></nav>`;
 };
 
 const renderLogin = () => {
   const codeMode = state.loginMode === 'code';
-  return `${pageHead('欢迎回来', 'LogIn', '登录 CampusMate', '浏览校园组队信息不要求登录；发布、申请和查看联系方式需要完成校园认证。')}
+  return `${pageHead('欢迎回来', 'LogIn', '登录 CampusMate', '登录后进入校园组队信息页面；发布、申请和查看联系方式仍需要完成校园认证。')}
     <div class="segmented" role="tablist" aria-label="登录方式">
       <button class="segment ${codeMode ? '' : 'active'}" type="button" data-action="login-mode" data-mode="password">密码登录</button>
       <button class="segment ${codeMode ? 'active' : ''}" type="button" data-action="login-mode" data-mode="code">验证码登录</button>
@@ -82,7 +75,7 @@ const renderLogin = () => {
       <div class="actions"><button class="button text" type="button" data-action="forgot-password">忘记密码</button><button class="button primary push" type="submit"><span data-icon="LogIn"></span>登录</button></div>
     </form>
     <dl class="demo-credentials"><dt>演示账号</dt><dd>student@example.edu.cn</dd><dt>${codeMode ? '演示验证码' : '演示密码'}</dt><dd>${codeMode ? '246810' : 'DemoPass2026'}</dd></dl>
-    <div class="actions"><button class="button secondary" type="button" data-action="start-register"><span data-icon="UserPlus"></span>创建账号</button><button class="button text" type="button" data-action="browse-public"><span data-icon="Eye"></span>暂不登录，浏览公开内容</button></div>`;
+    <div class="actions"><button class="button secondary" type="button" data-action="start-register"><span data-icon="UserPlus"></span>创建账号</button></div>`;
 };
 
 const renderRegisterAccount = () => `${pageHead('第 1 步', 'UserPlus', '创建账号', '手机号或常用邮箱用于登录；创建账号后仍需单独完成校园身份认证。')}
@@ -115,7 +108,7 @@ const renderCampusVerification = () => {
     <form class="form" id="campus-form" style="margin-top:22px">
       <div class="field"><label for="campus-email">校园邮箱</label><div class="input-action"><input class="control" id="campus-email" name="email" value="${escapeHTML(state.campusEmail || 'student@example.edu.cn')}" autocomplete="email"><button class="button secondary" id="campus-send-button" type="button" data-action="send-campus-code" ${countdown ? 'disabled' : ''}>${countdown ? `重新发送 (${countdown}s)` : '发送验证码'}</button></div></div>
       ${sent ? `<div class="success-box"><span data-icon="CheckCircle2"></span><span>验证码已发送至 ${escapeHTML(state.campusEmail)}。演示验证码为 246810。</span></div><div class="field"><label for="campus-code">邮箱验证码</label><input class="control" id="campus-code" name="code" value="246810" inputmode="numeric" autocomplete="one-time-code"></div>` : ''}
-      <div class="actions"><button class="button text" type="button" data-action="back-profile"><span data-icon="ArrowLeft"></span>上一步</button><button class="button text" type="button" data-action="skip-campus">稍后认证，先浏览</button>${sent ? '<button class="button primary push" type="submit">完成认证<span data-icon="ArrowRight"></span></button>' : ''}</div>
+      <div class="actions"><button class="button text" type="button" data-action="back-profile"><span data-icon="ArrowLeft"></span>上一步</button>${sent ? '<button class="button primary push" type="submit">完成认证并进入<span data-icon="ArrowRight"></span></button>' : ''}</div>
     </form>`;
 };
 
@@ -188,19 +181,18 @@ const renderInvitePreview = () => {
   return `<div class="invite-preview"><h3>待接受的站内邀请</h3><dl><dt>受邀账号</dt><dd>${escapeHTML(invite.account)}</dd><dt>邀请角色</dt><dd>${invite.role === 'publisher' ? '授权发布者' : '组织成员'}</dd><dt>所属组织</dt><dd>计算机学院学生科创中心</dd><dt>有效期至</dt><dd>${escapeHTML(invite.expiresAt)}</dd></dl><div class="actions"><button class="button primary" type="button" data-action="accept-invite">切换为受邀人并接受</button></div></div>`;
 };
 
-const renderPublicBrowse = () => `<div class="public-screen"><div class="public-icon" data-icon="Compass"></div><h1>以游客身份浏览</h1><p>你可以查看公开赛事、组织活动和校园搭子邀约。发布、申请加入和查看联系方式时，系统会再次引导登录与校园认证。</p><div class="actions"><a class="button primary" href="${destinationHref()}">进入内容发现页<span data-icon="ArrowRight"></span></a><button class="button text" type="button" data-action="back-login">返回登录</button></div></div>`;
-
 const renderAuthApp = () => {
-  renderJourney();
+  const currentStage = stageIndex();
+  const direction = currentStage < previousStage ? 'stage-backward' : '';
   let html;
   if (panel === 'org-form') html = renderOrganizationForm();
   else if (state.authView === 'login') html = renderLogin();
   else if (state.authView === 'register_account') html = renderRegisterAccount();
   else if (state.authView === 'register_profile') html = renderProfile();
   else if (state.authView === 'campus_verify') html = renderCampusVerification();
-  else if (state.authView === 'public_browse') html = renderPublicBrowse();
   else html = renderIdentityCenter();
-  $('auth-root').innerHTML = html;
+  $('auth-root').innerHTML = `<div class="stage-panel ${direction}">${html}</div>${renderRegistrationProgress()}`;
+  previousStage = currentStage;
   hydrateIcons();
 };
 
@@ -237,7 +229,6 @@ document.addEventListener('click', event => {
   if (action === 'back-login' || action === 'logout') { panel = 'main'; setState(Auth.createAuthState()); $('demo-state').value = 'visitor'; }
   if (action === 'back-register') setState({ ...state, authView: 'register_account' });
   if (action === 'back-profile') setState({ ...state, authView: 'register_profile' });
-  if (action === 'browse-public' || action === 'skip-campus') setState(Auth.skipCampusVerification(state));
   if (action === 'forgot-password') showToast('正式版本将通过独立验证码用途完成密码重置。');
   if (action === 'send-login-code' || action === 'send-register-code') showToast('验证码已发送。演示验证码为 246810。');
   if (action === 'reserved-sso') showToast('学校统一身份认证为正式版本预留入口。');
@@ -263,11 +254,19 @@ document.addEventListener('submit', event => {
   if (form.id === 'login-form') {
     const valid = state.loginMode === 'code' ? data.code === '246810' : data.password === 'DemoPass2026';
     if (!valid) { errorMessage = state.loginMode === 'code' ? '演示验证码为 246810' : '演示密码为 DemoPass2026'; renderAuthApp(); return; }
-    setState(makeVerified());
+    window.location.href = destinationHref();
   }
   if (form.id === 'register-form') attempt(() => Auth.registerAccount(state, data));
   if (form.id === 'profile-form') attempt(() => Auth.completeProfile(state, data));
-  if (form.id === 'campus-form') attempt(() => Auth.verifyCampus(state, data.code));
+  if (form.id === 'campus-form') {
+    try {
+      state = Auth.verifyCampus(state, data.code);
+      window.location.href = destinationHref();
+    } catch (error) {
+      errorMessage = error.message;
+      renderAuthApp();
+    }
+  }
   if (form.id === 'organization-form') {
     panel = 'main';
     attempt(() => Auth.submitOrganizationApplication(state, data));
@@ -281,7 +280,7 @@ $('demo-state').addEventListener('change', event => {
   panel = 'main';
   const presets = {
     visitor: () => Auth.createAuthState(),
-    unverified: () => makeRegistered(),
+    unverified: () => ({ ...Auth.createAuthState(), authView: 'register_account' }),
     verified: () => makeVerified(),
     reviewing: () => makeReviewing(),
     owner: () => makeOwner()

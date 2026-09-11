@@ -11,9 +11,9 @@
 <style>/*AUTH_CSS*/</style>
 </head>
 <body>
-<div class="prototype-bar"><div class="wrap prototype-row"><strong>注册与认证交互草图</strong><span>本地模拟，请勿输入真实凭据</span><div class="demo-controls"><label for="demo-state">快速体验</label><select id="demo-state"><option value="visitor">游客</option><option value="unverified">未认证账号</option><option value="verified">校园已认证</option><option value="reviewing">组织审核中</option><option value="owner">组织负责人</option></select><button class="icon-button" id="reset-demo" type="button" title="重置演示" aria-label="重置演示"><span data-icon="RotateCcw"></span></button></div></div></div>
+<div class="prototype-bar"><div class="wrap prototype-row"><strong>注册与认证交互草图</strong><span>本地模拟，请勿输入真实凭据</span><div class="demo-controls"><label for="demo-state">快速体验</label><select id="demo-state"><option value="visitor">登录页</option><option value="unverified">注册流程</option><option value="verified">校园已认证</option><option value="reviewing">组织审核中</option><option value="owner">组织负责人</option></select><button class="icon-button" id="reset-demo" type="button" title="重置演示" aria-label="重置演示"><span data-icon="RotateCcw"></span></button></div></div></div>
 <header class="site-header"><div class="wrap header-row"><a class="brand" href="#"><span class="brand-mark" data-icon="Users"></span>CampusMate</a><div class="header-note"><span data-icon="ShieldCheck"></span><span>账号、校园身份和组织权限分层管理</span></div></div></header>
-<main class="wrap auth-shell"><aside class="journey" aria-label="认证步骤"><div class="journey-title">账号与身份</div><ol class="journey-list" id="journey-list"></ol><div class="privacy-note"><span data-icon="LockKeyhole"></span><span>认证材料仅供审核使用，不进入公开资料，也不交给 AI 处理。</span></div></aside><section class="auth-main" id="auth-root" aria-live="polite"></section></main>
+<main class="wrap auth-shell"><section class="auth-main" id="auth-root" aria-live="polite"></section></main>
 <footer class="footer"><div class="wrap footer-row"><span>CampusMate · 认证体验草图</span><span>虚构数据 · 不连接真实接口 · 不上传文件</span></div></footer>
 <div class="toast" id="toast" role="status" hidden></div>
 <script>/*ICON_DATA*/</script>
