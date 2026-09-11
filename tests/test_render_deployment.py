@@ -85,6 +85,65 @@ class _FakeHttpResponse:
         return b'{"id":"email_123"}'
 
 
+def test_brevo_transport_posts_verification_email_without_leaking_code(
+    monkeypatch, caplog
+):
+    captured = {}
+
+    def fake_urlopen(request, timeout):
+        captured["request"] = request
+        captured["timeout"] = timeout
+        return _FakeHttpResponse()
+
+    monkeypatch.setenv("BREVO_API_KEY", "test-brevo-key")
+    monkeypatch.setenv("BREVO_FROM_EMAIL", "verified-sender@example.com")
+    monkeypatch.setenv("BREVO_FROM_NAME", "CampusMate")
+    monkeypatch.setenv("BREVO_API_BASE_URL", "https://mail.example.test/v3/")
+    monkeypatch.setenv("RESEND_API_KEY", "unused-resend-key")
+    monkeypatch.setenv("RESEND_FROM_EMAIL", "unused@example.com")
+    monkeypatch.setattr("utils.email_sender.urlopen", fake_urlopen)
+
+    result = send_verification_email(
+        "student@smail.nju.edu.cn", "654321", "注册"
+    )
+
+    request = captured["request"]
+    body = json.loads(request.data.decode("utf-8"))
+    assert request.full_url == "https://mail.example.test/v3/smtp/email"
+    assert request.get_header("Api-key") == "test-brevo-key"
+    assert request.get_header("Accept") == "application/json"
+    assert captured["timeout"] == 15
+    assert body["sender"] == {
+        "email": "verified-sender@example.com",
+        "name": "CampusMate",
+    }
+    assert body["to"] == [{"email": "student@smail.nju.edu.cn"}]
+    assert "654321" in body["textContent"]
+    assert result == {
+        "sent": True,
+        "message": "验证码已发送至 student@smail.nju.edu.cn",
+    }
+    assert "654321" not in caplog.text
+
+
+def test_brevo_failure_does_not_fall_back_or_return_the_code(monkeypatch):
+    def failing_urlopen(*_args, **_kwargs):
+        raise OSError("provider unavailable")
+
+    monkeypatch.setenv("BREVO_API_KEY", "test-brevo-key")
+    monkeypatch.setenv("BREVO_FROM_EMAIL", "verified-sender@example.com")
+    monkeypatch.setenv("RESEND_API_KEY", "unused-resend-key")
+    monkeypatch.setenv("RESEND_FROM_EMAIL", "unused@example.com")
+    monkeypatch.setattr("utils.email_sender.urlopen", failing_urlopen)
+
+    result = send_verification_email(
+        "student@smail.nju.edu.cn", "654321", "注册"
+    )
+
+    assert result["sent"] is False
+    assert "654321" not in json.dumps(result, ensure_ascii=False)
+
+
 def test_resend_transport_posts_verification_email_without_leaking_code(
     monkeypatch, caplog
 ):
@@ -159,6 +218,9 @@ def test_render_blueprint_keeps_external_credentials_out_of_git():
     blueprint = (REPOSITORY_ROOT / "render.yaml").read_text(encoding="utf-8")
 
     assert "key: DATABASE_URL\n        sync: false" in blueprint
+    assert "key: BREVO_API_KEY\n        sync: false" in blueprint
+    assert "key: BREVO_FROM_EMAIL\n        sync: false" in blueprint
+    assert "key: BREVO_FROM_NAME\n        value: CampusMate" in blueprint
     assert "key: RESEND_API_KEY\n        sync: false" in blueprint
     assert "key: RESEND_FROM_EMAIL\n        sync: false" in blueprint
     assert "key: FRONTEND_ORIGINS\n        sync: false" in blueprint
@@ -170,6 +232,7 @@ def test_render_blueprint_keeps_external_credentials_out_of_git():
     assert "key: CAMPUS_EMAIL_DOMAINS\n        value: nju.edu.cn" in blueprint
     assert "postgresql://" not in blueprint
     assert "ghp_" not in blueprint
+    assert "xkeysib-" not in blueprint
     assert "re_test" not in blueprint
 
 
@@ -186,7 +249,7 @@ def test_render_runtime_and_deployment_guide_are_present():
     assert "VITE_API_BASE_URL" in guide
     assert "FRONTEND_ORIGINS" in guide
     assert "Neon" in guide
-    assert "Resend" in guide
+    assert "Brevo" in guide
 
 
 def test_runtime_lock_excludes_removed_desktop_only_packages():

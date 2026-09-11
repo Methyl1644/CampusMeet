@@ -27,8 +27,9 @@
 | `campusmate-api` | `DATABASE_URL` | Neon 的 pooled connection 完整地址 |
 | `campusmate-api` | `FRONTEND_ORIGINS` | `https://campusmate-web.onrender.com` |
 | `campusmate-api` | `BOOTSTRAP_OPERATOR_EMAIL` | 你准备用作平台运营账号的注册邮箱 |
-| `campusmate-api` | `RESEND_API_KEY` | Resend 创建的 API Key |
-| `campusmate-api` | `RESEND_FROM_EMAIL` | `CampusMate <verify@你的已验证域名>` |
+| `campusmate-api` | `BREVO_API_KEY` | Brevo 创建的 API Key |
+| `campusmate-api` | `BREVO_FROM_EMAIL` | Brevo 中已验证的个人发件邮箱 |
+| `campusmate-api` | `BREVO_FROM_NAME` | `CampusMate` |
 | `campusmate-web` | `VITE_API_BASE_URL` | `https://campusmate-api.onrender.com` |
 
 `JWT_SECRET` 会由 Render 自动生成，不需要自己填写。
@@ -46,11 +47,14 @@
 
 ## 4. 开通注册验证码邮件
 
-1. 创建 Resend 账号并添加自己拥有的域名。
-2. 按 Resend 页面提供的值，在域名 DNS 中添加 SPF 和 DKIM 记录并等待验证。
-3. 创建只用于发送邮件的 API Key，直接填入 Render 的 `RESEND_API_KEY`。
-4. 将 `RESEND_FROM_EMAIL` 设为已验证域名下的发件地址，例如 `CampusMate <verify@mail.example.com>`。
-5. 使用真实邮箱完成一次注册测试。未验证自有域名时，Resend 默认测试域名只能发送到 Resend 账号本人的邮箱。
+1. 创建 Brevo 免费账号，进入 **Settings > Senders, Domains & Dedicated IPs > Senders**。
+2. 点击 **Add a sender**，名称填写 `CampusMate`，邮箱填写一个你可以正常收信的个人邮箱。
+3. 收取 Brevo 发来的六位验证码并完成发件人验证；初期不需要购买或认证域名。
+4. 进入 **Settings > SMTP & API > API Keys**，创建一个只供 CampusMate 使用的 API Key。
+5. 在 Render 的 `campusmate-api` 服务中设置 `BREVO_API_KEY`、`BREVO_FROM_EMAIL` 和 `BREVO_FROM_NAME`。API Key 不要写入仓库、截图或聊天消息。
+6. 保存变量并重新部署后端，然后分别使用真实的 `@smail.nju.edu.cn` 和 `@nju.edu.cn` 邮箱测试注册。
+
+未使用自有域名时，Brevo 可能改写实际发件域名，验证码邮件也可能进入垃圾箱。项目初期可先使用这种方式验证功能，后续再添加自有域名以提高送达率。
 
 当前生产环境支持邮箱验证码注册。手机短信需要另外接入短信供应商，未配置时页面应提示改用邮箱。
 

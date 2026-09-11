@@ -10,6 +10,22 @@ from urllib.request import Request, urlopen
 logger = logging.getLogger(__name__)
 
 
+def _get_brevo_config() -> dict | None:
+    api_key = os.getenv("BREVO_API_KEY", "").strip()
+    sender_email = os.getenv("BREVO_FROM_EMAIL", "").strip()
+    if not api_key or not sender_email:
+        return None
+    return {
+        "api_key": api_key,
+        "sender_email": sender_email,
+        "sender_name": os.getenv("BREVO_FROM_NAME", "CampusMate").strip()
+        or "CampusMate",
+        "base_url": os.getenv(
+            "BREVO_API_BASE_URL", "https://api.brevo.com/v3"
+        ).strip().rstrip("/"),
+    }
+
+
 def _get_resend_config() -> dict | None:
     api_key = os.getenv("RESEND_API_KEY", "").strip()
     sender = os.getenv("RESEND_FROM_EMAIL", "").strip()
@@ -104,12 +120,59 @@ def _send_with_resend(
         return {"sent": False, "message": "验证码邮件发送失败，请稍后重试"}
 
 
+def _send_with_brevo(
+    config: dict,
+    to_email: str,
+    subject: str,
+    html_body: str,
+    text_body: str,
+) -> dict:
+    payload = json.dumps(
+        {
+            "sender": {
+                "email": config["sender_email"],
+                "name": config["sender_name"],
+            },
+            "to": [{"email": to_email}],
+            "subject": subject,
+            "htmlContent": html_body,
+            "textContent": text_body,
+            "tags": ["campusmate-verification"],
+        },
+        ensure_ascii=False,
+    ).encode("utf-8")
+    request = Request(
+        f"{config['base_url']}/smtp/email",
+        data=payload,
+        method="POST",
+        headers={
+            "api-key": config["api_key"],
+            "Accept": "application/json",
+            "Content-Type": "application/json",
+        },
+    )
+    try:
+        with urlopen(request, timeout=15) as response:
+            response.read()
+        logger.info("Verification email sent through Brevo to %s", to_email)
+        return {"sent": True, "message": f"验证码已发送至 {to_email}"}
+    except Exception as error:
+        logger.error("Brevo verification email failed: %s", error)
+        return {"sent": False, "message": "验证码邮件发送失败，请稍后重试"}
+
+
 def send_verification_email(to_email: str, code: str, purpose: str = "注册") -> dict:
     """
     发送验证码邮件
     返回: {"sent": bool, "message": str, "code": str(仅未发送时返回)}
     """
     subject, html_body, text_body = _build_verification_content(code, purpose)
+    brevo_config = _get_brevo_config()
+    if brevo_config:
+        return _send_with_brevo(
+            brevo_config, to_email, subject, html_body, text_body
+        )
+
     resend_config = _get_resend_config()
     if resend_config:
         return _send_with_resend(

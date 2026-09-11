@@ -27,6 +27,12 @@ services:
         value: "5"
       - key: CAMPUS_EMAIL_DOMAINS
         value: nju.edu.cn,smail.nju.edu.cn
+      - key: BREVO_API_KEY
+        sync: false
+      - key: BREVO_FROM_EMAIL
+        sync: false
+      - key: BREVO_FROM_NAME
+        value: CampusMate
       - key: RESEND_API_KEY
         sync: false
       - key: RESEND_FROM_EMAIL
