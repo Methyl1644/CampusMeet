@@ -107,4 +107,4 @@ STANDARD_TAGS: tuple[TagSeed, ...] = (
 
 
 # These terms need context or belong to the topic catalog rather than one Tag.
-AMBIGUOUS_ALIASES = frozenset({"打球", "美赛", "挑战杯", "大创"})
+AMBIGUOUS_ALIASES = frozenset({"打球", "美工", "美赛", "挑战杯", "大创"})
