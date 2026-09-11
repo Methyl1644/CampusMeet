@@ -33,6 +33,146 @@ def _disable_coze(monkeypatch):
         monkeypatch.delenv(key, raising=False)
 
 
+def test_post_draft_uses_local_fast_path_for_clear_message(monkeypatch):
+    candidates = [
+        {
+            "tag_id": "activity_badminton",
+            "canonical_name": "羽毛球",
+            "category": "activity",
+            "display_color": "#2563EB",
+        }
+    ]
+    _disable_coze(monkeypatch)
+    monkeypatch.setenv("COZE_DEPLOY_API_TOKEN", "deploy-token")
+    monkeypatch.setenv("COZE_POST_DRAFT_API_URL", "https://example.coze.site/run")
+    monkeypatch.setattr(
+        ai_tools,
+        "_try_coze_deployed_api",
+        lambda *_args, **_kwargs: pytest.fail("clear input should not call Coze"),
+    )
+
+    result = json.loads(
+        ai_tools.ai_post_draft.invoke(
+            {
+                "message": "找两个羽毛球搭子，周末下午，技术和性别不限",
+                "draft": "",
+                "user_skills": "",
+                "kind": "casual_invitation",
+                "field_states": "{}",
+                "candidate_tags": json.dumps(candidates, ensure_ascii=False),
+                "topic_id": "",
+            }
+        )
+    )
+
+    assert result["draft"]["activity_name"] == "羽毛球"
+    assert result["draft"]["target_members"] == 3
+    assert result["draft"]["weekly_hours"] == "周末下午"
+    assert result["next_field"] == "school_scope"
+    assert result["degraded"] is False
+
+
+def test_post_draft_sends_only_top_candidates_to_coze_but_returns_full_catalog(monkeypatch):
+    candidates = [
+        {
+            "tag_id": f"activity_{index}",
+            "canonical_name": f"活动{index}",
+            "category": "activity",
+            "display_color": "#2563EB",
+        }
+        for index in range(30)
+    ]
+    captured = {}
+
+    def fake_deployed(_key, parameters):
+        captured.update(parameters)
+        return {
+            "reply": "你准备参加或组织什么活动？",
+            "draft": {
+                "activity_name": "",
+                "target_members": 0,
+                "needed_roles": [],
+                "weekly_hours": "",
+                "school_scope": "",
+                "deadline": "",
+                "description": "",
+            },
+            "is_complete": False,
+            "field_states": {
+                "activity_name": {"value": None, "status": "pending"},
+                "target_members": {"value": None, "status": "pending"},
+                "weekly_hours": {"value": None, "status": "pending"},
+                "school_scope": {"value": None, "status": "pending"},
+                "needed_roles": {"value": None, "status": "pending"},
+                "description": {"value": None, "status": "none"},
+            },
+            "suggested_tag_ids": [],
+            "candidate_tags": parameters["candidate_tags"],
+            "next_field": "activity_name",
+            "missing_fields": [
+                "activity_name",
+                "target_members",
+                "weekly_hours",
+                "school_scope",
+                "needed_roles",
+            ],
+            "degraded": False,
+        }
+
+    _disable_coze(monkeypatch)
+    monkeypatch.setenv("COZE_DEPLOY_API_TOKEN", "deploy-token")
+    monkeypatch.setenv("COZE_POST_DRAFT_API_URL", "https://example.coze.site/run")
+    monkeypatch.setattr(ai_tools, "_try_coze_deployed_api", fake_deployed)
+
+    result = json.loads(
+        ai_tools.ai_post_draft.invoke(
+            {
+                "message": "想找人一起做点有意思的事情",
+                "draft": "",
+                "user_skills": "",
+                "kind": "casual_invitation",
+                "field_states": "{}",
+                "candidate_tags": json.dumps(candidates, ensure_ascii=False),
+                "topic_id": "",
+            }
+        )
+    )
+
+    assert len(captured["candidate_tags"]) == 20
+    assert result["candidate_tags"] == candidates
+
+
+def test_post_draft_does_not_chain_legacy_after_deployed_coze_failure(monkeypatch):
+    _disable_coze(monkeypatch)
+    monkeypatch.setenv("COZE_DEPLOY_API_TOKEN", "deploy-token")
+    monkeypatch.setenv("COZE_POST_DRAFT_API_URL", "https://example.coze.site/run")
+    monkeypatch.setattr(ai_tools, "_try_coze_deployed_api", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(
+        ai_tools,
+        "_try_coze_workflow",
+        lambda *_args, **_kwargs: pytest.fail("a failed deployed request must not start another slow request"),
+    )
+
+    result = json.loads(
+        ai_tools.ai_post_draft.invoke(
+            {
+                "message": "想找人一起做点有意思的事情",
+                "draft": "",
+                "user_skills": "",
+                "kind": "casual_invitation",
+                "field_states": "{}",
+                "candidate_tags": "[]",
+                "topic_id": "",
+            }
+        )
+    )
+
+    assert result["draft"]["activity_name"] == ""
+    assert result["next_field"] == "activity_name"
+    assert result["reply"] == "你准备参加或组织什么活动？"
+    assert result["degraded"] is True
+
+
 def test_post_draft_prefers_deployed_coze_api_and_normalizes_empty_next_field(monkeypatch):
     candidates = [
         {
@@ -93,7 +233,7 @@ def test_post_draft_prefers_deployed_coze_api_and_normalizes_empty_next_field(mo
     result = json.loads(
         ai_tools.ai_post_draft.invoke(
             {
-                "message": "我想参加美赛，手机号 13812345678",
+                "message": "想找人一起做点有意思的事情，手机号 13812345678",
                 "draft": "",
                 "user_skills": "Python",
                 "kind": "topic_team",
@@ -113,7 +253,7 @@ def test_post_draft_prefers_deployed_coze_api_and_normalizes_empty_next_field(mo
     assert "13812345678" not in captured["json"]["message"]
     assert "138****5678" in captured["json"]["message"]
     assert "13912345678" not in captured["json"]["field_states"]["description"]["value"]
-    assert captured["timeout"] == 45
+    assert captured["timeout"] == 15
     assert result["reply"] == "信息已齐全"
     assert result["next_field"] is None
 
@@ -136,6 +276,7 @@ def test_post_draft_rejects_incomplete_deployed_output_and_uses_safe_fallback(mo
     monkeypatch.setenv("COZE_DEPLOY_API_TOKEN", "deploy-token")
     monkeypatch.setenv("COZE_POST_DRAFT_API_URL", "https://example.coze.site/run")
     monkeypatch.setattr("requests.post", lambda *_args, **_kwargs: Response())
+    monkeypatch.setattr(ai_tools, "_local_draft_made_progress", lambda *_args: False)
 
     result = json.loads(
         ai_tools.ai_post_draft.invoke(
@@ -198,6 +339,7 @@ def test_post_draft_rejects_logically_inconsistent_deployed_output(monkeypatch):
     monkeypatch.setenv("COZE_DEPLOY_API_TOKEN", "deploy-token")
     monkeypatch.setenv("COZE_POST_DRAFT_API_URL", "https://example.coze.site/run")
     monkeypatch.setattr("requests.post", lambda *_args, **_kwargs: Response())
+    monkeypatch.setattr(ai_tools, "_local_draft_made_progress", lambda *_args: False)
 
     result = json.loads(
         ai_tools.ai_post_draft.invoke(

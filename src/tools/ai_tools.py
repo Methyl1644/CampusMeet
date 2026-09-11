@@ -5,6 +5,7 @@
 import os
 import json
 import logging
+from typing import Any
 from urllib.parse import urlparse
 from langchain.tools import tool
 from sqlalchemy import select
@@ -17,16 +18,17 @@ from storage.database.models.user import User
 from storage.database.models.post import Post
 from storage.database.models.team import Team, TeamMember
 from tools.auth_tools import _user_brief, _user_to_dict
-from services.content import POST_FIELDS, build_post_draft
+from services.content import OPTIONAL_POST_FIELDS, POST_FIELDS, build_post_draft
 from services.tag_governance import sanitize_unknown_concepts
 from utils.security import screen_content
 
 logger = logging.getLogger(__name__)
 
 MODEL_ID = "doubao-seed-2-0-pro-260215"
-COZE_DEPLOY_TIMEOUT_SECONDS = 45
+COZE_DEPLOY_TIMEOUT_SECONDS = 15
 COZE_LEGACY_TIMEOUT_SECONDS = 25
 COZE_CHAINED_LEGACY_TIMEOUT_SECONDS = 7
+COZE_POST_DRAFT_CANDIDATE_LIMIT = 20
 MAIN_CATEGORIES = {"竞赛与项目", "学习与科研", "体育与健身", "旅行与户外", "校园生活", "拼团与AA"}
 TAG_CATEGORIES = {"activity", "skill", "role", "level", "audience"}
 RISK_LEVELS = {"low", "medium", "high"}
@@ -289,6 +291,32 @@ def _sanitize_external_value(value):
     return value
 
 
+def _local_draft_made_progress(
+    kind: str,
+    previous_fields: dict[str, Any],
+    result: dict[str, Any],
+) -> bool:
+    returned_fields = result.get("field_states", {})
+    for field in POST_FIELDS[kind]:
+        previous = previous_fields.get(field)
+        previous_status = (
+            previous.get("status")
+            if isinstance(previous, dict)
+            else ("none" if field in OPTIONAL_POST_FIELDS else "pending")
+        )
+        previous_value = (
+            previous.get("value")
+            if isinstance(previous, dict) and previous_status == "confirmed"
+            else None
+        )
+        current = returned_fields.get(field)
+        if not isinstance(current, dict):
+            continue
+        if current.get("status") != previous_status or current.get("value") != previous_value:
+            return True
+    return False
+
+
 @tool
 def ai_post_draft(
     message: str,
@@ -302,9 +330,21 @@ def ai_post_draft(
     """AI 对话式发帖助手。用户输入一句话描述组队需求，AI 追问缺失信息并生成结构化草稿。message 为用户输入，draft 为当前草稿(JSON字符串)，user_skills 为用户技能(逗号分隔)。返回追问回复和结构化草稿。"""
     ctx = request_context.get() or new_context(method="ai_post_draft")
 
-    # 先尝试 Coze 工作流
     parsed_fields = json.loads(field_states) if field_states else {}
     parsed_candidates = json.loads(candidate_tags) if candidate_tags else []
+    local_result = None
+    if kind in POST_FIELDS:
+        local_result = build_post_draft(
+            kind=kind,
+            message=message,
+            previous_fields=parsed_fields,
+            candidates=parsed_candidates,
+        )
+        if _local_draft_made_progress(kind, parsed_fields, local_result):
+            local_result["degraded"] = False
+            return json.dumps(local_result, ensure_ascii=False)
+
+    model_candidates = parsed_candidates[:COZE_POST_DRAFT_CANDIDATE_LIMIT]
     coze_params = {
         "message": screen_content(message).cleaned_text,
         "draft": screen_content(draft).cleaned_text,
@@ -319,7 +359,7 @@ def ai_post_draft(
             else state
             for field_name, state in parsed_fields.items()
         },
-        "candidate_tags": parsed_candidates,
+        "candidate_tags": model_candidates,
         "topic_id": topic_id or "",
     }
     allowed_ids = (
@@ -335,7 +375,7 @@ def ai_post_draft(
     if coze_result and not _valid_post_draft_result(coze_result, allowed_ids, kind):
         logger.warning("Coze deployed post-draft output failed controlled-schema validation")
         coze_result = None
-    if not coze_result:
+    if not coze_result and not deployed_configured:
         legacy_timeout = COZE_CHAINED_LEGACY_TIMEOUT_SECONDS if deployed_configured else COZE_LEGACY_TIMEOUT_SECONDS
         coze_result = _try_coze_workflow("COZE_WORKFLOW_POST_DRAFT", coze_params, timeout=legacy_timeout)
         if coze_result and not _valid_post_draft_result(coze_result, allowed_ids, kind):
@@ -351,6 +391,7 @@ def ai_post_draft(
             ]
             coze_result = {
                 **coze_result,
+                "candidate_tags": parsed_candidates,
                 "next_field": pending_fields[0] if pending_fields else None,
                 "missing_fields": pending_fields,
             }
@@ -372,13 +413,7 @@ def ai_post_draft(
             return json.dumps(coze_result, ensure_ascii=False)
 
     if kind:
-        result = build_post_draft(
-            kind=kind,
-            message=message,
-            previous_fields=parsed_fields,
-            candidates=parsed_candidates,
-        )
-        return json.dumps(result, ensure_ascii=False)
+        return json.dumps(local_result, ensure_ascii=False)
 
     # 降级: 使用 LLM 直接处理
     system_prompt = """你是 CampusMate AI 发帖助手。用户想发布组队帖，你需要：
