@@ -48,17 +48,30 @@ def test_post_draft_prefers_deployed_coze_api_and_normalizes_empty_next_field(mo
         @staticmethod
         def json():
             return {
-                "reply": "请补充截止日期",
-                "draft": {"activity_name": "美赛"},
-                "is_complete": False,
+                "reply": "信息已齐全",
+                "draft": {
+                    "activity_name": "美赛",
+                    "target_members": 3,
+                    "needed_roles": ["编程"],
+                    "weekly_hours": "每周10小时",
+                    "school_scope": "南京大学",
+                    "deadline": "2026-09-20",
+                    "description": "",
+                },
+                "is_complete": True,
                 "field_states": {
                     "activity_name": {"value": "美赛", "status": "confirmed"},
-                    "deadline": {"value": "", "status": "pending"},
+                    "target_members": {"value": 3, "status": "confirmed"},
+                    "needed_roles": {"value": "编程", "status": "confirmed"},
+                    "weekly_hours": {"value": "每周10小时", "status": "confirmed"},
+                    "school_scope": {"value": "南京大学", "status": "confirmed"},
+                    "deadline": {"value": "2026-09-20", "status": "confirmed"},
+                    "description": {"value": None, "status": "none"},
                 },
                 "suggested_tag_ids": ["activity_modeling"],
                 "candidate_tags": candidates,
                 "next_field": {},
-                "missing_fields": ["deadline"],
+                "missing_fields": [],
                 "degraded": False,
             }
 
@@ -83,7 +96,7 @@ def test_post_draft_prefers_deployed_coze_api_and_normalizes_empty_next_field(mo
                 "message": "我想参加美赛，手机号 13812345678",
                 "draft": "",
                 "user_skills": "Python",
-                "kind": "competition",
+                "kind": "topic_team",
                 "field_states": json.dumps(
                     {"description": {"value": "备用电话 13912345678", "status": "confirmed"}},
                     ensure_ascii=False,
@@ -100,9 +113,110 @@ def test_post_draft_prefers_deployed_coze_api_and_normalizes_empty_next_field(mo
     assert "13812345678" not in captured["json"]["message"]
     assert "138****5678" in captured["json"]["message"]
     assert "13912345678" not in captured["json"]["field_states"]["description"]["value"]
-    assert captured["timeout"] < 30
-    assert result["reply"] == "请补充截止日期"
+    assert captured["timeout"] == 45
+    assert result["reply"] == "信息已齐全"
     assert result["next_field"] is None
+
+
+def test_post_draft_rejects_incomplete_deployed_output_and_uses_safe_fallback(monkeypatch):
+    class Response:
+        @staticmethod
+        def json():
+            return {
+                "reply": "已整理",
+                "draft": {"activity_name": "羽毛球"},
+                "is_complete": True,
+                "field_states": {
+                    "activity_name": {"value": "羽毛球", "status": "confirmed"},
+                },
+                "suggested_tag_ids": [],
+            }
+
+    _disable_coze(monkeypatch)
+    monkeypatch.setenv("COZE_DEPLOY_API_TOKEN", "deploy-token")
+    monkeypatch.setenv("COZE_POST_DRAFT_API_URL", "https://example.coze.site/run")
+    monkeypatch.setattr("requests.post", lambda *_args, **_kwargs: Response())
+
+    result = json.loads(
+        ai_tools.ai_post_draft.invoke(
+            {
+                "message": "找两个羽毛球搭子",
+                "draft": "",
+                "user_skills": "",
+                "kind": "casual_invitation",
+                "field_states": "{}",
+                "candidate_tags": "[]",
+                "topic_id": "",
+            }
+        )
+    )
+
+    assert result["degraded"] is True
+    assert set(result["draft"]) == {
+        "activity_name",
+        "target_members",
+        "needed_roles",
+        "weekly_hours",
+        "school_scope",
+        "deadline",
+        "description",
+    }
+    assert result["draft"]["activity_name"] == "羽毛球"
+    assert result["draft"]["target_members"] == 3
+
+
+def test_post_draft_rejects_logically_inconsistent_deployed_output(monkeypatch):
+    class Response:
+        @staticmethod
+        def json():
+            return {
+                "reply": "信息已齐全",
+                "draft": {
+                    "activity_name": "羽毛球",
+                    "target_members": 3,
+                    "needed_roles": [],
+                    "weekly_hours": "周末下午",
+                    "school_scope": "",
+                    "deadline": "",
+                    "description": "",
+                },
+                "is_complete": True,
+                "field_states": {
+                    "activity_name": {"value": "羽毛球", "status": "confirmed"},
+                    "target_members": {"value": 3, "status": "confirmed"},
+                    "weekly_hours": {"value": "周末下午", "status": "confirmed"},
+                    "school_scope": {"value": None, "status": "pending"},
+                    "needed_roles": {"value": None, "status": "none"},
+                    "description": {"value": None, "status": "none"},
+                },
+                "suggested_tag_ids": [],
+                "next_field": "",
+                "missing_fields": [],
+            }
+
+    _disable_coze(monkeypatch)
+    monkeypatch.setenv("COZE_DEPLOY_API_TOKEN", "deploy-token")
+    monkeypatch.setenv("COZE_POST_DRAFT_API_URL", "https://example.coze.site/run")
+    monkeypatch.setattr("requests.post", lambda *_args, **_kwargs: Response())
+
+    result = json.loads(
+        ai_tools.ai_post_draft.invoke(
+            {
+                "message": "找两个羽毛球搭子，周末下午",
+                "draft": "",
+                "user_skills": "",
+                "kind": "casual_invitation",
+                "field_states": "{}",
+                "candidate_tags": "[]",
+                "topic_id": "",
+            }
+        )
+    )
+
+    assert result["degraded"] is True
+    assert result["is_complete"] is False
+    assert result["next_field"] == "school_scope"
+    assert result["missing_fields"] == ["school_scope", "needed_roles"]
 
 
 def test_classify_review_uses_legacy_workflow_when_deployed_api_returns_error_payload(monkeypatch):

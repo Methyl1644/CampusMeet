@@ -17,19 +17,28 @@ from storage.database.models.user import User
 from storage.database.models.post import Post
 from storage.database.models.team import Team, TeamMember
 from tools.auth_tools import _user_brief, _user_to_dict
-from services.content import build_post_draft
+from services.content import POST_FIELDS, build_post_draft
 from services.tag_governance import sanitize_unknown_concepts
 from utils.security import screen_content
 
 logger = logging.getLogger(__name__)
 
 MODEL_ID = "doubao-seed-2-0-pro-260215"
-COZE_DEPLOY_TIMEOUT_SECONDS = 18
+COZE_DEPLOY_TIMEOUT_SECONDS = 45
 COZE_LEGACY_TIMEOUT_SECONDS = 25
 COZE_CHAINED_LEGACY_TIMEOUT_SECONDS = 7
 MAIN_CATEGORIES = {"竞赛与项目", "学习与科研", "体育与健身", "旅行与户外", "校园生活", "拼团与AA"}
 TAG_CATEGORIES = {"activity", "skill", "role", "level", "audience"}
 RISK_LEVELS = {"low", "medium", "high"}
+POST_DRAFT_KEYS = {
+    "activity_name",
+    "target_members",
+    "needed_roles",
+    "weekly_hours",
+    "school_scope",
+    "deadline",
+    "description",
+}
 
 
 def _get_text_content(content) -> str:
@@ -153,7 +162,11 @@ def _try_coze_deployed_api(api_url_env_key: str, parameters: dict) -> dict | Non
         return None
 
 
-def _valid_post_draft_result(result: dict | None, allowed_ids: set[str] | None) -> bool:
+def _valid_post_draft_result(
+    result: dict | None,
+    allowed_ids: set[str] | None,
+    kind: str = "",
+) -> bool:
     if not isinstance(result, dict):
         return False
     if not (
@@ -165,6 +178,25 @@ def _valid_post_draft_result(result: dict | None, allowed_ids: set[str] | None) 
         and isinstance(result.get("suggested_tag_ids"), list)
     ):
         return False
+    draft = result["draft"]
+    if kind in POST_FIELDS:
+        draft_valid = bool(
+            set(draft) == POST_DRAFT_KEYS
+            and isinstance(draft.get("activity_name"), str)
+            and isinstance(draft.get("target_members"), int)
+            and not isinstance(draft.get("target_members"), bool)
+            and draft["target_members"] >= 0
+            and isinstance(draft.get("needed_roles"), list)
+            and all(isinstance(role, str) for role in draft["needed_roles"])
+            and len(draft["needed_roles"]) == len(set(draft["needed_roles"]))
+            and all(
+                isinstance(draft.get(field), str)
+                for field in ("weekly_hours", "school_scope", "deadline", "description")
+            )
+        )
+        if not draft_valid:
+            return False
+
     valid_statuses = {"confirmed", "none", "unknown", "skipped", "pending"}
     fields_valid = all(
         isinstance(value, dict)
@@ -172,6 +204,32 @@ def _valid_post_draft_result(result: dict | None, allowed_ids: set[str] | None) 
         and value.get("status") in valid_statuses
         for value in result["field_states"].values()
     )
+    if kind in POST_FIELDS:
+        fields_valid = fields_valid and set(result["field_states"]) == set(POST_FIELDS[kind])
+        if fields_valid:
+            required_fields = [field for field in POST_FIELDS[kind] if field != "description"]
+            pending_fields = [
+                field
+                for field in required_fields
+                if result["field_states"][field]["status"] == "pending"
+            ]
+            if result["is_complete"] != (not pending_fields):
+                return False
+            if "missing_fields" in result and result["missing_fields"] != pending_fields:
+                return False
+            if "next_field" in result:
+                reported_next = result["next_field"]
+                if reported_next in ("", {}, []):
+                    reported_next = None
+                expected_next = pending_fields[0] if pending_fields else None
+                if reported_next != expected_next:
+                    return False
+            for field in required_fields:
+                if result["field_states"][field]["status"] != "confirmed":
+                    continue
+                value = draft[field]
+                if value in ("", None, [], 0):
+                    return False
     tag_ids = result["suggested_tag_ids"]
     tags_valid = (
         len(tag_ids) <= 4
@@ -274,17 +332,29 @@ def ai_post_draft(
         and os.getenv("COZE_DEPLOY_API_TOKEN", "").strip()
     )
     coze_result = _try_coze_deployed_api("COZE_POST_DRAFT_API_URL", coze_params)
-    if coze_result and not _valid_post_draft_result(coze_result, allowed_ids):
+    if coze_result and not _valid_post_draft_result(coze_result, allowed_ids, kind):
         logger.warning("Coze deployed post-draft output failed controlled-schema validation")
         coze_result = None
     if not coze_result:
         legacy_timeout = COZE_CHAINED_LEGACY_TIMEOUT_SECONDS if deployed_configured else COZE_LEGACY_TIMEOUT_SECONDS
         coze_result = _try_coze_workflow("COZE_WORKFLOW_POST_DRAFT", coze_params, timeout=legacy_timeout)
-        if coze_result and not _valid_post_draft_result(coze_result, allowed_ids):
+        if coze_result and not _valid_post_draft_result(coze_result, allowed_ids, kind):
             logger.warning("Legacy Coze post-draft output failed controlled-schema validation")
             coze_result = None
     if coze_result:
-        if coze_result.get("next_field") in ("", {}, []):
+        if kind in POST_FIELDS:
+            pending_fields = [
+                field
+                for field in POST_FIELDS[kind]
+                if field != "description"
+                and coze_result["field_states"][field]["status"] == "pending"
+            ]
+            coze_result = {
+                **coze_result,
+                "next_field": pending_fields[0] if pending_fields else None,
+                "missing_fields": pending_fields,
+            }
+        elif coze_result.get("next_field") in ("", {}, []):
             coze_result = {**coze_result, "next_field": None}
         if kind:
             returned_ids = coze_result.get("suggested_tag_ids", [])
