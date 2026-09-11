@@ -28,6 +28,7 @@ npm-debug.log*
 # Local development database
 campusmate.db
 /work/
+/.worktrees/
 
 # Cache
 .cache/
