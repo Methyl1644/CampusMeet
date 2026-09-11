@@ -46,6 +46,23 @@ def test_seed_catalog_covers_common_activity_skill_role_level_and_audience_tags(
         }.issubset(names)
 
 
+def test_seed_catalog_is_idempotent_when_autoflush_is_disabled():
+    engine = create_engine("sqlite+pysqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    session_factory = sessionmaker(bind=engine, autoflush=False)
+
+    with session_factory() as session:
+        seed_content_catalog(session)
+        session.commit()
+        seed_content_catalog(session)
+        session.commit()
+
+        ambiguous = session.execute(
+            select(TagAlias).where(TagAlias.normalized_alias == "美工")
+        ).scalar_one_or_none()
+        assert ambiguous is None or ambiguous.active is False
+
+
 def test_ambiguous_legacy_alias_is_deactivated_instead_of_forcing_one_activity():
     with _session() as session:
         seed_content_catalog(session)

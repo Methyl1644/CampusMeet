@@ -44,6 +44,20 @@ def normalize_text(value: Any) -> str:
 
 
 def seed_content_catalog(session: Session) -> None:
+    existing_aliases = {
+        alias.normalized_alias: alias
+        for alias in session.execute(select(TagAlias)).scalars()
+    }
+    alias_owners: dict[str, set[str]] = {}
+    for tag_id, _, _, _, _, aliases in STANDARD_TAGS:
+        for alias in aliases:
+            alias_owners.setdefault(normalize_text(alias), set()).add(tag_id)
+    normalized_ambiguous = {
+        normalize_text(alias) for alias in AMBIGUOUS_ALIASES
+    } | {
+        alias for alias, owners in alias_owners.items() if len(owners) > 1
+    }
+
     for tag_id, name, category, color, order, aliases in STANDARD_TAGS:
         tag = session.get(Tag, tag_id)
         if not tag:
@@ -65,19 +79,22 @@ def seed_content_catalog(session: Session) -> None:
             tag.active = True
         for alias in aliases:
             normalized = normalize_text(alias)
-            existing = session.execute(
-                select(TagAlias).where(TagAlias.normalized_alias == normalized)
-            ).scalar_one_or_none()
+            existing = existing_aliases.get(normalized)
+            if normalized in normalized_ambiguous:
+                if existing:
+                    existing.active = False
+                continue
             if not existing:
-                session.add(TagAlias(tag_id=tag_id, normalized_alias=normalized))
+                existing = TagAlias(tag_id=tag_id, normalized_alias=normalized)
+                session.add(existing)
+                existing_aliases[normalized] = existing
             else:
                 existing.tag_id = tag_id
                 existing.active = True
-    normalized_ambiguous = {normalize_text(alias) for alias in AMBIGUOUS_ALIASES}
-    for alias in session.execute(
-        select(TagAlias).where(TagAlias.normalized_alias.in_(normalized_ambiguous))
-    ).scalars():
-        alias.active = False
+    for normalized in normalized_ambiguous:
+        existing = existing_aliases.get(normalized)
+        if existing:
+            existing.active = False
     session.flush()
 
 
