@@ -27,8 +27,8 @@ coze/
 │   ├── match_teammates.input.json     / match_teammates.output.json
 │   └── team_plan.input.json           / team_plan.output.json
 ├── evals/                             # 评测集（JSONL，每行一条用例）
-│   ├── post_draft_cases.jsonl         # 20 条
-│   ├── classify_review_cases.jsonl    # 20 条
+│   ├── post_draft_cases.jsonl         # 5 条当前契约验收样例
+│   ├── classify_review_cases.jsonl    # 5 条当前契约验收样例
 │   ├── match_teammates_cases.jsonl    # 15 条
 │   ├── team_plan_cases.jsonl          # 10 条
 │   └── safety_cases.jsonl             # 20 条（安全专项）
@@ -36,12 +36,12 @@ coze/
     └── demo_xiaowang_mcm.json         # 演示数据：小王美赛完整链路（docs/demo-script.md）
 ```
 
-## 四个 P0 工作流一览
+## 工作流一览
 
 | 工作流 | 后端工具 | 前端触点 | 环境变量 |
 |--------|---------|---------|---------|
-| ① AI 对话式发帖 | `ai_post_draft` | `POST /api/agent/post-draft` | `COZE_WORKFLOW_POST_DRAFT` |
-| ② 分类与审核 | `ai_classify_review` | `POST /api/agent/classify-review` | `COZE_WORKFLOW_CLASSIFY_REVIEW` |
+| ① 需求拆解与发帖 | `ai_post_draft` | `POST /api/agent/post-draft` | `COZE_WORKFLOW_POST_DRAFT` |
+| ② 标签推荐与风险初筛 | `ai_classify_review` | `POST /api/agent/classify-review` | `COZE_WORKFLOW_CLASSIFY_REVIEW` |
 | ③ 智能匹配 | `ai_match_teammates` | `POST /api/agent/match` | `COZE_WORKFLOW_MATCH` |
 | ④ 成队规划 | `ai_team_plan` | `POST /api/agent/team-plan` | `COZE_WORKFLOW_TEAM_PLAN` |
 
@@ -49,7 +49,7 @@ coze/
 
 应用层契约的优先级：**`packages/shared/src/types.ts` + `src/api/agent.py` + `docs/d-ai-contract.md` > Coze 内部丰富 Schema**。Coze 可以在内部使用更多推理字段，但入口和出口必须转换为已冻结的应用契约。
 
-**当前状态（2026-09-02）**：B 的 React 前端和 C 的 FastAPI 路由/安全引擎已上传 `main`；D 已完成四接口对账和 fallback 自动化验证。Coze workflow ID 仍可留空，不影响演示。匹配工作流在受控上下文查询完成前应继续使用后端 fallback。
+**当前状态（2026-09-11）**：前两个工作流的输入、输出、提示词和评测样例已与 FastAPI 后端重新对齐，具体搭建步骤见 `DELIVERY_CHECKLIST.md`。Coze workflow ID 仍可留空，网站会使用后端 fallback；匹配工作流在受控上下文查询完成前应继续使用 fallback。
 
 ## 评测集说明
 

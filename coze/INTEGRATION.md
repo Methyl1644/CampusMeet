@@ -10,8 +10,8 @@
 
 | # | 工作流 | Coze 后台名称 | 用途 | 优先级 |
 |---|--------|--------------|------|--------|
-| ① | post-draft | `campusmate_post_draft` | 自然语言 → 结构化组队帖草稿 + 缺失字段追问 | P0 |
-| ② | classify-review | `campusmate_classify_review` | 自动分类、打标签、风险评估、脱敏与审核建议 | P0 |
+| ① | post-draft | `campusmate_post_draft` | 需求拆解、逐项追问、标准标签推荐 | P0 |
+| ② | classify-review | `campusmate_classify_review` | 标准标签推荐、库外概念提案、风险初筛 | P0 |
 | ③ | match-teammates | `campusmate_match_teammates` | 候选队友匹配分数 + 可解释推荐理由 | P1 |
 | ④ | team-plan | `campusmate_team_plan` | 成队后分工、首次会议议程、任务清单、风险提醒 | P0 |
 | ⑤ | official-activity-extract | `campusmate_official_activity_extract` | 官方页面文本 → 标准活动卡（运营辅助） | P1 可选 |
@@ -27,7 +27,7 @@
 | ③ match-teammates | `ai_match_teammates` | `schemas/match_teammates.input.json` | `schemas/match_teammates.output.json` |
 | ④ team-plan | `ai_team_plan` | `schemas/team_plan.input.json` | `schemas/team_plan.output.json` |
 
-当前后端直接透传的 Coze 入参为：post-draft 的 `message/draft/user_skills`、classify-review 的 `title/description`、match-teammates 的 `post_id`、team-plan 的 `team_id`。工作流如需丰富上下文，必须在受控入口内查询并脱敏。
+当前后端直接透传的 Coze 入参为：post-draft 的 `message/draft/user_skills/kind/field_states/candidate_tags/topic_id`，classify-review 的 `title/description/candidate_tags`，match-teammates 的 `post_id`，team-plan 的 `team_id`。前两项的权威契约是对应 `schemas/*.json`，不得继续使用旧字段 `user_text/post_draft/raw_text/dynamic_tags`。
 
 前端触点：
 
@@ -59,7 +59,7 @@ COZE_WORKFLOW_OFFICIAL_ACTIVITY_EXTRACT=
 
 配置步骤：
 
-1. 在 Coze 平台按 `workflows/0X_*.md` 的画布设计搭建工作流；
+1. 前两个工作流先按 `DELIVERY_CHECKLIST.md` 和 `workflows/01_*.md`、`02_*.md` 搭建；
 2. LLM 节点的 System Prompt = `prompts/system_rules.md` + `prompts/safety_rules.md` + 对应任务 Prompt（三段拼接）；
 3. 发布工作流，拿到 workflow ID 填入 `.env`；
 4. 重启后端，`ai_tools.py` 自动切换到 Coze 工作流调用。
