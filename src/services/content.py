@@ -664,7 +664,7 @@ def build_post_draft(
             fields[pending_before] = {"value": None, "status": "skipped"}
             applied_any = True
 
-    if pending_before and not applied_any:
+    if pending_before and pending_before in previous_fields and not applied_any:
         contextual_value = _contextual_answer(pending_before, message)
         if contextual_value is not None:
             fields[pending_before] = {"value": contextual_value, "status": "confirmed"}
