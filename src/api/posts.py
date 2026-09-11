@@ -1,8 +1,10 @@
 import json
+import logging
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
 
+from api.agent import classify_review, store_tag_proposals
 from api.common import api_ok, current_user_id, invoke_tool, parse_tool_result
 from services.content import validate_tag_ids
 from services.permissions import can_manage_post
@@ -12,6 +14,36 @@ from tools.post_tools import _post_to_dict, create_post, get_my_posts, get_post_
 from utils.security import screen_post_content
 
 router = APIRouter(prefix="/posts", tags=["posts"])
+logger = logging.getLogger(__name__)
+MAIN_CATEGORIES = {"竞赛与项目", "学习与科研", "体育与健身", "旅行与户外", "校园生活", "拼团与AA"}
+RISK_LEVELS = {"low": 0, "medium": 1, "high": 2}
+
+
+def _classification_review(title: str, description: str, user_id: str) -> dict[str, Any]:
+    try:
+        result = classify_review(
+            {
+                "title": title,
+                "description": description,
+                "persist_tag_proposals": False,
+            },
+            user_id,
+        )
+    except HTTPException as exc:
+        if exc.status_code < 500:
+            raise
+        logger.warning("AI classification unavailable; using local review: %s", exc.detail)
+        return {}
+    except Exception as exc:
+        logger.warning("AI classification failed; using local review: %s", exc)
+        return {}
+
+    review = result.get("data") if isinstance(result, dict) and isinstance(result.get("data"), dict) else {}
+    risk_level = str(review.get("risk_level") or "low").strip().lower()
+    review["risk_level"] = risk_level if risk_level in RISK_LEVELS else "medium"
+    if review.get("main_category") not in MAIN_CATEGORIES:
+        review["main_category"] = None
+    return review
 
 
 @router.get("")
@@ -59,14 +91,41 @@ def post_detail(post_id: str, user_id: str = Depends(current_user_id)) -> dict[s
 
 @router.post("")
 def create(body: dict[str, Any], user_id: str = Depends(current_user_id)) -> dict[str, Any]:
+    title = body.get("title") or body.get("activity_name") or "Team post"
+    description = body.get("description", "")
+    local_screen = screen_post_content(title, description)
+    if local_screen.has_violations:
+        raise HTTPException(status_code=400, detail="内容审核未通过")
+    if local_screen.risk_level == "high":
+        raise HTTPException(status_code=400, detail="内容风险过高，请修改后再发布")
+
+    review = _classification_review(title, description, user_id)
+    review_risk_level = str(review.get("risk_level") or "low")
+    resolved_risk_level = max(
+        (local_screen.risk_level, review_risk_level),
+        key=lambda value: RISK_LEVELS[value],
+    )
+    if resolved_risk_level == "high":
+        raise HTTPException(status_code=400, detail="内容风险过高，请根据审核建议修改后再发布")
+
+    selected_tag_ids = body.get("tag_ids") or body.get("tags") or []
+    if not isinstance(selected_tag_ids, list):
+        selected_tag_ids = []
+    selected_tag_ids = list(dict.fromkeys(str(tag_id) for tag_id in selected_tag_ids if str(tag_id)))[:8]
+    suggested_tag_ids = review.get("tag_ids") if isinstance(review.get("tag_ids"), list) else []
+    suggested_tag_ids = [
+        str(tag_id)
+        for tag_id in suggested_tag_ids
+        if str(tag_id) and str(tag_id) not in selected_tag_ids
+    ]
     needed_roles = body.get("needed_roles") or []
     raw = invoke_tool(
         create_post,
         {
             "user_id": user_id,
-            "title": body.get("title") or body.get("activity_name") or "Team post",
-            "description": body.get("description", ""),
-            "main_category": body.get("main_category") or "校园生活",
+            "title": title,
+            "description": description,
+            "main_category": body.get("main_category") or review.get("main_category") or "校园生活",
             "activity_name": body.get("activity_name") or body.get("title") or "Untitled activity",
             "target_members": int(body.get("target_members") or 1),
             "needed_roles": ",".join(needed_roles) if isinstance(needed_roles, list) else str(needed_roles),
@@ -75,10 +134,21 @@ def create(body: dict[str, Any], user_id: str = Depends(current_user_id)) -> dic
             "deadline": body.get("deadline", ""),
             "kind": body.get("kind", "casual_invitation"),
             "topic_id": str(body.get("topic_id") or ""),
-            "tag_ids": ",".join(body.get("tag_ids") or body.get("tags") or []),
+            "tag_ids": ",".join(selected_tag_ids),
+            "suggested_tag_ids": ",".join(dict.fromkeys(suggested_tag_ids)),
+            "review_risk_level": resolved_risk_level,
         },
     )
-    return parse_tool_result(raw, "post")
+    result = parse_tool_result(raw, "post")
+    concepts = review.get("unknown_concepts") if isinstance(review.get("unknown_concepts"), list) else []
+    if concepts:
+        try:
+            proposal_refs = store_tag_proposals(user_id, title, description, concepts)
+            if isinstance(result.get("data"), dict):
+                result["data"]["tag_proposals"] = proposal_refs
+        except Exception as exc:
+            logger.warning("Post created but tag proposals could not be stored: %s", exc)
+    return result
 
 
 @router.patch("/{post_id}")
@@ -167,7 +237,19 @@ def update(post_id: int, body: dict[str, Any], user_id: str = Depends(current_us
         screen = screen_post_content(post.title, post.description or "")
         if screen.has_violations:
             raise HTTPException(status_code=400, detail="内容审核未通过")
-        post.risk_level = screen.risk_level
+        review_risk_level = "low"
+        if {"title", "description"}.intersection(requested_content):
+            review_risk_level = _classification_review(post.title, post.description or "", user_id).get(
+                "risk_level",
+                "low",
+            )
+        resolved_risk_level = max(
+            (screen.risk_level, review_risk_level),
+            key=lambda value: RISK_LEVELS[value],
+        )
+        if {"title", "description"}.intersection(requested_content) and resolved_risk_level == "high":
+            raise HTTPException(status_code=400, detail="内容风险过高，请根据审核建议修改后再保存")
+        post.risk_level = resolved_risk_level
         session.add(
             AuditLog(
                 user_id=user.id,

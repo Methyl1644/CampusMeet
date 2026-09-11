@@ -364,6 +364,22 @@ def test_post_editor_can_edit_but_application_manager_cannot(monkeypatch):
         post_id = post.id
         editor_id, manager_id = str(editor.id), str(application_manager.id)
     monkeypatch.setattr(posts_api, "get_session", sessions)
+    monkeypatch.setattr(
+        posts_api,
+        "classify_review",
+        lambda *_args, **_kwargs: {
+            "code": 0,
+            "message": "ok",
+            "data": {
+                "main_category": "竞赛与项目",
+                "tag_ids": [],
+                "unknown_concepts": [],
+                "risk_level": "low",
+                "suggestions": [],
+                "tag_proposals": [],
+            },
+        },
+    )
 
     result = posts_api.update(post_id, {"title": "新的组队标题"}, editor_id)
     assert result["data"]["title"] == "新的组队标题"

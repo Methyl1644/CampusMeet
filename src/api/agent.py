@@ -88,6 +88,41 @@ def _candidate_tags(session, message: str = "", limit: int = 120) -> list[dict[s
         return []
 
 
+def store_tag_proposals(
+    user_id: str,
+    title: str,
+    description: str,
+    concepts: list[dict[str, Any]],
+) -> list[dict[str, str]]:
+    proposal_refs: list[dict[str, str]] = []
+    proposal_session = get_session()
+    try:
+        user = _require_verified_user(proposal_session, user_id)
+        source_text = f"{title}\n{description}".strip()
+        for concept in sanitize_unknown_concepts(concepts):
+            try:
+                proposal = submit_tag_proposal(
+                    proposal_session,
+                    user,
+                    concept["name"],
+                    concept["category"],
+                    source_text,
+                )
+            except ValueError:
+                continue
+            proposal_refs.append(
+                {
+                    "proposal_id": str(proposal.id),
+                    "name": proposal.proposed_name,
+                    "status": proposal.status,
+                }
+            )
+        proposal_session.commit()
+        return proposal_refs
+    finally:
+        proposal_session.close()
+
+
 @router.post("/post-draft")
 def post_draft(body: dict[str, Any], user_id: str = Depends(current_user_id)) -> dict[str, Any]:
     session = get_session()
@@ -152,33 +187,12 @@ def classify_review(body: dict[str, Any], user_id: str = Depends(current_user_id
         else []
     )
     concepts = sanitize_unknown_concepts(data.pop("unknown_concepts", []))
-    proposal_refs: list[dict[str, str]] = []
-    if concepts:
-        proposal_session = get_session()
-        try:
-            user = _require_verified_user(proposal_session, user_id)
-            source_text = f"{title}\n{description}".strip()
-            for concept in concepts:
-                try:
-                    proposal = submit_tag_proposal(
-                        proposal_session,
-                        user,
-                        concept["name"],
-                        concept["category"],
-                        source_text,
-                    )
-                except ValueError:
-                    continue
-                proposal_refs.append(
-                    {
-                        "proposal_id": str(proposal.id),
-                        "name": proposal.proposed_name,
-                        "status": proposal.status,
-                    }
-                )
-            proposal_session.commit()
-        finally:
-            proposal_session.close()
+    proposal_refs = (
+        store_tag_proposals(user_id, title, description, concepts)
+        if concepts and body.get("persist_tag_proposals", True)
+        else []
+    )
+    data["unknown_concepts"] = concepts
     data["tag_proposals"] = proposal_refs
     result["data"] = data
     return result

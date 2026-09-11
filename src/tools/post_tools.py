@@ -59,6 +59,8 @@ def create_post(
     kind: str = "casual_invitation",
     topic_id: str = "",
     tag_ids: str = "",
+    suggested_tag_ids: str = "",
+    review_risk_level: str = "low",
 ) -> str:
     """创建组队帖。user_id 为用户ID，title 为标题，description 为描述，main_category 为主分类，activity_name 为活动名称，target_members 为目标人数，needed_roles 为所需角色(逗号分隔)，weekly_hours 为每周时长，school_scope 为学校范围，deadline 为截止日期。"""
     ctx = request_context.get() or new_context(method="create_post")
@@ -94,7 +96,16 @@ def create_post(
             elif resolved_topic_id is not None:
                 return json.dumps({"success": False, "message": "日常邀约不能关联正式话题"}, ensure_ascii=False)
 
-            selected_tag_ids = list(dict.fromkeys(item.strip() for item in tag_ids.split(",") if item.strip()))[:8]
+            user_tag_ids = list(dict.fromkeys(item.strip() for item in tag_ids.split(",") if item.strip()))[:8]
+            user_tag_id_set = set(user_tag_ids)
+            ai_tag_ids = list(
+                dict.fromkeys(
+                    item.strip()
+                    for item in suggested_tag_ids.split(",")
+                    if item.strip() and item.strip() not in user_tag_id_set
+                )
+            )
+            selected_tag_ids = (user_tag_ids + ai_tag_ids)[:8]
             invalid_tag_ids = validate_tag_ids(session, selected_tag_ids)
             if invalid_tag_ids:
                 return json.dumps(
@@ -103,6 +114,17 @@ def create_post(
                 )
 
             roles = [r.strip() for r in needed_roles.split(",") if r.strip()] if needed_roles else []
+            risk_levels = {"low": 0, "medium": 1, "high": 2}
+            normalized_review_risk = review_risk_level if review_risk_level in risk_levels else "medium"
+            resolved_risk_level = max(
+                (screen.risk_level, normalized_review_risk),
+                key=lambda value: risk_levels[value],
+            )
+            if resolved_risk_level == "high":
+                return json.dumps(
+                    {"success": False, "message": "内容风险过高，请根据审核建议修改后再发布"},
+                    ensure_ascii=False,
+                )
             post = Post(
                 title=title,
                 description=description,
@@ -116,14 +138,19 @@ def create_post(
                 weekly_hours=weekly_hours or None,
                 school_scope=school_scope or None,
                 deadline=deadline or None,
-                risk_level=screen.risk_level,
+                risk_level=resolved_risk_level,
                 status="recruiting",
                 author_id=uid,
             )
             session.add(post)
             session.flush()
             session.add_all(
-                PostTag(post_id=post.id, tag_id=tag_id, source="user") for tag_id in selected_tag_ids
+                PostTag(
+                    post_id=post.id,
+                    tag_id=tag_id,
+                    source="user" if tag_id in user_tag_id_set else "ai",
+                )
+                for tag_id in selected_tag_ids
             )
             post.tags = selected_tag_ids
 
@@ -134,9 +161,9 @@ def create_post(
             return json.dumps({
                 "success": True,
                 "post": _post_to_dict(post, user),
-                "risk_level": screen.risk_level,
+                "risk_level": resolved_risk_level,
                 "risk_factors": screen.risk_factors,
-                "message": "帖子发布成功" + (f"，风险等级: {screen.risk_level}" if screen.risk_level != "low" else ""),
+                "message": "帖子发布成功" + (f"，风险等级: {resolved_risk_level}" if resolved_risk_level != "low" else ""),
             }, ensure_ascii=False)
         finally:
             session.close()
