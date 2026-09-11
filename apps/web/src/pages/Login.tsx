@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
-import { ArrowLeft, ArrowRight, Mail, Phone } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Mail } from 'lucide-react'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import { useNavigate } from 'react-router-dom'
-import { sendCode, register, login, verifyEmail } from '@/api/auth'
+import { sendCode, register, login } from '@/api/auth'
 import { getApiErrorMessage, getCodeSentMessage } from '@/api/auth-feedback'
 import CampusMark from '@/components/CampusMark'
 import { useToast } from '@/components/Toast'
@@ -10,16 +10,18 @@ import { useAuthStore } from '@/store/authStore'
 import { COMMON_SKILLS } from '@shared/constants'
 import type { User } from '@shared/types'
 
-type Step = 'login' | 'register' | 'profile' | 'verify'
+type Step = 'login' | 'register' | 'profile'
 
 const STEP_INDEX: Record<Step, number> = {
   login: 0,
   register: 0,
   profile: 1,
-  verify: 2,
 }
 
-const REGISTRATION_STEPS = ['创建账号', '完善资料', '校园认证']
+const REGISTRATION_STEPS = ['校园账户', '完善资料']
+
+const isNjuCampusEmail = (value: string) =>
+  /^[^\s@]+@(?:smail\.)?nju\.edu\.cn$/i.test(value.trim())
 
 const DEMO_USER: User = {
   id: 'local-demo-user',
@@ -43,7 +45,7 @@ const stageVariants = {
 export default function Login() {
   const navigate = useNavigate()
   const shouldReduceMotion = useReducedMotion()
-  const { setAuth, updateUser } = useAuthStore()
+  const { setAuth } = useAuthStore()
   const { showToast } = useToast()
 
   const [step, setStep] = useState<Step>('login')
@@ -62,13 +64,6 @@ export default function Login() {
   const [grade, setGrade] = useState('')
   const [skills, setSkills] = useState<string[]>([])
 
-  const [verifyEmailAddr, setVerifyEmailAddr] = useState('')
-  const [verifyCode, setVerifyCode] = useState('')
-  const [verifyCodeCooldown, setVerifyCodeCooldown] = useState(0)
-
-  const isPhone = /^1\d{10}$/.test(account)
-  const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(account)
-
   useEffect(() => {
     if (codeCooldown <= 0) return
     const timer = window.setTimeout(() => {
@@ -76,14 +71,6 @@ export default function Login() {
     }, 1000)
     return () => window.clearTimeout(timer)
   }, [codeCooldown])
-
-  useEffect(() => {
-    if (verifyCodeCooldown <= 0) return
-    const timer = window.setTimeout(() => {
-      setVerifyCodeCooldown((current) => Math.max(0, current - 1))
-    }, 1000)
-    return () => window.clearTimeout(timer)
-  }, [verifyCodeCooldown])
 
   const goToStep = (nextStep: Step) => {
     const nextIndex = STEP_INDEX[nextStep]
@@ -116,8 +103,12 @@ export default function Login() {
   }
 
   const validateRegistrationAccount = () => {
+    if (!isNjuCampusEmail(account)) {
+      showToast('仅支持南京大学学生或教职工邮箱注册', 'error')
+      return false
+    }
     if (!account || !code || !password) {
-      showToast('请填写账号、验证码和密码', 'error')
+      showToast('请填写校园邮箱、验证码和密码', 'error')
       return false
     }
     if (password.length < 8 || !/[A-Za-z]/.test(password) || !/\d/.test(password)) {
@@ -128,8 +119,8 @@ export default function Login() {
   }
 
   const handleSendCode = async () => {
-    if (!isPhone && !isEmail) {
-      showToast('请输入正确的手机号或邮箱', 'error')
+    if (!isNjuCampusEmail(account)) {
+      showToast('请输入南京大学学生或教职工邮箱', 'error')
       return
     }
     const requestPurpose = step === 'login' ? 'login' : 'register'
@@ -154,8 +145,8 @@ export default function Login() {
   }
 
   const handleLogin = async () => {
-    if (!account) {
-      showToast('请输入手机号或邮箱', 'error')
+    if (!isNjuCampusEmail(account)) {
+      showToast('请输入南京大学学生或教职工邮箱', 'error')
       return
     }
     setSubmitting(true)
@@ -178,7 +169,7 @@ export default function Login() {
       const res = await register({ account, code, password, nickname, major, grade, skills })
       setAuth(res.token, res.user)
       showToast('注册成功', 'success')
-      goToStep('verify')
+      navigate('/home')
     } catch (error) {
       showToast(getApiErrorMessage(error, '注册失败，请稍后重试'), 'error')
     } finally {
@@ -189,24 +180,6 @@ export default function Login() {
   const handleDemoEnter = () => {
     setAuth('local-demo-token', DEMO_USER)
     navigate('/home')
-  }
-
-  const handleVerifyEmail = async () => {
-    if (!verifyEmailAddr || !verifyCode) {
-      showToast('请填写邮箱和验证码', 'error')
-      return
-    }
-    setSubmitting(true)
-    try {
-      await verifyEmail(verifyEmailAddr, verifyCode)
-      updateUser({ auth_status: 'verified', verified_email: verifyEmailAddr })
-      showToast('校园邮箱认证成功', 'success')
-      navigate('/home')
-    } catch (error) {
-      showToast(getApiErrorMessage(error, '认证失败，请检查邮箱和验证码'), 'error')
-    } finally {
-      setSubmitting(false)
-    }
   }
 
   const toggleSkill = (skill: string) => {
@@ -245,13 +218,14 @@ export default function Login() {
 
           <div className="mb-7 border-b border-stone pb-5">
             <p className="section-label mb-3">
-              {step === 'login' ? '校园账户' : `注册进度 ${registrationStage + 1} / 3`}
+              {step === 'login'
+                ? '校园账户'
+                : `注册进度 ${registrationStage + 1} / ${REGISTRATION_STEPS.length}`}
             </p>
             <h2 className="text-2xl font-semibold text-ink sm:text-3xl">
               {step === 'login' && '欢迎回来'}
               {step === 'register' && '创建账号'}
               {step === 'profile' && '完善个人资料'}
-              {step === 'verify' && '完成校园邮箱认证'}
             </h2>
           </div>
 
@@ -303,18 +277,19 @@ export default function Login() {
                 <div className="space-y-4">
                   <div>
                     <label htmlFor="auth-account" className="mb-1.5 block text-sm font-medium text-ink">
-                      手机号 / 邮箱
+                      南京大学邮箱
                     </label>
                     <div className="relative">
                       <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-muted">
-                        {isEmail ? <Mail size={16} /> : <Phone size={16} />}
+                        <Mail size={16} />
                       </span>
                       <input
                         id="auth-account"
-                        type="text"
+                        type="email"
                         value={account}
                         onChange={(event) => setAccount(event.target.value)}
-                        autoComplete="username"
+                        autoComplete="email"
+                        placeholder="学号@smail.nju.edu.cn"
                         className="input-base min-w-0 pl-9"
                       />
                     </div>
@@ -479,85 +454,9 @@ export default function Login() {
                 </div>
               )}
 
-              {step === 'verify' && (
-                <div className="space-y-4">
-                  <div>
-                    <label htmlFor="verify-email" className="mb-1.5 block text-sm font-medium text-ink">
-                      校园邮箱
-                    </label>
-                    <input
-                      id="verify-email"
-                      type="email"
-                      value={verifyEmailAddr}
-                      onChange={(event) => setVerifyEmailAddr(event.target.value)}
-                      autoComplete="email"
-                      className="input-base"
-                    />
-                  </div>
-                  <div>
-                    <label htmlFor="verify-code" className="mb-1.5 block text-sm font-medium text-ink">
-                      验证码
-                    </label>
-                    <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-2">
-                      <input
-                        id="verify-code"
-                        type="text"
-                        inputMode="numeric"
-                        value={verifyCode}
-                        onChange={(event) => setVerifyCode(event.target.value)}
-                        autoComplete="one-time-code"
-                        className="input-base min-w-0"
-                      />
-                      <button
-                        type="button"
-                        onClick={async () => {
-                          if (!verifyEmailAddr) return showToast('请先填写邮箱', 'error')
-                          try {
-                            const result = await sendCode(verifyEmailAddr, 'campus_verify')
-                            setVerifyCodeCooldown(result.retry_after_seconds ?? 60)
-                            showToast(getCodeSentMessage(result), 'success')
-                          } catch (error) {
-                            showToast(getApiErrorMessage(error, '发送失败'), 'error')
-                          }
-                        }}
-                        disabled={verifyCodeCooldown > 0}
-                        className="btn-secondary min-w-[5rem] whitespace-nowrap px-3"
-                      >
-                        {verifyCodeCooldown > 0 ? `${verifyCodeCooldown}s` : '获取'}
-                      </button>
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={handleVerifyEmail}
-                    disabled={submitting}
-                    className="btn-primary min-h-11 w-full"
-                  >
-                    {submitting ? '认证中...' : '完成认证'}
-                  </button>
-                  <div className="grid grid-cols-1 gap-2 text-sm sm:grid-cols-2">
-                    <button
-                      type="button"
-                      onClick={() => goToStep('profile')}
-                      className="btn-secondary"
-                    >
-                      <ArrowLeft size={16} />
-                      上一步
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => navigate('/home')}
-                      className="min-h-10 text-center text-ink-muted transition-colors hover:text-primary-700"
-                    >
-                      暂不认证
-                    </button>
-                  </div>
-                </div>
-              )}
-
               {step !== 'login' && (
                 <nav className="mt-8 border-t border-stone pt-5" aria-label="注册进度">
-                  <ol className="grid grid-cols-3">
+                  <ol className="grid grid-cols-2">
                     {REGISTRATION_STEPS.map((label, index) => {
                       const reached = index <= registrationStage
                       return (

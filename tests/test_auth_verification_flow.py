@@ -31,7 +31,7 @@ def _fresh_sqlite_database(monkeypatch, tmp_path):
     return db
 
 
-def test_phone_code_can_be_sent_with_local_sqlite(monkeypatch, tmp_path):
+def test_student_email_code_can_be_sent_with_local_sqlite(monkeypatch, tmp_path):
     db = _fresh_sqlite_database(monkeypatch, tmp_path)
 
     import tools.auth_tools as auth_tools
@@ -39,7 +39,7 @@ def test_phone_code_can_be_sent_with_local_sqlite(monkeypatch, tmp_path):
     monkeypatch.setattr(auth_tools, "get_session", db.get_session)
     first = json.loads(
         auth_tools.register_auth_send_code.invoke(
-            {"account": "13800138000", "purpose": "register"}
+            {"account": "student@smail.nju.edu.cn", "purpose": "register"}
         )
     )
 
@@ -50,7 +50,7 @@ def test_phone_code_can_be_sent_with_local_sqlite(monkeypatch, tmp_path):
     assert first["retry_after_seconds"] > 0
 
 
-def test_repeated_phone_code_request_reuses_active_code(monkeypatch, tmp_path):
+def test_repeated_campus_email_code_request_reuses_active_code(monkeypatch, tmp_path):
     db = _fresh_sqlite_database(monkeypatch, tmp_path)
 
     import tools.auth_tools as auth_tools
@@ -58,12 +58,12 @@ def test_repeated_phone_code_request_reuses_active_code(monkeypatch, tmp_path):
     monkeypatch.setattr(auth_tools, "get_session", db.get_session)
     first = json.loads(
         auth_tools.register_auth_send_code.invoke(
-            {"account": "13800138000", "purpose": "register"}
+            {"account": "student@smail.nju.edu.cn", "purpose": "register"}
         )
     )
     second = json.loads(
         auth_tools.register_auth_send_code.invoke(
-            {"account": "13800138000", "purpose": "register"}
+            {"account": "student@smail.nju.edu.cn", "purpose": "register"}
         )
     )
 
@@ -81,13 +81,13 @@ def test_login_code_cannot_be_used_to_register(monkeypatch, tmp_path):
     monkeypatch.setattr(auth_tools, "get_session", db.get_session)
     login_code = json.loads(
         auth_tools.register_auth_send_code.invoke(
-            {"account": "13800138000", "purpose": "login"}
+            {"account": "student@smail.nju.edu.cn", "purpose": "login"}
         )
     )["code"]
     result = json.loads(
         auth_tools.register_user.invoke(
             {
-                "account": "13800138000",
+                "account": "student@smail.nju.edu.cn",
                 "code": login_code,
                 "password": "TestPassword2026",
                 "nickname": "测试用户",
@@ -108,7 +108,7 @@ def test_registered_user_can_login_with_a_login_code(monkeypatch, tmp_path):
     import tools.auth_tools as auth_tools
 
     monkeypatch.setattr(auth_tools, "get_session", db.get_session)
-    account = "13800138000"
+    account = "teacher@nju.edu.cn"
     register_code = json.loads(
         auth_tools.register_auth_send_code.invoke(
             {"account": account, "purpose": "register"}
@@ -141,7 +141,7 @@ def test_registered_user_can_login_with_a_login_code(monkeypatch, tmp_path):
     )
 
     assert logged_in["success"] is True
-    assert logged_in["user"]["phone"] == account
+    assert logged_in["user"]["email"] == account
     assert logged_in["token"]
 
 
@@ -151,7 +151,7 @@ def test_password_login_is_temporarily_locked_after_repeated_failures(monkeypatc
     import tools.auth_tools as auth_tools
 
     monkeypatch.setattr(auth_tools, "get_session", db.get_session)
-    account = "13800138000"
+    account = "student@smail.nju.edu.cn"
     register_code = json.loads(
         auth_tools.register_auth_send_code.invoke(
             {"account": account, "purpose": "register"}
@@ -191,7 +191,7 @@ def test_registration_requires_a_real_password(monkeypatch, tmp_path):
     import tools.auth_tools as auth_tools
 
     monkeypatch.setattr(auth_tools, "get_session", db.get_session)
-    account = "13800138000"
+    account = "student@smail.nju.edu.cn"
     code = json.loads(
         auth_tools.register_auth_send_code.invoke(
             {"account": account, "purpose": "register"}
@@ -236,7 +236,7 @@ def test_production_email_failure_does_not_leak_the_code(monkeypatch, tmp_path):
 
     result = json.loads(
         auth_tools.register_auth_send_code.invoke(
-            {"account": "student@example.edu.cn", "purpose": "register"}
+            {"account": "student@smail.nju.edu.cn", "purpose": "register"}
         )
     )
 
@@ -267,7 +267,7 @@ def test_production_verification_code_is_hashed_at_rest(monkeypatch, tmp_path):
 
     result = json.loads(
         auth_tools.register_auth_send_code.invoke(
-            {"account": "student@example.edu.cn", "purpose": "register"}
+            {"account": "student@smail.nju.edu.cn", "purpose": "register"}
         )
     )
     with db.get_session() as session:
@@ -285,7 +285,7 @@ def test_verification_code_expires_after_repeated_wrong_attempts(monkeypatch, tm
     import tools.auth_tools as auth_tools
 
     monkeypatch.setattr(auth_tools, "get_session", db.get_session)
-    account = "13800138000"
+    account = "student@smail.nju.edu.cn"
     code = json.loads(
         auth_tools.register_auth_send_code.invoke(
             {"account": account, "purpose": "register"}
@@ -325,12 +325,12 @@ def test_failed_email_delivery_does_not_block_an_immediate_retry(monkeypatch, tm
 
     first = json.loads(
         auth_tools.register_auth_send_code.invoke(
-            {"account": "student@example.edu.cn", "purpose": "register"}
+            {"account": "student@smail.nju.edu.cn", "purpose": "register"}
         )
     )
     second = json.loads(
         auth_tools.register_auth_send_code.invoke(
-            {"account": "student@example.edu.cn", "purpose": "register"}
+            {"account": "student@smail.nju.edu.cn", "purpose": "register"}
         )
     )
 
@@ -358,7 +358,7 @@ def test_campus_verification_code_rejects_non_campus_email(monkeypatch, tmp_path
     }
 
 
-def test_campus_email_domain_accepts_nju_subdomains_and_rejects_lookalikes(
+def test_campus_email_domain_accepts_only_student_and_staff_mail_domains(
     monkeypatch,
 ):
     import tools.auth_tools as auth_tools
@@ -367,7 +367,87 @@ def test_campus_email_domain_accepts_nju_subdomains_and_rejects_lookalikes(
 
     assert auth_tools._is_campus_email("student@nju.edu.cn") is True
     assert auth_tools._is_campus_email("student@smail.nju.edu.cn") is True
+    assert auth_tools._is_campus_email("student@math.nju.edu.cn") is False
     assert auth_tools._is_campus_email("student@evilnju.edu.cn") is False
+
+
+def test_registration_code_rejects_phone_and_non_campus_email(monkeypatch, tmp_path):
+    db = _fresh_sqlite_database(monkeypatch, tmp_path)
+
+    import tools.auth_tools as auth_tools
+
+    monkeypatch.setattr(auth_tools, "get_session", db.get_session)
+
+    for account in ("13800138000", "student@example.com"):
+        result = json.loads(
+            auth_tools.register_auth_send_code.invoke(
+                {"account": account, "purpose": "register"}
+            )
+        )
+        assert result == {
+            "sent": False,
+            "message": "仅支持南京大学校园邮箱注册",
+        }
+
+
+def test_campus_registration_is_verified_immediately(monkeypatch, tmp_path):
+    db = _fresh_sqlite_database(monkeypatch, tmp_path)
+
+    import tools.auth_tools as auth_tools
+
+    monkeypatch.setattr(auth_tools, "get_session", db.get_session)
+    account = "student@smail.nju.edu.cn"
+    code = json.loads(
+        auth_tools.register_auth_send_code.invoke(
+            {"account": account, "purpose": "register"}
+        )
+    )["code"]
+    result = json.loads(
+        auth_tools.register_user.invoke(
+            {
+                "account": account,
+                "code": code,
+                "password": "TestPassword2026",
+                "nickname": "测试用户",
+                "major": "计算机",
+                "grade": "大一",
+                "skills": "Python",
+            }
+        )
+    )
+
+    assert result["success"] is True
+    assert result["user"]["auth_status"] == "verified"
+    assert result["user"]["verified_email"] == account
+    assert result["message"] == "注册成功"
+
+
+def test_registration_rejects_non_campus_account_before_code_validation(
+    monkeypatch, tmp_path
+):
+    db = _fresh_sqlite_database(monkeypatch, tmp_path)
+
+    import tools.auth_tools as auth_tools
+
+    monkeypatch.setattr(auth_tools, "get_session", db.get_session)
+    result = json.loads(
+        auth_tools.register_user.invoke(
+            {
+                "account": "outsider@example.com",
+                "code": "123456",
+                "password": "TestPassword2026",
+                "nickname": "测试用户",
+                "major": "计算机",
+                "grade": "大一",
+                "skills": "Python",
+            }
+        )
+    )
+
+    assert result == {
+        "success": False,
+        "message": "仅支持南京大学校园邮箱注册",
+    }
 
 
 def test_campus_email_cannot_verify_more_than_one_account(monkeypatch, tmp_path):

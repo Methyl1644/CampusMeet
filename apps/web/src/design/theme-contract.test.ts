@@ -295,8 +295,8 @@ test('authentication keeps every stage inside the approved campus composition', 
   assert.match(loginSource, /<CampusMark\b/, 'Login must render CampusMark')
   assert.match(
     loginSource,
-    /type\s+Step\s*=\s*['"]login['"]\s*\|\s*['"]register['"]\s*\|\s*['"]profile['"]\s*\|\s*['"]verify['"]/,
-    'Login must preserve login, register, profile, and verify states',
+    /type\s+Step\s*=\s*['"]login['"]\s*\|\s*['"]register['"]\s*\|\s*['"]profile['"]/,
+    'Login must keep the campus account and profile registration stages',
   )
   assert.match(
     loginSource,
@@ -320,9 +320,15 @@ test('authentication keeps every stage inside the approved campus composition', 
   )
   assert.match(
     loginSource,
-    /grid-cols-3[\s\S]*?h-(?:0\.5|1)\b/,
-    'Registration progress must be a thin three-part horizontal line',
+    /grid-cols-2[\s\S]*?h-(?:0\.5|1)\b/,
+    'Registration progress must be a thin two-part horizontal line',
   )
+  assert.match(
+    loginSource,
+    /const\s+isNjuCampusEmail[\s\S]*?smail[\s\S]*?nju[\s\S]*?edu[\s\S]*?cn/,
+    'Authentication must validate the two approved NJU mail domains',
+  )
+  assert.doesNotMatch(loginSource, /\bPhone\b|campus_verify|verifyEmailAddr/)
 })
 
 test('publishing preserves AI fallback, controlled tags, and the publish boundary', () => {
@@ -442,11 +448,6 @@ test('primary auth code sends ignore stale completions after a purpose switch', 
     loginSource,
     /finally\s*\{\s*if\s*\(requestIsCurrent\(\)\)\s*setSendingCode\(false\)\s*\}/,
     'A stale request must not finalize the current purpose sending state',
-  )
-  assert.match(
-    loginSource,
-    /sendCode\(verifyEmailAddr,\s*['"]campus_verify['"]\)/,
-    'Campus verification code sending must remain on its independent flow',
   )
 })
 

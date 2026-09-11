@@ -33,13 +33,12 @@ def _is_campus_email(email: str) -> bool:
     domain = email.rsplit("@", 1)[1].strip().lower().rstrip(".")
     allowed_domains = {
         item.strip().lower().rstrip(".")
-        for item in os.getenv("CAMPUS_EMAIL_DOMAINS", "nju.edu.cn").split(",")
+        for item in os.getenv(
+            "CAMPUS_EMAIL_DOMAINS", "nju.edu.cn,smail.nju.edu.cn"
+        ).split(",")
         if item.strip()
     }
-    return any(
-        domain == allowed or domain.endswith(f".{allowed}")
-        for allowed in allowed_domains
-    )
+    return domain in allowed_domains
 
 
 def _is_test_mode() -> bool:
@@ -164,6 +163,16 @@ def register_auth_send_code(account: str, purpose: str = "register") -> str:
             return json.dumps({"sent": False, "message": "请输入正确的手机号或邮箱"}, ensure_ascii=False)
         if purpose not in ALLOWED_CODE_PURPOSES:
             return json.dumps({"sent": False, "message": "不支持的验证码用途"}, ensure_ascii=False)
+        if purpose == "register" and not _is_campus_email(account):
+            return json.dumps(
+                {"sent": False, "message": "仅支持南京大学校园邮箱注册"},
+                ensure_ascii=False,
+            )
+        if purpose == "login" and not _is_campus_email(account):
+            return json.dumps(
+                {"sent": False, "message": "请使用南京大学校园邮箱登录"},
+                ensure_ascii=False,
+            )
         if purpose == "campus_verify" and not _is_campus_email(account):
             return json.dumps(
                 {"sent": False, "message": "请使用南京大学校园邮箱完成认证"},
@@ -238,10 +247,15 @@ def register_auth_send_code(account: str, purpose: str = "register") -> str:
 
 @tool
 def register_user(account: str, code: str, password: str, nickname: str, major: str, grade: str, skills: str, wechat: str = "") -> str:
-    """注册新用户。account 为手机号或邮箱，code 为验证码，password 为密码，nickname 为昵称，major 为专业，grade 为年级，skills 为技能标签(逗号分隔)，wechat 为微信号(可选)。"""
+    """使用南京大学校园邮箱验证码注册新用户。"""
     ctx = request_context.get() or new_context(method="register_user")
     try:
         account = account.strip().lower() if is_email(account) else account.strip()
+        if not _is_campus_email(account):
+            return json.dumps(
+                {"success": False, "message": "仅支持南京大学校园邮箱注册"},
+                ensure_ascii=False,
+            )
         if len(password) < 8 or not re.search(r"[A-Za-z]", password) or not re.search(r"\d", password):
             return json.dumps(
                 {"success": False, "message": "密码至少 8 位，并同时包含字母和数字"},
@@ -265,17 +279,17 @@ def register_user(account: str, code: str, password: str, nickname: str, major: 
             skill_list = [s.strip() for s in skills.split(",") if s.strip()] if skills else []
 
             # 创建用户
-            account_is_email = is_email(account)
             user = User(
-                email=account if account_is_email else None,
-                phone=account if not account_is_email else None,
+                email=account,
+                phone=None,
                 wechat=wechat if wechat else None,
                 password_hash=hash_password(password),
                 nickname=nickname,
                 major=major,
                 grade=grade,
                 skills=skill_list,
-                auth_status="unverified",
+                auth_status="verified",
+                verified_email=account,
             )
             session.add(user)
             session.flush()
@@ -291,7 +305,7 @@ def register_user(account: str, code: str, password: str, nickname: str, major: 
                 "success": True,
                 "token": token,
                 "user": _user_to_dict(user),
-                "message": "注册成功，请完成校园邮箱认证以获取完整权限"
+                "message": "注册成功"
             }, ensure_ascii=False)
         finally:
             session.close()
