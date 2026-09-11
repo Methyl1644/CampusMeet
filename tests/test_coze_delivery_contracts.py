@@ -83,6 +83,7 @@ def test_delivery_checklist_names_both_workflows_and_required_render_variables()
 
     assert "campusmate_post_draft" in checklist
     assert "campusmate_classify_review" in checklist
-    assert "COZE_WORKFLOW_POST_DRAFT" in checklist
-    assert "COZE_WORKFLOW_CLASSIFY_REVIEW" in checklist
-    assert "COZE_API_TOKEN" in checklist
+    assert "COZE_POST_DRAFT_API_URL" in checklist
+    assert "COZE_CLASSIFY_REVIEW_API_URL" in checklist
+    assert "COZE_DEPLOY_API_TOKEN" in checklist
+    assert "COZE_WORKFLOW_*" in checklist

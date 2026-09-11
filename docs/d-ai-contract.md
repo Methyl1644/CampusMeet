@@ -76,14 +76,19 @@ AI 工具内部可以带 `success`、`message` 或 `team_plan`。C 在 `src/api/
 ## 3. Coze 与 fallback 切换
 
 ```text
+COZE_DEPLOY_API_TOKEN
+COZE_POST_DRAFT_API_URL
+COZE_CLASSIFY_REVIEW_API_URL
+
+# 旧版后备
 COZE_WORKFLOW_POST_DRAFT
 COZE_WORKFLOW_CLASSIFY_REVIEW
 COZE_WORKFLOW_MATCH
 COZE_WORKFLOW_TEAM_PLAN
 ```
 
-1. 同时配置 `COZE_API_TOKEN` 和对应 workflow ID 时优先调用 Coze。
-2. 未配置、额度不足、超时、非零错误码或结果不可解析时自动进入 fallback。
+1. 同时配置 `COZE_DEPLOY_API_TOKEN` 和对应 `.coze.site/run` 地址时优先调用 Coze 部署 API。
+2. 新接口失败时尝试旧版 `COZE_API_TOKEN + COZE_WORKFLOW_*`；仍失败才进入 fallback。
 3. 发帖/审核使用 LLM fallback；匹配/规划使用数据库 + LLM fallback。
 4. 密码、验证码、原始身份材料和未脱敏联系方式禁止发给 Coze。
 

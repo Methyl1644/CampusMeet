@@ -40,37 +40,33 @@
 
 ## 3. 环境变量配置
 
-`.env` 中需要以下变量（`.env.example` 已有占位）：
+`.env` 中推荐配置部署 API（`.env.example` 已有占位）：
 
 ```bash
-# Coze 平台凭证（只放后端，前端不持有任何 Token —— PRD §7）
-COZE_API_TOKEN=<在 Coze 后台创建的个人访问令牌>
-COZE_API_BASE_URL=https://api.coze.cn
-
-# 4 个工作流 ID（在 Coze 后台发布工作流后获得；留空即走 fallback）
-COZE_WORKFLOW_POST_DRAFT=
-COZE_WORKFLOW_CLASSIFY_REVIEW=
-COZE_WORKFLOW_MATCH=
-COZE_WORKFLOW_TEAM_PLAN=
-
-# 可选（P1）
-COZE_WORKFLOW_OFFICIAL_ACTIVITY_EXTRACT=
+# Token 只放后端，前端不持有任何 Token（PRD §7）
+COZE_DEPLOY_API_TOKEN=<部署页生成的 API Token>
+COZE_POST_DRAFT_API_URL=https://<deployment>.coze.site/run
+COZE_CLASSIFY_REVIEW_API_URL=
 ```
 
 配置步骤：
 
 1. 前两个工作流先按 `DELIVERY_CHECKLIST.md` 和 `workflows/01_*.md`、`02_*.md` 搭建；
 2. LLM 节点的 System Prompt = `prompts/system_rules.md` + `prompts/safety_rules.md` + 对应任务 Prompt（三段拼接）；
-3. 发布工作流，拿到 workflow ID 填入 `.env`；
-4. 重启后端，`ai_tools.py` 自动切换到 Coze 工作流调用。
+3. 发布工作流，复制 `/run` API 地址并生成 API Token；
+4. 把 Token 和地址填入 Render 后重启后端，`ai_tools.py` 自动切换到 Coze 部署 API。
 
-## 4. 未配置工作流 ID 时的 LLM fallback
+旧版 `COZE_API_TOKEN`、`COZE_API_BASE_URL` 和 `COZE_WORKFLOW_*` 仍可作为后备配置。
+
+## 4. Coze 不可用时的 LLM fallback
 
 后端 `ai_tools.py` 的每个 AI 工具是**双层架构**：
 
 ```
-if 对应 COZE_WORKFLOW_* 已配置:
-    调用 Coze 工作流（超时/异常 → 记录日志并降级）
+if 对应 COZE_*_API_URL 和 COZE_DEPLOY_API_TOKEN 已配置:
+    调用 Coze 部署 API（超时/异常 → 尝试旧版工作流）
+elif 对应 COZE_WORKFLOW_* 已配置:
+    调用旧版 Coze 工作流
 else:
     调用 LLM fallback（同一套 Prompt + 同一个输出 Schema 直接问 LLM）
 ```
@@ -118,7 +114,7 @@ else:
 | 5 | 风险等级 | 应用层统一 `low/medium/high`；最终发布/拦截由 C 的规则引擎决定 | ✅ C/D |
 | 6 | 敏感信息 | C 在 classify-review 路由中先脱敏，D/Coze 不接收未脱敏联系方式 | ✅ C/D |
 | 7 | 匹配入参/响应 | 入参固定 `post_id`；C 返回 `data.matches`；B 使用 `MatchResponse` 和 `user_id/score/reason` | ✅ B/C/D |
-| 8 | 环境变量 | 统一为不带 `_ID` 的四个 `COZE_WORKFLOW_*`；真实 Token/ID 只放本地 `.env` | ✅ C/D |
+| 8 | 环境变量 | 优先使用 `COZE_DEPLOY_API_TOKEN + COZE_*_API_URL`；旧版 `COZE_WORKFLOW_*` 保留后备；真实 Token 只放后端环境 | ✅ C/D |
 | 9 | team-plan 响应 | C 解包 `team_plan`；B 使用 `DivisionItem[]/AgendaItem[]/TaskItem[]` | ✅ B/C/D |
 | 10 | fallback 行为 | 未配置 Coze 时：发帖/审核走 LLM，匹配/规划走数据库 + LLM，规划结果会入库 | ✅ D 自动化实测 |
 

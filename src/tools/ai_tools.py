@@ -5,6 +5,7 @@
 import os
 import json
 import logging
+from urllib.parse import urlparse
 from langchain.tools import tool
 from sqlalchemy import select
 from coze_coding_dev_sdk import LLMClient
@@ -18,10 +19,17 @@ from storage.database.models.team import Team, TeamMember
 from tools.auth_tools import _user_brief, _user_to_dict
 from services.content import build_post_draft
 from services.tag_governance import sanitize_unknown_concepts
+from utils.security import screen_content
 
 logger = logging.getLogger(__name__)
 
 MODEL_ID = "doubao-seed-2-0-pro-260215"
+COZE_DEPLOY_TIMEOUT_SECONDS = 18
+COZE_LEGACY_TIMEOUT_SECONDS = 25
+COZE_CHAINED_LEGACY_TIMEOUT_SECONDS = 7
+MAIN_CATEGORIES = {"竞赛与项目", "学习与科研", "体育与健身", "旅行与户外", "校园生活", "拼团与AA"}
+TAG_CATEGORIES = {"activity", "skill", "role", "level", "audience"}
+RISK_LEVELS = {"low", "medium", "high"}
 
 
 def _get_text_content(content) -> str:
@@ -47,7 +55,11 @@ def _call_llm(system_prompt: str, user_message: str, temperature: float = 0.3) -
     return _get_text_content(response.content)
 
 
-def _try_coze_workflow(workflow_env_key: str, parameters: dict) -> dict | None:
+def _try_coze_workflow(
+    workflow_env_key: str,
+    parameters: dict,
+    timeout: int = COZE_LEGACY_TIMEOUT_SECONDS,
+) -> dict | None:
     """尝试调用 Coze 工作流，未配置则返回 None"""
     workflow_id = os.getenv(workflow_env_key, "").strip()
     if not workflow_id:
@@ -62,7 +74,7 @@ def _try_coze_workflow(workflow_env_key: str, parameters: dict) -> dict | None:
             f"{base_url}/v1/workflow/run",
             headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
             json={"workflow_id": workflow_id, "parameters": parameters},
-            timeout=60,
+            timeout=timeout,
         )
         data = resp.json()
         if data.get("code") == 0:
@@ -70,6 +82,153 @@ def _try_coze_workflow(workflow_env_key: str, parameters: dict) -> dict | None:
     except Exception as e:
         logger.warning(f"Coze workflow {workflow_env_key} call failed: {e}")
     return None
+
+
+def _unwrap_coze_result(value) -> dict | None:
+    """Extract a workflow result from common Coze deployment response wrappers."""
+    result_fields = {
+        "reply",
+        "draft",
+        "is_complete",
+        "field_states",
+        "suggested_tag_ids",
+        "main_category",
+        "tag_ids",
+        "risk_level",
+    }
+    current = value
+    for _ in range(5):
+        if isinstance(current, str):
+            try:
+                current = json.loads(current)
+            except json.JSONDecodeError:
+                return None
+        if not isinstance(current, dict):
+            return None
+        if result_fields.intersection(current):
+            return current
+        for wrapper_key in ("data", "output", "result"):
+            if wrapper_key in current:
+                current = current[wrapper_key]
+                break
+        else:
+            return None
+    return None
+
+
+def _try_coze_deployed_api(api_url_env_key: str, parameters: dict) -> dict | None:
+    """Call a deployed coze.site workflow when its URL and token are configured."""
+    api_url = os.getenv(api_url_env_key, "").strip()
+    token = os.getenv("COZE_DEPLOY_API_TOKEN", "").strip()
+    if not api_url or not token:
+        return None
+    parsed_url = urlparse(api_url)
+    hostname = (parsed_url.hostname or "").lower()
+    if (
+        parsed_url.scheme != "https"
+        or not hostname.endswith(".coze.site")
+        or parsed_url.path.rstrip("/") != "/run"
+        or parsed_url.username
+        or parsed_url.password
+    ):
+        logger.warning("Rejected invalid Coze deployment URL in %s", api_url_env_key)
+        return None
+    try:
+        import requests
+        resp = requests.post(
+            api_url,
+            headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
+            json=parameters,
+            timeout=COZE_DEPLOY_TIMEOUT_SECONDS,
+        )
+        if callable(getattr(resp, "raise_for_status", None)):
+            resp.raise_for_status()
+        payload = resp.json()
+        if isinstance(payload, dict) and payload.get("code") not in (None, 0):
+            logger.warning("Coze deployed API %s returned code %s", api_url_env_key, payload.get("code"))
+            return None
+        return _unwrap_coze_result(payload)
+    except Exception as e:
+        logger.warning("Coze deployed API %s call failed: %s", api_url_env_key, e)
+        return None
+
+
+def _valid_post_draft_result(result: dict | None, allowed_ids: set[str] | None) -> bool:
+    if not isinstance(result, dict):
+        return False
+    if not (
+        isinstance(result.get("reply"), str)
+        and len(result["reply"]) <= 500
+        and isinstance(result.get("draft"), dict)
+        and isinstance(result.get("is_complete"), bool)
+        and isinstance(result.get("field_states"), dict)
+        and isinstance(result.get("suggested_tag_ids"), list)
+    ):
+        return False
+    valid_statuses = {"confirmed", "none", "unknown", "skipped", "pending"}
+    fields_valid = all(
+        isinstance(value, dict)
+        and "value" in value
+        and value.get("status") in valid_statuses
+        for value in result["field_states"].values()
+    )
+    tag_ids = result["suggested_tag_ids"]
+    tags_valid = (
+        len(tag_ids) <= 4
+        and all(isinstance(tag_id, str) for tag_id in tag_ids)
+        and len(tag_ids) == len(set(tag_ids))
+        and (allowed_ids is None or all(tag_id in allowed_ids for tag_id in tag_ids))
+    )
+    next_field = result.get("next_field")
+    next_field_valid = next_field is None or isinstance(next_field, str) or next_field in ({}, [])
+    missing_fields = result.get("missing_fields", [])
+    missing_fields_valid = (
+        isinstance(missing_fields, list)
+        and all(isinstance(field, str) for field in missing_fields)
+        and len(missing_fields) == len(set(missing_fields))
+    )
+    degraded_valid = "degraded" not in result or isinstance(result["degraded"], bool)
+    return fields_valid and tags_valid and next_field_valid and missing_fields_valid and degraded_valid
+
+
+def _valid_classify_result(result: dict | None, allowed_ids: set[str]) -> bool:
+    if not isinstance(result, dict):
+        return False
+    tag_ids = result.get("tag_ids")
+    concepts = result.get("unknown_concepts")
+    suggestions = result.get("suggestions")
+    return bool(
+        result.get("main_category") in MAIN_CATEGORIES
+        and result.get("risk_level") in RISK_LEVELS
+        and isinstance(tag_ids, list)
+        and len(tag_ids) <= 8
+        and all(isinstance(tag_id, str) and tag_id in allowed_ids for tag_id in tag_ids)
+        and len(tag_ids) == len(set(tag_ids))
+        and isinstance(concepts, list)
+        and len(concepts) <= 5
+        and all(
+            isinstance(concept, dict)
+            and isinstance(concept.get("name"), str)
+            and 2 <= len(concept["name"]) <= 30
+            and concept.get("category") in TAG_CATEGORIES
+            and isinstance(concept.get("reason"), str)
+            and len(concept["reason"]) <= 200
+            for concept in concepts
+        )
+        and isinstance(suggestions, list)
+        and len(suggestions) <= 5
+        and all(isinstance(suggestion, str) and len(suggestion) <= 200 for suggestion in suggestions)
+    )
+
+
+def _sanitize_external_value(value):
+    if isinstance(value, str):
+        return screen_content(value).cleaned_text
+    if isinstance(value, list):
+        return [_sanitize_external_value(item) for item in value]
+    if isinstance(value, dict):
+        return {key: _sanitize_external_value(item) for key, item in value.items()}
+    return value
 
 
 @tool
@@ -89,18 +248,45 @@ def ai_post_draft(
     parsed_fields = json.loads(field_states) if field_states else {}
     parsed_candidates = json.loads(candidate_tags) if candidate_tags else []
     coze_params = {
-        "message": message,
-        "draft": draft,
-        "user_skills": user_skills,
+        "message": screen_content(message).cleaned_text,
+        "draft": screen_content(draft).cleaned_text,
+        "user_skills": screen_content(user_skills).cleaned_text,
         "kind": kind,
-        "field_states": parsed_fields,
+        "field_states": {
+            field_name: {
+                **state,
+                "value": _sanitize_external_value(state.get("value")),
+            }
+            if isinstance(state, dict)
+            else state
+            for field_name, state in parsed_fields.items()
+        },
         "candidate_tags": parsed_candidates,
-        "topic_id": topic_id or None,
+        "topic_id": topic_id or "",
     }
-    coze_result = _try_coze_workflow("COZE_WORKFLOW_POST_DRAFT", coze_params)
+    allowed_ids = (
+        {str(item.get("tag_id")) for item in parsed_candidates if isinstance(item, dict)}
+        if kind
+        else None
+    )
+    deployed_configured = bool(
+        os.getenv("COZE_POST_DRAFT_API_URL", "").strip()
+        and os.getenv("COZE_DEPLOY_API_TOKEN", "").strip()
+    )
+    coze_result = _try_coze_deployed_api("COZE_POST_DRAFT_API_URL", coze_params)
+    if coze_result and not _valid_post_draft_result(coze_result, allowed_ids):
+        logger.warning("Coze deployed post-draft output failed controlled-schema validation")
+        coze_result = None
+    if not coze_result:
+        legacy_timeout = COZE_CHAINED_LEGACY_TIMEOUT_SECONDS if deployed_configured else COZE_LEGACY_TIMEOUT_SECONDS
+        coze_result = _try_coze_workflow("COZE_WORKFLOW_POST_DRAFT", coze_params, timeout=legacy_timeout)
+        if coze_result and not _valid_post_draft_result(coze_result, allowed_ids):
+            logger.warning("Legacy Coze post-draft output failed controlled-schema validation")
+            coze_result = None
     if coze_result:
+        if coze_result.get("next_field") in ("", {}, []):
+            coze_result = {**coze_result, "next_field": None}
         if kind:
-            allowed_ids = {str(item.get("tag_id")) for item in parsed_candidates if isinstance(item, dict)}
             returned_ids = coze_result.get("suggested_tag_ids", [])
             returned_fields = coze_result.get("field_states", {})
             valid_statuses = {"confirmed", "none", "unknown", "skipped", "pending"}
@@ -178,11 +364,24 @@ def ai_classify_review(post_title: str, post_description: str, candidate_tags: s
     parsed_candidates = json.loads(candidate_tags) if candidate_tags else []
     candidate_ids = {str(item.get("tag_id")) for item in parsed_candidates if isinstance(item, dict)}
     coze_params = {
-        "title": post_title,
-        "description": post_description,
+        "title": screen_content(post_title).cleaned_text,
+        "description": screen_content(post_description).cleaned_text,
         "candidate_tags": parsed_candidates,
     }
-    coze_result = _try_coze_workflow("COZE_WORKFLOW_CLASSIFY_REVIEW", coze_params)
+    deployed_configured = bool(
+        os.getenv("COZE_CLASSIFY_REVIEW_API_URL", "").strip()
+        and os.getenv("COZE_DEPLOY_API_TOKEN", "").strip()
+    )
+    coze_result = _try_coze_deployed_api("COZE_CLASSIFY_REVIEW_API_URL", coze_params)
+    if coze_result and not _valid_classify_result(coze_result, candidate_ids):
+        logger.warning("Coze deployed classify-review output failed controlled-schema validation")
+        coze_result = None
+    if not coze_result:
+        legacy_timeout = COZE_CHAINED_LEGACY_TIMEOUT_SECONDS if deployed_configured else COZE_LEGACY_TIMEOUT_SECONDS
+        coze_result = _try_coze_workflow("COZE_WORKFLOW_CLASSIFY_REVIEW", coze_params, timeout=legacy_timeout)
+        if coze_result and not _valid_classify_result(coze_result, candidate_ids):
+            logger.warning("Legacy Coze classify-review output failed controlled-schema validation")
+            coze_result = None
     if coze_result:
         if candidate_tags:
             tag_ids = coze_result.get("tag_ids", [])

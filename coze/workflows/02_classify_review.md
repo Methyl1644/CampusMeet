@@ -4,7 +4,7 @@
 |------|----|
 | Coze 名称 | `campusmate_classify_review` |
 | 网站接口 | `POST /api/agent/classify-review` |
-| Render 变量 | `COZE_WORKFLOW_CLASSIFY_REVIEW` |
+| Render 变量 | `COZE_CLASSIFY_REVIEW_API_URL` |
 | 输入 Schema | `coze/schemas/classify_review.input.json` |
 | 输出 Schema | `coze/schemas/classify_review.output.json` |
 | Prompt | `system_rules.md` + `safety_rules.md` + `classify_review_prompt.md` |

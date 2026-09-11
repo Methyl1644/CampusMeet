@@ -33,6 +33,12 @@ services:
         sync: false
       - key: BREVO_FROM_NAME
         value: CampusMate
+      - key: COZE_DEPLOY_API_TOKEN
+        sync: false
+      - key: COZE_POST_DRAFT_API_URL
+        sync: false
+      - key: COZE_CLASSIFY_REVIEW_API_URL
+        sync: false
       - key: RESEND_API_KEY
         sync: false
       - key: RESEND_FROM_EMAIL

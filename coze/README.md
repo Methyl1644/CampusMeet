@@ -40,8 +40,8 @@ coze/
 
 | 工作流 | 后端工具 | 前端触点 | 环境变量 |
 |--------|---------|---------|---------|
-| ① 需求拆解与发帖 | `ai_post_draft` | `POST /api/agent/post-draft` | `COZE_WORKFLOW_POST_DRAFT` |
-| ② 标签推荐与风险初筛 | `ai_classify_review` | `POST /api/agent/classify-review` | `COZE_WORKFLOW_CLASSIFY_REVIEW` |
+| ① 需求拆解与发帖 | `ai_post_draft` | `POST /api/agent/post-draft` | `COZE_POST_DRAFT_API_URL` |
+| ② 标签推荐与风险初筛 | `ai_classify_review` | `POST /api/agent/classify-review` | `COZE_CLASSIFY_REVIEW_API_URL` |
 | ③ 智能匹配 | `ai_match_teammates` | `POST /api/agent/match` | `COZE_WORKFLOW_MATCH` |
 | ④ 成队规划 | `ai_team_plan` | `POST /api/agent/team-plan` | `COZE_WORKFLOW_TEAM_PLAN` |
 
@@ -49,7 +49,7 @@ coze/
 
 应用层契约的优先级：**`packages/shared/src/types.ts` + `src/api/agent.py` + `docs/d-ai-contract.md` > Coze 内部丰富 Schema**。Coze 可以在内部使用更多推理字段，但入口和出口必须转换为已冻结的应用契约。
 
-**当前状态（2026-09-11）**：前两个工作流的输入、输出、提示词和评测样例已与 FastAPI 后端重新对齐，具体搭建步骤见 `DELIVERY_CHECKLIST.md`。Coze workflow ID 仍可留空，网站会使用后端 fallback；匹配工作流在受控上下文查询完成前应继续使用 fallback。
+**当前状态（2026-09-11）**：前两个工作流的输入、输出、提示词和评测样例已与 FastAPI 后端重新对齐，具体搭建步骤见 `DELIVERY_CHECKLIST.md`。部署 API 地址可留空，网站会使用后端 fallback；旧版 workflow ID 仍兼容，匹配工作流在受控上下文查询完成前应继续使用 fallback。
 
 ## 评测集说明
 
