@@ -34,6 +34,10 @@ const publishSource = readFileSync(
   new URL('../pages/Publish.tsx', import.meta.url),
   'utf8',
 )
+const apiClientSource = readFileSync(
+  new URL('../api/client.ts', import.meta.url),
+  'utf8',
+)
 const postDetailSource = readFileSync(
   new URL('../pages/PostDetail.tsx', import.meta.url),
   'utf8',
@@ -367,6 +371,21 @@ test('publishing preserves AI fallback, controlled tags, and the publish boundar
     /<AnimatePresence\b|<Reveal\b/,
     'Publishing updates must use the shared Motion or Reveal language',
   )
+  assert.doesNotMatch(
+    publishSource,
+    /editingDraft|setEditingDraft/,
+    'Structured draft fields must remain directly editable without a hidden edit mode',
+  )
+  assert.match(
+    publishSource,
+    /draft\.target_members\s*>\s*0\s*\?\s*String\(draft\.target_members\)\s*:\s*''/,
+    'An unknown target size must render as an empty editable value instead of a fake person count',
+  )
+  assert.match(
+    apiClientSource,
+    /timeout:\s*65000/,
+    'The browser timeout must leave enough room for Coze timeout and local fallback handling',
+  )
 })
 
 test('publishing collapses the draft accessibly on mobile and keeps it visible on desktop', () => {
@@ -400,7 +419,7 @@ test('authentication clears purpose-specific OTP state when switching modes', ()
   )
 })
 
-test('manual draft edits synchronize confirmed field state for the next AI request', () => {
+test('manual draft edits synchronize meaningful field state for the next AI request', () => {
   assert.match(
     publishSource,
     /const\s+serializeFieldStateValue\s*=\s*\(value:[^)]*\)\s*=>[\s\S]*?Array\.isArray\(value\)[\s\S]*?value\.join\(['"]、['"]\)/,
@@ -408,8 +427,13 @@ test('manual draft edits synchronize confirmed field state for the next AI reque
   )
   assert.match(
     publishSource,
-    /const\s+updateDraftField[\s\S]*?setDraft\([\s\S]*?setFieldStates\(\(current\)\s*=>\s*\(\{[\s\S]*?\[field\]:\s*\{[\s\S]*?value:\s*serializeFieldStateValue\(value\)[\s\S]*?status:\s*['"]confirmed['"]/,
-    'Manual draft edits must update the corresponding field state as confirmed',
+    /const\s+updateDraftField[\s\S]*?const\s+isEmpty[\s\S]*?setDraft\([\s\S]*?setFieldStates\(\(current\)[\s\S]*?value:\s*isEmpty\s*\?\s*null\s*:\s*serializeFieldStateValue\(value\)[\s\S]*?status:\s*emptyIsTerminal\s*\?\s*['"]none['"]\s*:\s*isEmpty\s*\?\s*['"]pending['"]\s*:\s*['"]confirmed['"]/,
+    'Manual draft edits must confirm entered values and distinguish optional empty values from missing required values',
+  )
+  assert.match(
+    publishSource,
+    /const\s+fieldStatesComplete[\s\S]*?requiredDraftFields\.every[\s\S]*?status\s*!==\s*['"]pending['"][\s\S]*?const\s+canPublish\s*=\s*draftIsValid\s*&&\s*\(useManualForm\s*\|\|\s*fieldStatesComplete\)/,
+    'Direct edits must immediately recalculate whether the structured draft can be published',
   )
 })
 

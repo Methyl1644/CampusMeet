@@ -51,7 +51,6 @@ export default function Publish() {
   const [isComplete, setIsComplete] = useState(false)
   const [loading, setLoading] = useState(false)
   const [publishing, setPublishing] = useState(false)
-  const [editingDraft, setEditingDraft] = useState(false)
   const [useManualForm, setUseManualForm] = useState(false)
   const [mobileDraftOpen, setMobileDraftOpen] = useState(false)
   const [fieldStates, setFieldStates] = useState<
@@ -63,12 +62,19 @@ export default function Publish() {
   const kind = searchParams.get('kind') === 'topic_team' ? 'topic_team' : 'casual_invitation'
   const topicId = searchParams.get('topic_id') || undefined
   const scrollRef = useRef<HTMLDivElement>(null)
+  const requiredDraftFields: Array<keyof PostDraft> = kind === 'topic_team'
+    ? ['activity_name', 'target_members', 'needed_roles', 'weekly_hours', 'school_scope', 'deadline']
+    : ['activity_name', 'target_members', 'needed_roles', 'weekly_hours', 'school_scope']
 
   const draftIsValid = Boolean(
     draft?.activity_name.trim() &&
       draft.target_members > 0,
   )
-  const canPublish = draftIsValid && (useManualForm || isComplete)
+  const fieldStatesComplete = requiredDraftFields.every((field) => {
+    const status = fieldStates[field]?.status
+    return status !== undefined && status !== 'pending'
+  }) || (Object.keys(fieldStates).length === 0 && isComplete)
+  const canPublish = draftIsValid && (useManualForm || fieldStatesComplete)
 
   useEffect(() => {
     scrollRef.current?.scrollTo({
@@ -79,7 +85,6 @@ export default function Publish() {
 
   const activateManualForm = () => {
     setUseManualForm(true)
-    setEditingDraft(true)
     setMobileDraftOpen(true)
     setDraft((current) => current || { ...EMPTY_DRAFT })
     setDraftRevision((current) => current + 1)
@@ -175,7 +180,6 @@ export default function Publish() {
     setDraftRevision((current) => current + 1)
     setIsComplete(false)
     setUseManualForm(false)
-    setEditingDraft(false)
     setMobileDraftOpen(false)
     setFieldStates({})
     setCandidateTags([])
@@ -183,12 +187,18 @@ export default function Publish() {
   }
 
   const updateDraftField = (field: keyof PostDraft, value: string | number | string[]) => {
+    const isEmpty = Array.isArray(value)
+      ? value.length === 0
+      : typeof value === 'number'
+        ? value <= 0
+        : !value.trim()
+    const emptyIsTerminal = isEmpty && (field === 'needed_roles' || field === 'description')
     setDraft((prev) => (prev ? { ...prev, [field]: value } : null))
     setFieldStates((current) => ({
       ...current,
       [field]: {
-        value: serializeFieldStateValue(value),
-        status: 'confirmed',
+        value: isEmpty ? null : serializeFieldStateValue(value),
+        status: emptyIsTerminal ? 'none' : isEmpty ? 'pending' : 'confirmed',
       },
     }))
   }
@@ -345,21 +355,11 @@ export default function Publish() {
             id="mobile-publish-draft"
             className={`${mobileDraftOpen ? 'block' : 'hidden'} px-4 py-5 lg:block`}
           >
-          <div className="mb-5 hidden items-start justify-between gap-3 border-b border-stone pb-4 lg:flex">
+          <div className="mb-5 hidden items-start border-b border-stone pb-4 lg:flex">
             <div>
               <p className="section-label mb-2">结构化稿件</p>
               <h2 className="text-lg font-semibold text-ink">组队帖草稿</h2>
             </div>
-            {draft && (
-              <button
-                type="button"
-                onClick={() => setEditingDraft((current) => !current)}
-                className="btn-secondary shrink-0 px-3 py-1.5 text-xs"
-              >
-                <Edit3 size={13} />
-                {editingDraft ? '完成编辑' : '编辑草稿'}
-              </button>
-            )}
           </div>
 
           <AnimatePresence mode="wait" initial={false}>
@@ -376,22 +376,25 @@ export default function Publish() {
                   label="活动名称"
                   value={draft.activity_name}
                   status={fieldStates.activity_name?.status}
-                  editing={editingDraft}
                   onChange={(value) => updateDraftField('activity_name', value)}
                 />
                 <DraftField
-                  label="目标人数"
-                  value={String(draft.target_members)}
+                  label="目标总人数"
+                  value={draft.target_members > 0 ? String(draft.target_members) : ''}
                   status={fieldStates.target_members?.status}
-                  editing={editingDraft}
                   inputMode="numeric"
-                  onChange={(value) => updateDraftField('target_members', Number(value) || 1)}
+                  onChange={(value) => {
+                    const parsed = Number(value)
+                    updateDraftField(
+                      'target_members',
+                      Number.isInteger(parsed) && parsed > 0 ? parsed : 0,
+                    )
+                  }}
                 />
                 <DraftField
                   label={kind === 'casual_invitation' ? '参与要求' : '需要角色'}
                   value={draft.needed_roles.join('、')}
                   status={fieldStates.needed_roles?.status}
-                  editing={editingDraft}
                   onChange={(value) =>
                     updateDraftField(
                       'needed_roles',
@@ -403,14 +406,12 @@ export default function Publish() {
                   label={kind === 'casual_invitation' ? '活动时间' : '每周投入'}
                   value={draft.weekly_hours}
                   status={fieldStates.weekly_hours?.status}
-                  editing={editingDraft}
                   onChange={(value) => updateDraftField('weekly_hours', value)}
                 />
                 <DraftField
                   label={kind === 'casual_invitation' ? '活动地点' : '组队范围'}
                   value={draft.school_scope}
                   status={fieldStates.school_scope?.status}
-                  editing={editingDraft}
                   onChange={(value) => updateDraftField('school_scope', value)}
                 />
                 {kind === 'topic_team' && (
@@ -418,7 +419,6 @@ export default function Publish() {
                     label="截止日期"
                     value={draft.deadline}
                     status={fieldStates.deadline?.status}
-                    editing={editingDraft}
                     onChange={(value) => updateDraftField('deadline', value)}
                   />
                 )}
@@ -426,7 +426,6 @@ export default function Publish() {
                   label="补充说明"
                   value={draft.description || ''}
                   status={fieldStates.description?.status}
-                  editing={editingDraft}
                   multiline
                   onChange={(value) => updateDraftField('description', value)}
                 />
@@ -532,7 +531,6 @@ function DraftField({
   label,
   value,
   status,
-  editing,
   multiline = false,
   inputMode,
   onChange,
@@ -540,7 +538,6 @@ function DraftField({
   label: string
   value: string
   status?: FieldStatus
-  editing: boolean
   multiline?: boolean
   inputMode?: 'numeric'
   onChange: (value: string) => void
@@ -563,29 +560,24 @@ function DraftField({
           </span>
         )}
       </div>
-      {editing ? (
-        multiline ? (
-          <textarea
-            id={fieldId}
-            value={value}
-            onChange={(event) => onChange(event.target.value)}
-            rows={3}
-            className="input-base resize-y text-sm leading-6"
-          />
-        ) : (
-          <input
-            id={fieldId}
-            type="text"
-            inputMode={inputMode}
-            value={value}
-            onChange={(event) => onChange(event.target.value)}
-            className="input-base text-sm"
-          />
-        )
+      {multiline ? (
+        <textarea
+          id={fieldId}
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          rows={3}
+          className="input-base resize-y text-sm leading-6"
+        />
       ) : (
-        <p className="break-words border-b border-stone pb-2 text-sm leading-6 text-ink">
-          {value || '暂无'}
-        </p>
+        <input
+          id={fieldId}
+          type={inputMode === 'numeric' ? 'number' : 'text'}
+          inputMode={inputMode}
+          min={inputMode === 'numeric' ? 1 : undefined}
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          className="input-base text-sm"
+        />
       )}
     </div>
   )

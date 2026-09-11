@@ -8,7 +8,28 @@
   "additionalProperties": false,
   "properties": {
     "reply": { "type": "string", "maxLength": 500 },
-    "draft": { "type": "object", "additionalProperties": true },
+    "draft": {
+      "type": "object",
+      "required": [
+        "activity_name",
+        "target_members",
+        "needed_roles",
+        "weekly_hours",
+        "school_scope",
+        "deadline",
+        "description"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "activity_name": { "type": "string" },
+        "target_members": { "type": "integer", "minimum": 0 },
+        "needed_roles": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+        "weekly_hours": { "type": "string" },
+        "school_scope": { "type": "string" },
+        "deadline": { "type": "string" },
+        "description": { "type": "string" }
+      }
+    },
     "is_complete": { "type": "boolean" },
     "field_states": {
       "type": "object",
