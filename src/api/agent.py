@@ -7,6 +7,7 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from api.common import current_user_id, invoke_tool, parse_tool_result, unwrap_data
 from services.content import tag_suggestions
+from services.permissions import can_manage_post
 from services.tag_governance import sanitize_unknown_concepts, submit_tag_proposal
 from storage.database.db import get_session
 from storage.database.models import Post, Tag, Team, TeamMember, Topic, User
@@ -45,8 +46,8 @@ def _require_post_owner(session, user_id: str, post_id: str) -> Post:
     post = session.get(Post, _positive_id(post_id, "帖子编号"))
     if not post:
         raise HTTPException(status_code=404, detail="帖子不存在")
-    if post.author_id != user.id:
-        raise HTTPException(status_code=403, detail="只有发帖者可以运行队友匹配")
+    if not can_manage_post(session, user, post, "manage_applications"):
+        raise HTTPException(status_code=403, detail="你没有管理该帖子申请的权限")
     return post
 
 

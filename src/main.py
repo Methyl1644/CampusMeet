@@ -50,6 +50,7 @@ from api.messages import router as messages_router
 from api.posts import router as posts_router
 from api.teams import router as teams_router
 from api.content import router as content_router
+from api.permissions import router as permissions_router
 from services.content import bootstrap_operator, seed_content_catalog
 
 setup_logging(
@@ -352,6 +353,7 @@ app.include_router(applications_router, prefix="/api")
 app.include_router(messages_router, prefix="/api")
 app.include_router(teams_router, prefix="/api")
 app.include_router(content_router, prefix="/api")
+app.include_router(permissions_router, prefix="/api")
 
 # OpenAI 兼容接口处理器
 openai_handler = OpenAIChatHandler(service)

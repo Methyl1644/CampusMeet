@@ -162,7 +162,7 @@ def list_posts(
     try:
         session = get_session()
         try:
-            query = select(Post)
+            query = select(Post).where(Post.status != "hidden")
 
             if kind in {"topic_team", "casual_invitation"}:
                 query = query.where(Post.kind == kind)

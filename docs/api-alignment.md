@@ -156,3 +156,30 @@
 ```
 
 后端只接受 `activity/skill/role/level/audience` 分类、2 至 30 字符的名称，最多处理 5 个候选。合法候选进入 `pending` 队列，不会自动成为标准标签。
+
+---
+
+## 8. 话题与帖子定向授权
+
+授权采用“邀请 -> 用户接受 -> 生效”的流程，支持到期和撤销。平台运营可以管理全部话题与帖子；认证组织负责人可以管理本组织话题；普通发布者只自动管理自己创建的内容。
+
+| 对象 | 角色 | 能力 |
+|------|------|------|
+| 话题 | `coordinator` | 管理该话题下的组队帖 |
+| 话题 | `editor` | 管理组队帖、编辑话题资料 |
+| 话题 | `manager` | 管理组队帖、编辑话题资料、管理协作者 |
+| 帖子 | `application_manager` | 查看和处理申请、更新招募状态、运行队友匹配 |
+| 帖子 | `editor` | 申请管理能力及帖子内容编辑 |
+
+| 接口 | 方法 | 用途 |
+|------|------|------|
+| `/api/topics/:id/collaborators` | GET / POST | 查看或邀请话题协作者 |
+| `/api/topics/:id/collaborators/accept` | POST | 受邀用户接受话题授权 |
+| `/api/topics/:id/collaborators/:userId` | DELETE | 撤销话题授权 |
+| `/api/posts/:id/collaborators` | GET / POST | 查看或邀请帖子协作者 |
+| `/api/posts/:id/collaborators/accept` | POST | 受邀用户接受帖子授权 |
+| `/api/posts/:id/collaborators/:userId` | DELETE | 撤销帖子授权 |
+| `/api/posts/:id` | PATCH | 按角色能力编辑帖子或更新招募状态 |
+| `/api/topics/:topicId/posts/:postId/moderation` | PATCH | 管理话题下的组队帖状态 |
+
+授权邀请、接受、撤销，以及话题/帖子编辑、申请接受或拒绝、话题内帖子管理都会写入审计日志。

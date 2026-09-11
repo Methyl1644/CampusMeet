@@ -15,6 +15,7 @@ from services.content import (
     user_permissions,
     validate_tag_ids,
 )
+from services.permissions import can_manage_topic
 from services.tag_governance import review_tag_proposal, submit_tag_proposal
 from storage.database.db import get_session
 from storage.database.models import (
@@ -283,15 +284,6 @@ def publish_topic(body: dict[str, Any], user_id: str = Depends(current_user_id))
         session.close()
 
 
-def _can_manage_topic(session, user: User, topic: Topic) -> bool:
-    if topic.channel == "official":
-        return user.site_role == "operator"
-    if topic.organization_id is None:
-        return False
-    permissions = user_permissions(session, user)
-    return str(topic.organization_id) in permissions["publisher_organization_ids"]
-
-
 @router.patch("/topics/{topic_id}")
 def update_topic(topic_id: int, body: dict[str, Any], user_id: str = Depends(current_user_id)) -> dict[str, Any]:
     session, user = _current_user(user_id)
@@ -299,7 +291,7 @@ def update_topic(topic_id: int, body: dict[str, Any], user_id: str = Depends(cur
         topic = session.get(Topic, topic_id)
         if not topic:
             raise HTTPException(status_code=404, detail="话题不存在")
-        if not _can_manage_topic(session, user, topic):
+        if not can_manage_topic(session, user, topic, "edit_topic"):
             raise HTTPException(status_code=403, detail="你没有编辑该话题的权限")
         field_limits = {
             "title": 120,
@@ -340,6 +332,46 @@ def update_topic(topic_id: int, body: dict[str, Any], user_id: str = Depends(cur
         )
         session.commit()
         return api_ok(topic_to_dict(session, topic, user.id), "话题已更新")
+    finally:
+        session.close()
+
+
+@router.patch("/topics/{topic_id}/posts/{post_id}/moderation")
+def moderate_topic_post(
+    topic_id: int,
+    post_id: int,
+    body: dict[str, Any],
+    user_id: str = Depends(current_user_id),
+) -> dict[str, Any]:
+    session, actor = _current_user(user_id)
+    try:
+        topic = session.get(Topic, topic_id)
+        if not topic:
+            raise HTTPException(status_code=404, detail="话题不存在")
+        if not can_manage_topic(session, actor, topic, "moderate_posts"):
+            raise HTTPException(status_code=403, detail="你没有管理该话题组队帖的权限")
+        post = session.get(Post, post_id)
+        if not post or post.topic_id != topic.id:
+            raise HTTPException(status_code=404, detail="该话题下不存在此帖子")
+        status = str(body.get("status") or "")
+        if status not in {"recruiting", "closed", "hidden"}:
+            raise HTTPException(status_code=400, detail="帖子状态不正确")
+        post.status = status
+        session.add(
+            AuditLog(
+                user_id=actor.id,
+                action="topic.post_moderate",
+                target_type="post",
+                target_id=str(post.id),
+                detail=json.dumps(
+                    {"topic_id": topic.id, "status": status, "reason": str(body.get("reason") or "")[:500]},
+                    ensure_ascii=False,
+                ),
+            )
+        )
+        session.commit()
+        author = session.get(User, post.author_id)
+        return api_ok(_post_to_dict(post, author), "帖子状态已更新")
     finally:
         session.close()
 

@@ -10,6 +10,8 @@ from storage.database.models.user import User
 from storage.database.models.post import Post
 from storage.database.models.application import Application
 from storage.database.models.conversation import Conversation
+from storage.database.models.content import AuditLog
+from services.permissions import can_manage_post
 from tools.auth_tools import _user_brief
 
 logger = logging.getLogger(__name__)
@@ -98,11 +100,15 @@ def get_applications(user_id: str, post_id: str = "") -> str:
         session = get_session()
         try:
             uid = int(user_id)
-            query = (
-                select(Application, Post)
-                .join(Post, Application.post_id == Post.id)
-                .where(Post.author_id == uid)
-            )
+            user = session.get(User, uid)
+            if not user:
+                return json.dumps({"success": False, "message": "用户不存在"}, ensure_ascii=False)
+            manageable_posts = [
+                post.id
+                for post in session.execute(select(Post)).scalars().all()
+                if can_manage_post(session, user, post, "manage_applications")
+            ]
+            query = select(Application, Post).join(Post, Application.post_id == Post.id).where(Post.id.in_(manageable_posts))
             if post_id:
                 query = query.where(Application.post_id == int(post_id))
             query = query.order_by(desc(Application.created_at))
@@ -137,7 +143,8 @@ def accept_application(user_id: str, application_id: str) -> str:
                 return json.dumps({"success": False, "message": "申请不存在"}, ensure_ascii=False)
 
             post = session.execute(select(Post).where(Post.id == app.post_id)).scalar_one_or_none()
-            if not post or post.author_id != uid:
+            user = session.get(User, uid)
+            if not post or not user or not can_manage_post(session, user, post, "manage_applications"):
                 return json.dumps({"success": False, "message": "无权操作此申请"}, ensure_ascii=False)
 
             if app.status != "pending":
@@ -148,13 +155,22 @@ def accept_application(user_id: str, application_id: str) -> str:
             # 创建临时会话
             conv = Conversation(
                 post_id=app.post_id,
-                post_author_id=uid,
+                post_author_id=post.author_id,
                 applicant_id=app.applicant_id,
                 application_id=app.id,
                 status="active",
                 contact_unlocked=False,
             )
             session.add(conv)
+            session.add(
+                AuditLog(
+                    user_id=uid,
+                    action="application.accept",
+                    target_type="application",
+                    target_id=str(app.id),
+                    detail=json.dumps({"post_id": post.id, "post_author_id": post.author_id}),
+                )
+            )
             session.flush()
 
             session.commit()
@@ -184,13 +200,23 @@ def reject_application(user_id: str, application_id: str) -> str:
                 return json.dumps({"success": False, "message": "申请不存在"}, ensure_ascii=False)
 
             post = session.execute(select(Post).where(Post.id == app.post_id)).scalar_one_or_none()
-            if not post or post.author_id != uid:
+            user = session.get(User, uid)
+            if not post or not user or not can_manage_post(session, user, post, "manage_applications"):
                 return json.dumps({"success": False, "message": "无权操作此申请"}, ensure_ascii=False)
 
             if app.status != "pending":
                 return json.dumps({"success": False, "message": "该申请已处理"}, ensure_ascii=False)
 
             app.status = "rejected"
+            session.add(
+                AuditLog(
+                    user_id=uid,
+                    action="application.reject",
+                    target_type="application",
+                    target_id=str(app.id),
+                    detail=json.dumps({"post_id": post.id, "post_author_id": post.author_id}),
+                )
+            )
             session.commit()
             return json.dumps({"success": True, "message": "已拒绝该申请"}, ensure_ascii=False)
         finally:
