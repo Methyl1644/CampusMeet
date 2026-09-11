@@ -2,25 +2,39 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "campusmate/coze/schemas/post_draft.input.json",
   "title": "PostDraftInput",
-  "description": "CampusMate 多轮发帖工作流的实际后端入参。",
+  "description": "需求拆解与发帖工作流的后端实际入参。",
   "type": "object",
   "required": ["message", "kind", "field_states", "candidate_tags"],
   "additionalProperties": false,
   "properties": {
     "message": { "type": "string", "minLength": 1, "maxLength": 2000 },
-    "draft": { "type": "string", "description": "当前草稿 JSON 字符串" },
-    "user_skills": { "type": "string" },
+    "draft": { "type": "string", "description": "当前草稿的 JSON 字符串；首轮为空字符串。" },
+    "user_skills": { "type": "string", "description": "用户技能，以逗号分隔。" },
     "kind": { "type": "string", "enum": ["topic_team", "casual_invitation"] },
-    "field_states": { "type": "object", "additionalProperties": true },
+    "field_states": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["value", "status"],
+        "additionalProperties": false,
+        "properties": {
+          "value": {},
+          "status": { "type": "string", "enum": ["confirmed", "none", "unknown", "skipped", "pending"] }
+        }
+      }
+    },
     "candidate_tags": {
       "type": "array",
+      "maxItems": 120,
       "items": {
         "type": "object",
-        "required": ["tag_id", "canonical_name"],
+        "required": ["tag_id", "canonical_name", "category"],
         "additionalProperties": true,
         "properties": {
-          "tag_id": { "type": "string" },
-          "canonical_name": { "type": "string" }
+          "tag_id": { "type": "string", "minLength": 1 },
+          "canonical_name": { "type": "string", "minLength": 1 },
+          "category": { "type": "string", "enum": ["activity", "skill", "role", "level", "audience"] },
+          "display_color": { "type": "string" }
         }
       }
     },

@@ -15,6 +15,8 @@ from services.content import (
     user_permissions,
     validate_tag_ids,
 )
+from services.permissions import can_manage_topic
+from services.tag_governance import review_tag_proposal, submit_tag_proposal
 from storage.database.db import get_session
 from storage.database.models import (
     OrganizationApplication,
@@ -24,6 +26,7 @@ from storage.database.models import (
     Post,
     Tag,
     TagAlias,
+    TagProposal,
     Topic,
     TopicFollow,
     TopicTag,
@@ -78,6 +81,102 @@ def tags_suggestions(
     session, _ = _current_user(user_id)
     try:
         return api_ok({"suggestions": tag_suggestions(session, q)})
+    finally:
+        session.close()
+
+
+def _tag_proposal_to_dict(proposal: TagProposal) -> dict[str, Any]:
+    return {
+        "proposal_id": str(proposal.id),
+        "name": proposal.proposed_name,
+        "normalized_name": proposal.normalized_name,
+        "category": proposal.category,
+        "source_text": proposal.source_text,
+        "suggested_tag_id": proposal.suggested_tag_id,
+        "status": proposal.status,
+        "occurrence_count": proposal.occurrence_count,
+        "submitted_by": str(proposal.submitted_by),
+        "reviewed_by": str(proposal.reviewed_by) if proposal.reviewed_by else None,
+        "review_reason": proposal.review_reason,
+    }
+
+
+@router.post("/tags/proposals")
+def create_tag_proposal(body: dict[str, Any], user_id: str = Depends(current_user_id)) -> dict[str, Any]:
+    session, user = _current_user(user_id)
+    try:
+        try:
+            proposal = submit_tag_proposal(
+                session,
+                user,
+                str(body.get("name") or ""),
+                str(body.get("category") or ""),
+                str(body.get("source_text") or ""),
+                str(body.get("suggested_tag_id") or "") or None,
+            )
+            session.commit()
+        except PermissionError as exc:
+            session.rollback()
+            raise HTTPException(status_code=403, detail=str(exc)) from exc
+        except ValueError as exc:
+            session.rollback()
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        return api_ok(_tag_proposal_to_dict(proposal), "候选标签已提交")
+    finally:
+        session.close()
+
+
+@router.get("/tags/proposals")
+def list_tag_proposals(
+    status: str = Query(default="pending"),
+    user_id: str = Depends(current_user_id),
+) -> dict[str, Any]:
+    session, user = _current_user(user_id)
+    try:
+        if user.site_role != "operator":
+            raise HTTPException(status_code=403, detail="仅平台运营可以查看候选标签")
+        if status not in {"pending", "approved", "merged", "rejected", "all"}:
+            raise HTTPException(status_code=400, detail="候选标签状态不正确")
+        query = select(TagProposal)
+        if status != "all":
+            query = query.where(TagProposal.status == status)
+        proposals = session.execute(query.order_by(desc(TagProposal.updated_at))).scalars().all()
+        return api_ok([_tag_proposal_to_dict(proposal) for proposal in proposals])
+    finally:
+        session.close()
+
+
+@router.post("/tags/proposals/{proposal_id}/review")
+def review_tag_candidate(
+    proposal_id: int,
+    body: dict[str, Any],
+    user_id: str = Depends(current_user_id),
+) -> dict[str, Any]:
+    session, reviewer = _current_user(user_id)
+    try:
+        proposal = session.get(TagProposal, proposal_id)
+        if not proposal:
+            raise HTTPException(status_code=404, detail="候选标签不存在")
+        try:
+            result = review_tag_proposal(
+                session,
+                reviewer,
+                proposal,
+                str(body.get("decision") or ""),
+                target_tag_id=str(body.get("target_tag_id") or "") or None,
+                canonical_name=str(body.get("canonical_name") or "") or None,
+                reason=str(body.get("reason") or ""),
+            )
+            session.commit()
+        except PermissionError as exc:
+            session.rollback()
+            raise HTTPException(status_code=403, detail=str(exc)) from exc
+        except ValueError as exc:
+            session.rollback()
+            raise HTTPException(status_code=409 if "已经处理" in str(exc) else 400, detail=str(exc)) from exc
+        data = _tag_proposal_to_dict(proposal)
+        data["tag_id"] = result.id if result else None
+        return api_ok(data, "候选标签审核完成")
     finally:
         session.close()
 
@@ -185,15 +284,6 @@ def publish_topic(body: dict[str, Any], user_id: str = Depends(current_user_id))
         session.close()
 
 
-def _can_manage_topic(session, user: User, topic: Topic) -> bool:
-    if topic.channel == "official":
-        return user.site_role == "operator"
-    if topic.organization_id is None:
-        return False
-    permissions = user_permissions(session, user)
-    return str(topic.organization_id) in permissions["publisher_organization_ids"]
-
-
 @router.patch("/topics/{topic_id}")
 def update_topic(topic_id: int, body: dict[str, Any], user_id: str = Depends(current_user_id)) -> dict[str, Any]:
     session, user = _current_user(user_id)
@@ -201,7 +291,7 @@ def update_topic(topic_id: int, body: dict[str, Any], user_id: str = Depends(cur
         topic = session.get(Topic, topic_id)
         if not topic:
             raise HTTPException(status_code=404, detail="话题不存在")
-        if not _can_manage_topic(session, user, topic):
+        if not can_manage_topic(session, user, topic, "edit_topic"):
             raise HTTPException(status_code=403, detail="你没有编辑该话题的权限")
         field_limits = {
             "title": 120,
@@ -242,6 +332,46 @@ def update_topic(topic_id: int, body: dict[str, Any], user_id: str = Depends(cur
         )
         session.commit()
         return api_ok(topic_to_dict(session, topic, user.id), "话题已更新")
+    finally:
+        session.close()
+
+
+@router.patch("/topics/{topic_id}/posts/{post_id}/moderation")
+def moderate_topic_post(
+    topic_id: int,
+    post_id: int,
+    body: dict[str, Any],
+    user_id: str = Depends(current_user_id),
+) -> dict[str, Any]:
+    session, actor = _current_user(user_id)
+    try:
+        topic = session.get(Topic, topic_id)
+        if not topic:
+            raise HTTPException(status_code=404, detail="话题不存在")
+        if not can_manage_topic(session, actor, topic, "moderate_posts"):
+            raise HTTPException(status_code=403, detail="你没有管理该话题组队帖的权限")
+        post = session.get(Post, post_id)
+        if not post or post.topic_id != topic.id:
+            raise HTTPException(status_code=404, detail="该话题下不存在此帖子")
+        status = str(body.get("status") or "")
+        if status not in {"recruiting", "closed", "hidden"}:
+            raise HTTPException(status_code=400, detail="帖子状态不正确")
+        post.status = status
+        session.add(
+            AuditLog(
+                user_id=actor.id,
+                action="topic.post_moderate",
+                target_type="post",
+                target_id=str(post.id),
+                detail=json.dumps(
+                    {"topic_id": topic.id, "status": status, "reason": str(body.get("reason") or "")[:500]},
+                    ensure_ascii=False,
+                ),
+            )
+        )
+        session.commit()
+        author = session.get(User, post.author_id)
+        return api_ok(_post_to_dict(post, author), "帖子状态已更新")
     finally:
         session.close()
 

@@ -15,21 +15,7 @@ from storage.database.models import (
     TopicTag,
     User,
 )
-
-
-STANDARD_TAGS = (
-    ("activity_math_modeling", "数学建模", "activity", "purple", 10, ("数模", "美赛", "建模竞赛")),
-    ("activity_innovation", "创新创业", "activity", "green", 20, ("挑战杯", "大创", "创业赛")),
-    ("activity_badminton", "羽毛球", "activity", "green", 30, ("羽球", "打羽毛球")),
-    ("activity_basketball", "篮球", "activity", "green", 40, ("打球", "篮筐")),
-    ("activity_photography", "摄影", "activity", "orange", 50, ("拍照", "约拍", "摄影搭子")),
-    ("activity_dining", "约饭", "activity", "orange", 60, ("吃饭", "饭搭子", "聚餐")),
-    ("activity_travel", "旅行", "activity", "orange", 70, ("出游", "旅游", "旅行搭子")),
-    ("level_international", "国际级", "level", "red", 100, ("世界级", "国际赛事")),
-    ("level_national", "国家级", "level", "red", 110, ("全国级", "国赛")),
-    ("level_school", "校级", "level", "blue", 120, ("校赛", "全校")),
-    ("level_college", "学院级", "level", "teal", 130, ("院级", "书院级")),
-)
+from services.content_catalog import AMBIGUOUS_ALIASES, STANDARD_TAGS
 
 POST_FIELDS = {
     "topic_team": (
@@ -59,16 +45,24 @@ def normalize_text(value: Any) -> str:
 
 def seed_content_catalog(session: Session) -> None:
     for tag_id, name, category, color, order, aliases in STANDARD_TAGS:
-        if not session.get(Tag, tag_id):
-            session.add(
-                Tag(
-                    id=tag_id,
-                    canonical_name=name,
-                    category=category,
-                    display_color=color,
-                    sort_order=order,
-                )
+        tag = session.get(Tag, tag_id)
+        if not tag:
+            tag = Tag(
+                id=tag_id,
+                canonical_name=name,
+                category=category,
+                display_color=color,
+                sort_order=order,
             )
+            session.add(
+                tag
+            )
+        else:
+            tag.canonical_name = name
+            tag.category = category
+            tag.display_color = color
+            tag.sort_order = order
+            tag.active = True
         for alias in aliases:
             normalized = normalize_text(alias)
             existing = session.execute(
@@ -76,6 +70,14 @@ def seed_content_catalog(session: Session) -> None:
             ).scalar_one_or_none()
             if not existing:
                 session.add(TagAlias(tag_id=tag_id, normalized_alias=normalized))
+            else:
+                existing.tag_id = tag_id
+                existing.active = True
+    normalized_ambiguous = {normalize_text(alias) for alias in AMBIGUOUS_ALIASES}
+    for alias in session.execute(
+        select(TagAlias).where(TagAlias.normalized_alias.in_(normalized_ambiguous))
+    ).scalars():
+        alias.active = False
     session.flush()
 
 

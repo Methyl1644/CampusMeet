@@ -62,14 +62,11 @@
 
 基础账号、话题、标签和组队帖子不依赖 Coze 即可运行。需要真实 AI 能力时，在 `campusmate-api` 的 **Environment** 中追加：
 
-- `COZE_API_TOKEN`
-- `COZE_API_BASE_URL`
-- `COZE_WORKFLOW_POST_DRAFT`
-- `COZE_WORKFLOW_CLASSIFY_REVIEW`
-- `COZE_WORKFLOW_MATCH`
-- `COZE_WORKFLOW_TEAM_PLAN`
+- `COZE_DEPLOY_API_TOKEN`
+- `COZE_POST_DRAFT_API_URL`
+- `COZE_CLASSIFY_REVIEW_API_URL`
 
-凭据未配置时，后端继续使用现有规则降级逻辑。不要把任何 Coze 密钥添加到前端变量中。
+第一个工作流的地址为部署页显示的 `https://<部署域名>.coze.site/run`；第二个工作流未完成时可暂时留空。凭据未配置或调用失败时，后端会尝试旧版 `COZE_API_TOKEN + COZE_WORKFLOW_*`，再使用现有降级逻辑。不要把任何 Coze 密钥添加到前端变量中。
 
 ## 6. 上线验收
 

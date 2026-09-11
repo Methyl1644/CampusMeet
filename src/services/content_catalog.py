@@ -1,0 +1,110 @@
+"""Curated vocabulary used by search, posting, and AI candidate selection."""
+
+TagSeed = tuple[str, str, str, str, int, tuple[str, ...]]
+
+
+def _tag(
+    tag_id: str,
+    name: str,
+    category: str,
+    color: str,
+    order: int,
+    *aliases: str,
+) -> TagSeed:
+    return tag_id, name, category, color, order, aliases
+
+
+STANDARD_TAGS: tuple[TagSeed, ...] = (
+    # Activity and event types
+    _tag("activity_math_modeling", "数学建模", "activity", "purple", 10, "数模", "建模竞赛"),
+    _tag("activity_programming", "程序设计", "activity", "purple", 20, "编程竞赛", "程序设计竞赛"),
+    _tag("activity_algorithm", "算法竞赛", "activity", "purple", 30, "算法比赛", "ACM竞赛"),
+    _tag("activity_innovation", "创新创业", "activity", "green", 40, "创新项目", "创业竞赛"),
+    _tag("activity_electronic_design", "电子设计", "activity", "purple", 50, "电赛", "电子设计竞赛"),
+    _tag("activity_robotics", "机器人", "activity", "purple", 60, "机器人竞赛"),
+    _tag("activity_cybersecurity", "网络安全", "activity", "purple", 70, "信息安全", "网安竞赛"),
+    _tag("activity_data_science", "数据科学", "activity", "purple", 80, "数据竞赛", "数据挖掘"),
+    _tag("activity_ai", "人工智能", "activity", "purple", 90, "AI竞赛", "机器学习竞赛"),
+    _tag("activity_business_case", "商业案例", "activity", "purple", 100, "商赛", "案例分析竞赛"),
+    _tag("activity_finance", "金融竞赛", "activity", "purple", 110, "金融比赛"),
+    _tag("activity_moot_court", "模拟法庭", "activity", "purple", 120, "模拟法庭竞赛"),
+    _tag("activity_debate", "辩论", "activity", "purple", 130, "辩论赛"),
+    _tag("activity_language", "语言竞赛", "activity", "purple", 140, "外语竞赛", "英语竞赛"),
+    _tag("activity_research", "科研项目", "activity", "purple", 150, "科研组队", "研究项目"),
+    _tag("activity_paper", "论文写作", "activity", "purple", 160, "论文研讨"),
+    _tag("activity_study_group", "学习小组", "activity", "blue", 170, "自习搭子", "组团学习"),
+    _tag("activity_exam_prep", "考试备考", "activity", "blue", 180, "备考", "刷题小组"),
+    _tag("activity_reading", "读书会", "activity", "blue", 190, "阅读小组"),
+    _tag("activity_lecture", "讲座", "activity", "blue", 200, "学术讲座", "分享会"),
+    _tag("activity_workshop", "工作坊", "activity", "blue", 210, "实践工作坊"),
+    _tag("activity_career", "职业发展", "activity", "blue", 220, "求职交流", "职业规划"),
+    _tag("activity_internship", "实习交流", "activity", "blue", 230, "实习组队", "实习分享"),
+    _tag("activity_volunteering", "志愿服务", "activity", "teal", 240, "志愿活动", "志愿者"),
+    _tag("activity_public_welfare", "公益活动", "activity", "teal", 250, "公益项目"),
+    _tag("activity_badminton", "羽毛球", "activity", "green", 260, "羽球", "打羽毛球"),
+    _tag("activity_basketball", "篮球", "activity", "green", 270, "打篮球"),
+    _tag("activity_football", "足球", "activity", "green", 280, "踢球", "踢足球"),
+    _tag("activity_table_tennis", "乒乓球", "activity", "green", 290, "乒乓", "打乒乓"),
+    _tag("activity_volleyball", "排球", "activity", "green", 300, "打排球"),
+    _tag("activity_tennis", "网球", "activity", "green", 310, "打网球"),
+    _tag("activity_running", "跑步", "activity", "green", 320, "夜跑", "晨跑"),
+    _tag("activity_cycling", "骑行", "activity", "green", 330, "自行车", "单车骑行"),
+    _tag("activity_hiking", "徒步", "activity", "green", 340, "登山", "爬山"),
+    _tag("activity_fitness", "健身", "activity", "green", 350, "力量训练"),
+    _tag("activity_swimming", "游泳", "activity", "green", 360, "游泳搭子"),
+    _tag("activity_frisbee", "飞盘", "activity", "green", 370, "飞盘活动"),
+    _tag("activity_dance", "舞蹈", "activity", "orange", 380, "跳舞", "舞蹈排练"),
+    _tag("activity_music", "音乐", "activity", "orange", 390, "乐队", "器乐"),
+    _tag("activity_singing", "歌唱", "activity", "orange", 400, "唱歌", "合唱"),
+    _tag("activity_photography", "摄影", "activity", "orange", 410, "拍照", "约拍", "摄影搭子"),
+    _tag("activity_video", "视频创作", "activity", "orange", 420, "拍视频", "短片创作"),
+    _tag("activity_board_games", "桌游", "activity", "orange", 430, "桌游搭子"),
+    _tag("activity_esports", "电子竞技", "activity", "orange", 440, "电竞", "游戏开黑"),
+    _tag("activity_dining", "约饭", "activity", "orange", 450, "吃饭", "饭搭子", "聚餐"),
+    _tag("activity_travel", "旅行", "activity", "orange", 460, "出游", "旅游", "旅行搭子"),
+    _tag("activity_campus_tour", "校园参访", "activity", "orange", 470, "校园游览"),
+    # Skills
+    _tag("skill_programming", "编程", "skill", "purple", 1000, "代码", "写代码"),
+    _tag("skill_python", "Python", "skill", "purple", 1010, "Python开发"),
+    _tag("skill_cpp", "C/C++", "skill", "purple", 1020, "C++", "CPP"),
+    _tag("skill_frontend", "前端开发", "skill", "purple", 1030, "前端", "网页开发"),
+    _tag("skill_backend", "后端开发", "skill", "purple", 1040, "后端", "服务端开发"),
+    _tag("skill_data_analysis", "数据分析", "skill", "purple", 1050, "数据处理"),
+    _tag("skill_modeling", "建模", "skill", "purple", 1060, "数学建模能力"),
+    _tag("skill_machine_learning", "机器学习", "skill", "purple", 1070, "深度学习"),
+    _tag("skill_research", "文献研究", "skill", "blue", 1080, "文献检索", "科研能力"),
+    _tag("skill_writing", "文案写作", "skill", "blue", 1090, "写作", "文案"),
+    _tag("skill_design", "视觉设计", "skill", "orange", 1100, "美工", "平面设计"),
+    _tag("skill_presentation", "演讲展示", "skill", "orange", 1110, "答辩", "路演"),
+    _tag("skill_foreign_language", "外语", "skill", "blue", 1120, "英语", "翻译"),
+    _tag("skill_video_editing", "视频剪辑", "skill", "orange", 1130, "剪辑", "后期"),
+    _tag("skill_photography", "摄影技术", "skill", "orange", 1140, "拍摄"),
+    _tag("skill_project_management", "项目管理", "skill", "teal", 1150, "项目统筹", "进度管理"),
+    # Recruitment roles
+    _tag("role_leader", "队长", "role", "teal", 2000, "负责人", "组长"),
+    _tag("role_developer", "开发", "role", "teal", 2010, "程序员", "开发者"),
+    _tag("role_modeler", "建模手", "role", "teal", 2020, "建模队员"),
+    _tag("role_analyst", "数据分析员", "role", "teal", 2030, "数据手"),
+    _tag("role_writer", "文案", "role", "teal", 2040, "写手", "论文手"),
+    _tag("role_designer", "设计师", "role", "teal", 2050, "美工"),
+    _tag("role_presenter", "答辩手", "role", "teal", 2060, "演讲者", "路演人"),
+    _tag("role_photographer", "摄影师", "role", "teal", 2070, "拍摄人员"),
+    _tag("role_video_editor", "剪辑师", "role", "teal", 2080, "后期人员"),
+    _tag("role_operations", "运营", "role", "teal", 2090, "活动运营"),
+    _tag("role_logistics", "后勤", "role", "teal", 2100, "物资", "保障"),
+    # Event level
+    _tag("level_international", "国际级", "level", "red", 3000, "世界级", "国际赛事"),
+    _tag("level_national", "国家级", "level", "red", 3010, "全国级", "国赛"),
+    _tag("level_provincial", "省级", "level", "red", 3020, "省赛"),
+    _tag("level_school", "校级", "level", "blue", 3030, "校赛", "全校"),
+    _tag("level_college", "学院级", "level", "teal", 3040, "院级", "书院级"),
+    # Audience
+    _tag("audience_all_students", "全体学生", "audience", "blue", 4000, "全校学生"),
+    _tag("audience_undergraduate", "本科生", "audience", "blue", 4010, "本科"),
+    _tag("audience_postgraduate", "研究生", "audience", "blue", 4020, "硕博生", "硕士博士"),
+    _tag("audience_freshman", "新生", "audience", "blue", 4030, "大一新生"),
+)
+
+
+# These terms need context or belong to the topic catalog rather than one Tag.
+AMBIGUOUS_ALIASES = frozenset({"打球", "美赛", "挑战杯", "大创"})

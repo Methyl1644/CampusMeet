@@ -2,11 +2,12 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "campusmate/coze/schemas/post_draft.output.json",
   "title": "PostDraftOutput",
+  "description": "需求拆解与发帖工作流的受控输出。",
   "type": "object",
   "required": ["reply", "draft", "is_complete", "field_states", "suggested_tag_ids"],
   "additionalProperties": false,
   "properties": {
-    "reply": { "type": "string" },
+    "reply": { "type": "string", "maxLength": 500 },
     "draft": { "type": "object", "additionalProperties": true },
     "is_complete": { "type": "boolean" },
     "field_states": {
@@ -14,16 +15,17 @@
       "additionalProperties": {
         "type": "object",
         "required": ["value", "status"],
+        "additionalProperties": false,
         "properties": {
           "value": {},
           "status": { "type": "string", "enum": ["confirmed", "none", "unknown", "skipped", "pending"] }
         }
       }
     },
-    "suggested_tag_ids": { "type": "array", "items": { "type": "string" }, "maxItems": 4 },
-    "candidate_tags": { "type": "array", "items": { "type": "object" } },
+    "suggested_tag_ids": { "type": "array", "items": { "type": "string" }, "maxItems": 4, "uniqueItems": true },
+    "candidate_tags": { "type": "array", "items": { "type": "object" }, "maxItems": 120 },
     "next_field": { "type": ["string", "null"] },
-    "missing_fields": { "type": "array", "items": { "type": "string" } },
+    "missing_fields": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
     "degraded": { "type": "boolean" }
   }
 }

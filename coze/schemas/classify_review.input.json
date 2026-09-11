@@ -2,30 +2,27 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "campusmate/coze/schemas/classify_review.input.json",
   "title": "ClassifyReviewInput",
-  "description": "工作流② 分类与审核的输入。对应后端工具 ai_classify_review，前端 POST /api/agent/classify-review 请求体。raw_text 须由后端规则引擎脱敏后再传入（PRD §5.3：脱敏前联系方式不发送给 Coze）。",
+  "description": "标签推荐与风险初筛工作流的后端实际入参。标题和正文已由后端规则引擎脱敏。",
   "type": "object",
-  "required": ["post_draft", "user_auth_level", "source_type", "raw_text"],
+  "required": ["title", "description", "candidate_tags"],
   "additionalProperties": false,
   "properties": {
-    "post_draft": {
-      "type": "object",
-      "description": "待审核的结构化帖子草稿，字段同 PostDraftOutput 的结构化部分",
-      "additionalProperties": true
-    },
-    "user_auth_level": {
-      "type": "string",
-      "enum": ["unverified", "campus_verified", "org_verified"],
-      "description": "发帖者认证等级"
-    },
-    "source_type": {
-      "type": "string",
-      "enum": ["user", "org", "official"],
-      "description": "来源类型：个人用户 / 认证组织 / 官方来源"
-    },
-    "raw_text": {
-      "type": "string",
-      "minLength": 1,
-      "description": "经后端规则引擎脱敏后的帖子全文（标题+正文），手机号/微信号等已被掩码"
+    "title": { "type": "string", "maxLength": 120 },
+    "description": { "type": "string", "maxLength": 5000 },
+    "candidate_tags": {
+      "type": "array",
+      "maxItems": 120,
+      "items": {
+        "type": "object",
+        "required": ["tag_id", "canonical_name", "category"],
+        "additionalProperties": true,
+        "properties": {
+          "tag_id": { "type": "string", "minLength": 1 },
+          "canonical_name": { "type": "string", "minLength": 1 },
+          "category": { "type": "string", "enum": ["activity", "skill", "role", "level", "audience"] },
+          "display_color": { "type": "string" }
+        }
+      }
     }
   }
 }

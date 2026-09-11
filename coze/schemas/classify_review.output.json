@@ -2,61 +2,37 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "campusmate/coze/schemas/classify_review.output.json",
   "title": "ClassifyReviewOutput",
-  "description": "工作流② 分类与审核的输出。AI 只负责识别和解释风险，最终封禁/发布由后端规则引擎决定（PRD §5.4）。",
+  "description": "标签推荐与风险初筛的受控输出。标签候选只建议，最终发布和拦截由后端决定。",
   "type": "object",
-  "required": [
-    "main_category", "dynamic_tags", "structured_conditions",
-    "risk_level", "risk_reasons", "audit_result", "needs_manual_review",
-    "blocked_fields", "sanitized_text", "suggested_revision", "reviewer_note"
-  ],
+  "required": ["main_category", "tag_ids", "unknown_concepts", "risk_level", "suggestions"],
   "additionalProperties": false,
   "properties": {
     "main_category": {
       "type": "string",
-      "enum": ["竞赛与项目", "学习与科研", "体育与健身", "旅行与户外", "校园生活", "拼团与AA"],
-      "description": "主分类，取值与 PRD §5.2 一致"
+      "enum": ["竞赛与项目", "学习与科研", "体育与健身", "旅行与户外", "校园生活", "拼团与AA"]
     },
-    "dynamic_tags": {
+    "tag_ids": {
       "type": "array",
       "items": { "type": "string" },
-      "description": "动态标签，用于精细匹配，如 [\"数学建模\", \"Python\", \"仙林校区\", \"周末\"]"
+      "maxItems": 8,
+      "uniqueItems": true,
+      "description": "只能从输入 candidate_tags 的 tag_id 中选择。"
     },
-    "structured_conditions": {
-      "type": "object",
-      "description": "结构化条件（PRD §5.2）",
-      "additionalProperties": false,
-      "properties": {
-        "time": { "type": ["string", "null"], "description": "活动时间或每周投入" },
-        "location": { "type": ["string", "null"], "description": "地点范围" },
-        "member_count": { "type": ["integer", "null"], "description": "目标人数" },
-        "required_skills": { "type": "array", "items": { "type": "string" } },
-        "deadline": { "type": ["string", "null"], "description": "截止日期 YYYY-MM-DD" },
-        "recruit_status": { "type": "string", "enum": ["recruiting", "full", "expired", "closed"], "description": "招募状态，默认 recruiting" }
+    "unknown_concepts": {
+      "type": "array",
+      "maxItems": 5,
+      "items": {
+        "type": "object",
+        "required": ["name", "category", "reason"],
+        "additionalProperties": false,
+        "properties": {
+          "name": { "type": "string", "minLength": 2, "maxLength": 30 },
+          "category": { "type": "string", "enum": ["activity", "skill", "role", "level", "audience"] },
+          "reason": { "type": "string", "maxLength": 200 }
+        }
       }
     },
-    "risk_level": {
-      "type": "string",
-      "enum": ["low", "medium", "high"],
-      "description": "风险等级：low 正常 / medium 需注意（线下、夜间等）/ high 高风险需人工复核"
-    },
-    "risk_reasons": {
-      "type": "array",
-      "items": { "type": "string" },
-      "description": "风险原因，如 [\"涉及金钱交易\", \"夜间线下活动\"]，无风险为空数组"
-    },
-    "audit_result": {
-      "type": "string",
-      "enum": ["approve", "modify", "manual_review", "reject"],
-      "description": "AI 审核建议：通过 / 修改后可通过 / 转人工复核 / 建议拒绝。最终处置由后端规则决定"
-    },
-    "needs_manual_review": { "type": "boolean", "description": "是否需进入人工复核队列" },
-    "blocked_fields": {
-      "type": "array",
-      "items": { "type": "string" },
-      "description": "被规则引擎或 AI 判定需移除/脱敏的字段或内容类型，如 [\"手机号\", \"微信号\", \"身份证号\"]"
-    },
-    "sanitized_text": { "type": "string", "description": "脱敏后的安全文本（联系方式等已掩码为 ***）" },
-    "suggested_revision": { "type": ["string", "null"], "description": "给用户的修改建议；audit_result 为 modify 时必填，approve 时可为 null" },
-    "reviewer_note": { "type": ["string", "null"], "description": "给人工审核员的备注；needs_manual_review=true 时填写" }
+    "risk_level": { "type": "string", "enum": ["low", "medium", "high"] },
+    "suggestions": { "type": "array", "items": { "type": "string", "maxLength": 200 }, "maxItems": 5 }
   }
 }

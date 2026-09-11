@@ -27,11 +27,14 @@ AI 工具内部可以带 `success`、`message` 或 `team_plan`。C 在 `src/api/
 {
   "message": "我想参加美赛，还缺两个队友。",
   "draft": null,
-  "user_skills": ["Python", "数学建模"]
+  "user_skills": ["Python", "数学建模"],
+  "kind": "topic_team",
+  "topic_id": "12",
+  "field_states": {}
 }
 ```
 
-`data` 固定为 `reply + draft + is_complete`。草稿使用 `activity_name/target_members/needed_roles/weekly_hours/school_scope/deadline/description`。C 会把前端对象/数组序列化成 D 工具需要的字符串。
+`data` 至少包含 `reply/draft/is_complete/field_states/suggested_tag_ids`。草稿使用 `activity_name/target_members/needed_roles/weekly_hours/school_scope/deadline/description`。路由会从数据库生成 `candidate_tags` 并把前端对象/数组转换为工具参数；Coze 只能返回候选列表中的标准标签 ID。
 
 ### 2.2 分类与审核
 
@@ -44,7 +47,7 @@ AI 工具内部可以带 `success`、`message` 或 `team_plan`。C 在 `src/api/
 }
 ```
 
-`data` 固定为 `main_category/tags/risk_level/suggestions`。C 会在调用 D/Coze 前使用规则引擎脱敏；发布、拦截和人工审核的最终决定权在后端。
+后端会额外注入 `candidate_tags`。`data` 固定为 `main_category/tag_ids/unknown_concepts/risk_level/suggestions`。`tag_ids` 只能来自标准候选；`unknown_concepts` 只进入待审核队列，不会自动成为标签。路由会在调用 Coze 前使用规则引擎脱敏；发布、拦截和人工审核的最终决定权在后端。
 
 ### 2.3 队友匹配
 
@@ -73,14 +76,19 @@ AI 工具内部可以带 `success`、`message` 或 `team_plan`。C 在 `src/api/
 ## 3. Coze 与 fallback 切换
 
 ```text
+COZE_DEPLOY_API_TOKEN
+COZE_POST_DRAFT_API_URL
+COZE_CLASSIFY_REVIEW_API_URL
+
+# 旧版后备
 COZE_WORKFLOW_POST_DRAFT
 COZE_WORKFLOW_CLASSIFY_REVIEW
 COZE_WORKFLOW_MATCH
 COZE_WORKFLOW_TEAM_PLAN
 ```
 
-1. 同时配置 `COZE_API_TOKEN` 和对应 workflow ID 时优先调用 Coze。
-2. 未配置、额度不足、超时、非零错误码或结果不可解析时自动进入 fallback。
+1. 同时配置 `COZE_DEPLOY_API_TOKEN` 和对应 `.coze.site/run` 地址时优先调用 Coze 部署 API。
+2. 新接口失败时尝试旧版 `COZE_API_TOKEN + COZE_WORKFLOW_*`；仍失败才进入 fallback。
 3. 发帖/审核使用 LLM fallback；匹配/规划使用数据库 + LLM fallback。
 4. 密码、验证码、原始身份材料和未脱敏联系方式禁止发给 Coze。
 

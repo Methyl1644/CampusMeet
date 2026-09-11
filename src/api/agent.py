@@ -7,9 +7,16 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from api.common import current_user_id, invoke_tool, parse_tool_result, unwrap_data
 from services.content import tag_suggestions
+from services.permissions import can_manage_post
+from services.tag_governance import sanitize_unknown_concepts, submit_tag_proposal
 from storage.database.db import get_session
 from storage.database.models import Post, Tag, Team, TeamMember, Topic, User
-from tools.ai_tools import ai_classify_review, ai_match_teammates, ai_post_draft, ai_team_plan
+from tools.ai_tools import (
+    ai_classify_review,
+    ai_match_teammates,
+    ai_post_draft,
+    ai_team_plan,
+)
 from utils.security import screen_content
 
 router = APIRouter(prefix="/agent", tags=["agent"])
@@ -39,8 +46,8 @@ def _require_post_owner(session, user_id: str, post_id: str) -> Post:
     post = session.get(Post, _positive_id(post_id, "帖子编号"))
     if not post:
         raise HTTPException(status_code=404, detail="帖子不存在")
-    if post.author_id != user.id:
-        raise HTTPException(status_code=403, detail="只有发帖者可以运行队友匹配")
+    if not can_manage_post(session, user, post, "manage_applications"):
+        raise HTTPException(status_code=403, detail="你没有管理该帖子申请的权限")
     return post
 
 
@@ -60,7 +67,7 @@ def _require_team_member(session, user_id: str, team_id: str) -> Team:
     return team
 
 
-def _candidate_tags(session, message: str = "") -> list[dict[str, Any]]:
+def _candidate_tags(session, message: str = "", limit: int = 120) -> list[dict[str, Any]]:
     try:
         suggested = tag_suggestions(session, message, 12) if message else []
         seen = {item["tag_id"] for item in suggested}
@@ -74,9 +81,9 @@ def _candidate_tags(session, message: str = "") -> list[dict[str, Any]]:
                         "display_color": tag.display_color,
                     }
                 )
-            if len(suggested) >= 20:
+            if len(suggested) >= limit:
                 break
-        return suggested
+        return suggested[:limit]
     except SQLAlchemyError:
         return []
 
@@ -124,7 +131,7 @@ def classify_review(body: dict[str, Any], user_id: str = Depends(current_user_id
     session = get_session()
     try:
         _require_verified_user(session, user_id)
-        candidates = _candidate_tags(session)
+        candidates = _candidate_tags(session, f"{title} {description}")
     finally:
         session.close()
     raw = invoke_tool(
@@ -135,7 +142,46 @@ def classify_review(body: dict[str, Any], user_id: str = Depends(current_user_id
             "candidate_tags": json.dumps(candidates, ensure_ascii=False),
         },
     )
-    return parse_tool_result(raw)
+    result = parse_tool_result(raw)
+    data = result.get("data") if isinstance(result.get("data"), dict) else {}
+    allowed_ids = {str(item.get("tag_id")) for item in candidates}
+    returned_ids = data.get("tag_ids")
+    data["tag_ids"] = (
+        list(dict.fromkeys(str(tag_id) for tag_id in returned_ids if str(tag_id) in allowed_ids))[:8]
+        if isinstance(returned_ids, list)
+        else []
+    )
+    concepts = sanitize_unknown_concepts(data.pop("unknown_concepts", []))
+    proposal_refs: list[dict[str, str]] = []
+    if concepts:
+        proposal_session = get_session()
+        try:
+            user = _require_verified_user(proposal_session, user_id)
+            source_text = f"{title}\n{description}".strip()
+            for concept in concepts:
+                try:
+                    proposal = submit_tag_proposal(
+                        proposal_session,
+                        user,
+                        concept["name"],
+                        concept["category"],
+                        source_text,
+                    )
+                except ValueError:
+                    continue
+                proposal_refs.append(
+                    {
+                        "proposal_id": str(proposal.id),
+                        "name": proposal.proposed_name,
+                        "status": proposal.status,
+                    }
+                )
+            proposal_session.commit()
+        finally:
+            proposal_session.close()
+    data["tag_proposals"] = proposal_refs
+    result["data"] = data
+    return result
 
 
 @router.post("/match")
