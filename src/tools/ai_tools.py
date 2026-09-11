@@ -17,6 +17,7 @@ from storage.database.models.post import Post
 from storage.database.models.team import Team, TeamMember
 from tools.auth_tools import _user_brief, _user_to_dict
 from services.content import build_post_draft
+from services.tag_governance import sanitize_unknown_concepts
 
 logger = logging.getLogger(__name__)
 
@@ -185,9 +186,15 @@ def ai_classify_review(post_title: str, post_description: str, candidate_tags: s
     if coze_result:
         if candidate_tags:
             tag_ids = coze_result.get("tag_ids", [])
-            if isinstance(tag_ids, list) and all(str(tag_id) in candidate_ids for tag_id in tag_ids):
-                return json.dumps(coze_result, ensure_ascii=False)
-            logger.warning("Coze classify-review output contained non-candidate tags")
+            coze_result["tag_ids"] = (
+                list(dict.fromkeys(str(tag_id) for tag_id in tag_ids if str(tag_id) in candidate_ids))[:8]
+                if isinstance(tag_ids, list)
+                else []
+            )
+            coze_result["unknown_concepts"] = sanitize_unknown_concepts(
+                coze_result.get("unknown_concepts")
+            )
+            return json.dumps(coze_result, ensure_ascii=False)
         else:
             return json.dumps(coze_result, ensure_ascii=False)
 
@@ -211,6 +218,7 @@ def ai_classify_review(post_title: str, post_description: str, candidate_tags: s
 {
   "main_category": "主分类",
   "tags": ["标签1", "标签2", "标签3"],
+  "unknown_concepts": [{"name": "库中缺少的可复用概念", "category": "activity/skill/role/level/audience", "reason": "判断理由"}],
   "risk_level": "low/medium/high",
   "suggestions": ["修改建议1", "修改建议2"]
 }"""
@@ -231,6 +239,7 @@ def ai_classify_review(post_title: str, post_description: str, candidate_tags: s
                 if isinstance(name, str) and name in names_to_ids
             ][:4]
             result.pop("tags", None)
+            result["unknown_concepts"] = sanitize_unknown_concepts(result.get("unknown_concepts"))
         return json.dumps(result, ensure_ascii=False)
     except json.JSONDecodeError:
         fallback = {

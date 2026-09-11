@@ -107,6 +107,44 @@ def test_classify_review_falls_back_to_llm_without_coze_configuration(monkeypatc
     }
 
 
+def test_classify_review_filters_coze_tags_and_unknown_concepts_to_the_controlled_schema(monkeypatch):
+    candidates = [
+        {"tag_id": "activity_running", "canonical_name": "跑步", "category": "activity"},
+        {"tag_id": "skill_python", "canonical_name": "Python", "category": "skill"},
+    ]
+    monkeypatch.setattr(
+        ai_tools,
+        "_try_coze_workflow",
+        lambda *_args, **_kwargs: {
+            "main_category": "体育与健身",
+            "tag_ids": ["activity_running", "invented_tag"],
+            "unknown_concepts": [
+                {"name": "定向越野", "category": "activity", "reason": "库中无对应活动"},
+                {"name": "x", "category": "activity", "reason": "太短"},
+                {"name": "联系方式", "category": "contact", "reason": "不属于标签分类"},
+            ],
+            "risk_level": "low",
+            "suggestions": [],
+        },
+    )
+    monkeypatch.setattr(ai_tools, "_call_llm", lambda *_args, **_kwargs: pytest.fail("unexpected fallback"))
+
+    result = json.loads(
+        ai_tools.ai_classify_review.invoke(
+            {
+                "post_title": "定向越野招募",
+                "post_description": "周末活动",
+                "candidate_tags": json.dumps(candidates, ensure_ascii=False),
+            }
+        )
+    )
+
+    assert result["tag_ids"] == ["activity_running"]
+    assert result["unknown_concepts"] == [
+        {"name": "定向越野", "category": "activity", "reason": "库中无对应活动"}
+    ]
+
+
 @pytest.fixture
 def database_session_factory():
     engine = create_engine("sqlite+pysqlite:///:memory:")

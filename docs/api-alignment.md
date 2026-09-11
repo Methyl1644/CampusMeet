@@ -130,3 +130,29 @@
 | 对象 → JSON 字符串 | 11(draft) | `json.dumps(obj)` |
 | 字段名映射 | 12(title→post_title, description→post_description) | 手动取值 |
 | tool 返回的 JSON 字符串 → dict | 全部 | `json.loads(tool_result)` 后包进 `{code,message,data}` |
+
+---
+
+## 7. 标准标签与候选审核
+
+所有接口都要求登录，候选审核接口仅允许 `site_role=operator` 的运营账号调用。
+
+| 接口 | 方法 | 用途 |
+|------|------|------|
+| `/api/tags` | GET | 获取当前启用的标准标签与别名 |
+| `/api/tags/suggestions?q=` | GET | 用标准名称或已审核别名搜索标签 |
+| `/api/tags/proposals` | POST | 提交库外可复用概念，参数为 `name/category/source_text/suggested_tag_id?` |
+| `/api/tags/proposals?status=pending` | GET | 运营人员查看候选标签 |
+| `/api/tags/proposals/:id/review` | POST | 运营人员执行 `approve/merge/reject` |
+
+`/api/agent/classify-review` 会把帖子标题和描述传给 AI，并提供当前标准标签候选。AI 返回的 `tag_ids` 必须来自候选集合；可选的 `unknown_concepts` 结构如下：
+
+```json
+{
+  "unknown_concepts": [
+    {"name": "定向越野", "category": "activity", "reason": "当前标准库中没有对应活动"}
+  ]
+}
+```
+
+后端只接受 `activity/skill/role/level/audience` 分类、2 至 30 字符的名称，最多处理 5 个候选。合法候选进入 `pending` 队列，不会自动成为标准标签。

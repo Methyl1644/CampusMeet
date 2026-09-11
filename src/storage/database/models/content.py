@@ -28,6 +28,27 @@ class TagAlias(Base):
     active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
 
 
+class TagProposal(Base):
+    __tablename__ = "tag_proposals"
+
+    id: Mapped[int] = mapped_column(BIGINT_PRIMARY_KEY, primary_key=True, autoincrement=True)
+    normalized_name: Mapped[str] = mapped_column(Text, nullable=False, unique=True)
+    proposed_name: Mapped[str] = mapped_column(Text, nullable=False)
+    category: Mapped[str] = mapped_column(Text, nullable=False)
+    source_text: Mapped[str] = mapped_column(Text, nullable=False)
+    suggested_tag_id: Mapped[str | None] = mapped_column(ForeignKey("tags.id"))
+    status: Mapped[str] = mapped_column(Text, nullable=False, default="pending")
+    occurrence_count: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    submitted_by: Mapped[int] = mapped_column(BigInteger, ForeignKey("users.id"), nullable=False)
+    reviewed_by: Mapped[int | None] = mapped_column(BigInteger, ForeignKey("users.id"))
+    review_reason: Mapped[str | None] = mapped_column(Text)
+    reviewed_at: Mapped[datetime.datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
 class Organization(Base):
     __tablename__ = "organizations"
 
