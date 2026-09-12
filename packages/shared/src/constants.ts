@@ -70,6 +70,9 @@ export const ONBOARDING_INTERESTS = [
 
 /** API 路径 */
 export const API_PATHS = {
+  home: {
+    feed: '/api/home',
+  },
   auth: {
     sendCode: '/api/auth/send-code',
     register: '/api/auth/register',

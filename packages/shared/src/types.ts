@@ -51,6 +51,69 @@ export interface Topic {
   status: string;
 }
 
+export type HomeWarningSection =
+  | 'deadline_reminder'
+  | 'recommended_topics'
+  | 'followed_topics'
+  | 'joined_groups'
+  | 'group_timeline'
+  | 'unread';
+
+export interface HomeProfile {
+  id: string;
+  nickname: string;
+  avatar: string | null;
+  major: string | null;
+  grade: string | null;
+}
+
+export interface HomeTopic extends Topic {
+  registration_deadline: string | null;
+  activity_start_at: string | null;
+  activity_end_at: string | null;
+}
+
+export interface RecommendedHomeTopic extends HomeTopic {
+  recommendation_reason: string;
+}
+
+export interface HomeDeadlineReminder extends HomeTopic {
+  days_remaining: number;
+}
+
+export interface HomeJoinedGroup {
+  id: string;
+  post_id: string;
+  activity_name: string;
+  member_role: 'owner' | 'member';
+  created_at: string;
+  current_members: number;
+  target_members: number;
+}
+
+export interface HomeTimelineItem {
+  team_id: string;
+  team_name: string;
+  task_id: string;
+  title: string;
+  due_at: string | null;
+  done: boolean;
+}
+
+export interface HomeFeed {
+  profile: HomeProfile;
+  deadline_reminder: HomeDeadlineReminder | null;
+  recommended_topics: RecommendedHomeTopic[];
+  followed_topics: HomeTopic[];
+  joined_groups: HomeJoinedGroup[];
+  group_timeline: HomeTimelineItem[];
+  unread: {
+    messages: number;
+    notifications: number;
+  };
+  warnings: HomeWarningSection[];
+}
+
 export interface SearchDirectResult {
   entity_type: 'topic' | 'post';
   entity_id: string;
