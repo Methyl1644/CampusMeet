@@ -20,6 +20,7 @@ export default defineConfig({
       'src/api/home.test.ts',
       'src/features/home/HomeFeedContext.test.tsx',
       'src/components/navigation/Navbar.test.tsx',
+      'src/components/home/HomeSidebar.test.tsx',
     ],
   },
 })
