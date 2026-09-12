@@ -54,6 +54,26 @@ def upgrade() -> None:
             .values(onboarding_completed_at=sa.func.now())
         )
 
+    temporary_default_names = (
+        "onboarding_step",
+        "interests",
+        "looking_for",
+        "availability",
+        "profile_visibility",
+    )
+    columns_after_backfill = {
+        column["name"]: column
+        for column in inspect(op.get_bind()).get_columns("users")
+    }
+    defaults_to_remove = (
+        name
+        for name in temporary_default_names
+        if columns_after_backfill[name].get("default") is not None
+    )
+    with op.batch_alter_table("users") as batch_op:
+        for name in defaults_to_remove:
+            batch_op.alter_column(name, server_default=None)
+
 
 def downgrade() -> None:
     raise RuntimeError("Onboarding state is intentionally retained.")

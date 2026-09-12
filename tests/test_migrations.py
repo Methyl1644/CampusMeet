@@ -105,6 +105,43 @@ def test_auth_onboarding_migration_backfills_only_complete_profiles(tmp_path):
     assert rows[1][1:] == (1, None, "[]", "[]", "{}", "{}")
 
 
+def test_auth_onboarding_migration_matches_fresh_schema_server_defaults(tmp_path):
+    fresh_database_url = f"sqlite:///{tmp_path / 'onboarding-fresh.db'}"
+    command.upgrade(_alembic_config(fresh_database_url), "head")
+    fresh_columns = {
+        item["name"]: item
+        for item in inspect(create_engine(fresh_database_url)).get_columns("users")
+    }
+
+    upgraded_database_url = f"sqlite:///{tmp_path / 'onboarding-upgraded.db'}"
+    upgraded_engine = create_engine(upgraded_database_url)
+    with upgraded_engine.begin() as connection:
+        connection.execute(
+            text(
+                "CREATE TABLE users ("
+                "id INTEGER PRIMARY KEY, nickname TEXT NOT NULL, major TEXT, grade TEXT)"
+            )
+        )
+    command.stamp(_alembic_config(upgraded_database_url), "20260912_09")
+    command.upgrade(_alembic_config(upgraded_database_url), "head")
+    upgraded_columns = {
+        item["name"]: item for item in inspect(upgraded_engine).get_columns("users")
+    }
+
+    names = {
+        "onboarding_step",
+        "interests",
+        "looking_for",
+        "availability",
+        "profile_visibility",
+    }
+    fresh_defaults = {name: fresh_columns[name]["default"] for name in names}
+    upgraded_defaults = {name: upgraded_columns[name]["default"] for name in names}
+
+    assert upgraded_defaults == fresh_defaults
+    assert set(upgraded_defaults.values()) == {None}
+
+
 def test_identity_migration_preserves_legacy_organization_application_rows(tmp_path):
     database_url = f"sqlite:///{tmp_path / 'legacy-identity.db'}"
     engine = create_engine(database_url)
