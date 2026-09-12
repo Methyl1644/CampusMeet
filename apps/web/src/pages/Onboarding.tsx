@@ -9,7 +9,7 @@ import {
   Search,
   UserRound,
 } from 'lucide-react'
-import { useNavigate } from 'react-router-dom'
+import { Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { getApiErrorMessage } from '@/api/auth-feedback'
 import { completeOnboarding, getOnboarding, saveOnboarding } from '@/api/onboarding'
 import { useToast } from '@/components/Toast'
@@ -23,6 +23,7 @@ import {
   type OnboardingLoadStatus,
 } from '@/components/onboarding/onboardingState'
 import { useAuthStore } from '@/store/authStore'
+import { requiredRoute } from '@/router/authRouting'
 import { COMMON_SKILLS } from '@shared/constants'
 import type { OnboardingDraft, OnboardingUpdate } from '@shared/types'
 
@@ -135,9 +136,25 @@ function toUpdate(draft: OnboardingDraft, step: number): OnboardingUpdate {
 }
 
 export default function Onboarding() {
+  const location = useLocation()
+  const { isAuthenticated, user } = useAuthStore()
+
+  if (!isAuthenticated || !user) {
+    return <Navigate to="/login" replace />
+  }
+
+  const redirectTo = requiredRoute(user, location.pathname)
+  if (redirectTo) {
+    return <Navigate to={redirectTo} replace />
+  }
+
+  return <OnboardingFlow />
+}
+
+function OnboardingFlow() {
   const navigate = useNavigate()
   const { showToast } = useToast()
-  const { user, updateUser } = useAuthStore()
+  const { user, setUser, updateUser } = useAuthStore()
   const [draft, setDraft] = useState<OnboardingDraft | null>(null)
   const [step, setStep] = useState(1)
   const [direction, setDirection] = useState(1)
@@ -239,7 +256,7 @@ export default function Onboarding() {
     try {
       await saveOnboarding(toUpdate(draft, 6))
       const completedUser = await completeOnboarding()
-      updateUser(completedUser)
+      setUser(completedUser)
       showToast('资料已完成，欢迎来到 CampusMate', 'success')
       navigate('/home', { replace: true })
     } catch (error) {

@@ -1,12 +1,19 @@
-import { Outlet, Navigate } from 'react-router-dom'
+import { Outlet, Navigate, useLocation } from 'react-router-dom'
 import Navbar from '@/components/Navbar'
+import { requiredRoute } from '@/router/authRouting'
 import { useAuthStore } from '@/store/authStore'
 
 export default function MainLayout() {
-  const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
+  const location = useLocation()
+  const { isAuthenticated, user } = useAuthStore()
 
-  if (!isAuthenticated) {
+  if (!isAuthenticated || !user) {
     return <Navigate to="/login" replace />
+  }
+
+  const redirectTo = requiredRoute(user, location.pathname)
+  if (redirectTo) {
+    return <Navigate to={redirectTo} replace />
   }
 
   return (

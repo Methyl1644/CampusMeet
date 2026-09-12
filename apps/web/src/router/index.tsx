@@ -1,6 +1,7 @@
 import { createBrowserRouter, Navigate } from 'react-router-dom'
 import MainLayout from '@/layouts/MainLayout'
 import Login from '@/pages/Login'
+import Onboarding from '@/pages/Onboarding'
 import Home from '@/pages/Home'
 import Discover from '@/pages/Discover'
 import Publish from '@/pages/Publish'
@@ -15,6 +16,10 @@ export const router = createBrowserRouter([
   {
     path: '/login',
     element: <Login />,
+  },
+  {
+    path: '/onboarding',
+    element: <Onboarding />,
   },
   {
     path: '/',
