@@ -7,6 +7,7 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, event, text
+from sqlalchemy.dialects import postgresql
 from sqlalchemy.exc import PendingRollbackError, SQLAlchemyError
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
@@ -393,6 +394,102 @@ def test_home_feed_recovers_after_a_real_statement_failure(abort_like_factory, m
         assert feed["unread"] == {"messages": 0, "notifications": 0}
         assert feed["warnings"] == ["recommended_topics"]
         assert session.scalar(text("SELECT 1")) == 1
+
+
+def test_home_feed_keeps_later_sections_healthy_after_multiple_failures(
+    abort_like_factory,
+    monkeypatch,
+):
+    home = importlib.import_module("services.home")
+    with abort_like_factory() as session:
+        user = User(
+            id=1,
+            email="multiple-failures@nju.edu.cn",
+            password_hash="hash",
+            nickname="多段降级",
+        )
+        session.add(user)
+        topic = _topic(session, topic_id=1, title="健康关注")
+        session.add_all(
+            [
+                TopicFollow(topic_id=topic.id, user_id=user.id, created_at=UTC_NOW),
+                Notification(
+                    user_id=user.id,
+                    event_type="home_test",
+                    title="未读通知",
+                    body="后续分区仍可查询",
+                    dedupe_key="multiple-section-failure",
+                ),
+            ]
+        )
+        session.commit()
+        user = session.get(User, 1)
+
+        def fail_recommendations(db_session, *_args):
+            db_session.execute(text("SELECT * FROM missing_recommendation_table"))
+
+        def fail_joined_groups(*_args):
+            raise RuntimeError("joined groups unavailable")
+
+        monkeypatch.setitem(
+            home.HOME_SECTION_BUILDERS,
+            "recommended_topics",
+            fail_recommendations,
+        )
+        monkeypatch.setitem(
+            home.HOME_SECTION_BUILDERS,
+            "joined_groups",
+            fail_joined_groups,
+        )
+
+        feed = home.build_home_feed(session, user, now=UTC_NOW)
+
+    assert feed["recommended_topics"] == []
+    assert feed["joined_groups"] == []
+    assert [topic["id"] for topic in feed["followed_topics"]] == ["1"]
+    assert feed["unread"] == {"messages": 0, "notifications": 1}
+    assert feed["warnings"] == ["recommended_topics", "joined_groups"]
+
+
+def test_home_feed_queries_compile_for_postgresql_with_bounded_ordering():
+    home = importlib.import_module("services.home")
+    dialect = postgresql.dialect()
+
+    ranked_sql = str(
+        home._ranked_topics_statement(["人工智能"], UTC_NOW).compile(
+            dialect=dialect,
+            compile_kwargs={"literal_binds": True},
+        )
+    )
+    followed_sql = str(
+        home._followed_topics_statement(7).compile(
+            dialect=dialect,
+            compile_kwargs={"literal_binds": True},
+        )
+    )
+    reminder_sql = str(
+        home._deadline_reminder_statement(7, UTC_NOW).compile(
+            dialect=dialect,
+            compile_kwargs={"literal_binds": True},
+        )
+    )
+
+    assert "LIMIT 8" in ranked_sql
+    ranked_order_terms = [
+        "count(topic_tags.tag_id)",
+        "anon_1.next_date IS NULL",
+        "anon_1.next_date ASC",
+        "topics.updated_at DESC",
+        "topics.id DESC",
+    ]
+    ranked_positions = [ranked_sql.index(term) for term in ranked_order_terms]
+    assert ranked_positions == sorted(ranked_positions)
+    assert "LIMIT 4" in followed_sql
+    assert "topic_follows.user_id = 7" in followed_sql
+    assert "ORDER BY topic_follows.created_at DESC, topics.id DESC" in followed_sql
+    assert "LIMIT 1" in reminder_sql
+    assert "topic_follows.user_id = 7" in reminder_sql
+    assert "ORDER BY topics.registration_deadline ASC, topics.id DESC" in reminder_sql
 
 
 def test_home_feed_query_plan_stays_bounded_as_the_catalog_grows(session, user):

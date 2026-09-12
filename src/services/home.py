@@ -218,8 +218,9 @@ def _batch_topic_projections(
     return projections
 
 
-def _recommended_topics(session: Session, user: User, current: datetime.datetime) -> list[dict[str, Any]]:
-    interests = [str(value).strip() for value in (user.interests or []) if str(value).strip()]
+def _ranked_topics_statement(
+    interests: list[str], current: datetime.datetime
+):
     overlap_count = (
         select(func.count(TopicTag.tag_id))
         .join(Tag, Tag.id == TopicTag.tag_id)
@@ -234,20 +235,25 @@ def _recommended_topics(session: Session, user: User, current: datetime.datetime
         else literal(0)
     )
     next_dates = _next_topic_date_expression(current)
-    topics = list(
-        session.scalars(
-            select(Topic)
-            .outerjoin(next_dates, next_dates.c.topic_id == Topic.id)
-            .where(Topic.status == "active")
-            .order_by(
-                overlap_count.desc(),
-                next_dates.c.next_date.is_(None),
-                next_dates.c.next_date.asc(),
-                Topic.updated_at.desc(),
-                Topic.id.desc(),
-            )
-            .limit(8)
+    return (
+        select(Topic)
+        .outerjoin(next_dates, next_dates.c.topic_id == Topic.id)
+        .where(Topic.status == "active")
+        .order_by(
+            overlap_count.desc(),
+            next_dates.c.next_date.is_(None),
+            next_dates.c.next_date.asc(),
+            Topic.updated_at.desc(),
+            Topic.id.desc(),
         )
+        .limit(8)
+    )
+
+
+def _recommended_topics(session: Session, user: User, current: datetime.datetime) -> list[dict[str, Any]]:
+    interests = [str(value).strip() for value in (user.interests or []) if str(value).strip()]
+    topics = list(
+        session.scalars(_ranked_topics_statement(interests, current))
     )
     projections = _batch_topic_projections(session, topics, user.id, current)
 
@@ -272,14 +278,18 @@ def _recommended_topics(session: Session, user: User, current: datetime.datetime
     return result
 
 
-def _followed_topic_rows(session: Session, user: User):
-    return session.execute(
+def _followed_topics_statement(user_id: int):
+    return (
         select(Topic, TopicFollow.created_at)
         .join(TopicFollow, TopicFollow.topic_id == Topic.id)
-        .where(TopicFollow.user_id == user.id, Topic.status == "active")
+        .where(TopicFollow.user_id == user_id, Topic.status == "active")
         .order_by(TopicFollow.created_at.desc(), Topic.id.desc())
         .limit(4)
-    ).all()
+    )
+
+
+def _followed_topic_rows(session: Session, user: User):
+    return session.execute(_followed_topics_statement(user.id)).all()
 
 
 def _followed_topics(session: Session, user: User, _current: datetime.datetime) -> list[dict[str, Any]]:
@@ -287,21 +297,25 @@ def _followed_topics(session: Session, user: User, _current: datetime.datetime) 
     return _batch_topic_projections(session, topics, user.id, _current)
 
 
-def _deadline_reminder(
-    session: Session, user: User, current: datetime.datetime
-) -> dict[str, Any] | None:
-    topic = session.scalars(
+def _deadline_reminder_statement(user_id: int, current: datetime.datetime):
+    return (
         select(Topic)
         .join(TopicFollow, TopicFollow.topic_id == Topic.id)
         .where(
-            TopicFollow.user_id == user.id,
+            TopicFollow.user_id == user_id,
             Topic.status == "active",
             Topic.registration_deadline > current,
             Topic.registration_deadline <= current + datetime.timedelta(days=14),
         )
         .order_by(Topic.registration_deadline.asc(), Topic.id.desc())
         .limit(1)
-    ).first()
+    )
+
+
+def _deadline_reminder(
+    session: Session, user: User, current: datetime.datetime
+) -> dict[str, Any] | None:
+    topic = session.scalars(_deadline_reminder_statement(user.id, current)).first()
     if topic is None:
         return None
 
