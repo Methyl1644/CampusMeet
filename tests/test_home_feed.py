@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import datetime
 import importlib
+import json
 
 import pytest
 from fastapi import FastAPI
@@ -581,6 +582,7 @@ def test_home_feed_queries_compile_for_postgresql_with_bounded_ordering():
 
 def test_timeline_query_caps_rows_and_selects_only_computation_columns(session, user):
     home = importlib.import_module("services.home")
+    team_model = importlib.import_module("storage.database.models.team")
     for team_id in range(1, 30):
         post = Post(
             id=team_id,
@@ -598,7 +600,10 @@ def test_timeline_query_caps_rows_and_selects_only_computation_columns(session, 
             post_id=post.id,
             owner_id=user.id,
             activity_name=post.activity_name,
-            task_list=[{"id": f"{team_id}-{task}", "title": "任务"} for task in range(40)],
+            task_list=[
+                {"id": f"{team_id}-{task}", "title": "任务" * 10_000}
+                for task in range(40)
+            ],
         )
         session.add(team)
         session.flush()
@@ -610,6 +615,11 @@ def test_timeline_query_caps_rows_and_selects_only_computation_columns(session, 
     assert len(rows) == home.TIMELINE_TEAM_LIMIT
     assert all(len(row) == 3 for row in rows)
     assert all(len(row.task_list) == home.TIMELINE_TASKS_PER_TEAM for row in rows)
+    assert all(
+        len(json.dumps(row.task_list, ensure_ascii=True).encode("utf-8"))
+        <= team_model.TEAM_TASK_JSON_MAX_BYTES
+        for row in rows
+    )
     assert len(_build_home_feed(session, user)["group_timeline"]) == home.TIMELINE_ITEM_LIMIT
 
 

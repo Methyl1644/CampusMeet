@@ -10,6 +10,7 @@ from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.exc import IntegrityError
 
 from storage.database.models import *  # noqa: F403 - imports register every model
+from storage.database.models.team import TEAM_TASK_JSON_MAX_BYTES
 from storage.database.shared.model import Base
 
 
@@ -232,27 +233,56 @@ def test_team_task_bound_migration_trims_legacy_json_and_enforces_the_cap(tmp_pa
             text("INSERT INTO teams (id, task_list) VALUES (1, :task_list)"),
             {"task_list": json.dumps(legacy_tasks)},
         )
+        connection.execute(
+            text("INSERT INTO teams (id, task_list) VALUES (2, :task_list)"),
+            {"task_list": json.dumps({"id": "legacy-object"})},
+        )
+        connection.execute(
+            text("INSERT INTO teams (id, task_list) VALUES (3, :task_list)"),
+            {
+                "task_list": json.dumps(
+                    [
+                        {
+                            "id": "legacy-huge",
+                            "title": "任务" * 10_000,
+                            "done": False,
+                            "unknown": "must be removed",
+                        }
+                    ],
+                    ensure_ascii=False,
+                )
+            },
+        )
     config = _alembic_config(database_url)
     command.stamp(config, "20260912_11")
 
+    command.upgrade(config, "20260913_12")
     command.upgrade(config, "head")
     command.upgrade(config, "head")
 
     with engine.connect() as connection:
-        persisted = json.loads(
-            connection.execute(text("SELECT task_list FROM teams WHERE id = 1")).scalar_one()
-        )
-    assert len(persisted) == 12
-    assert persisted[-1]["id"] == "task-11"
+        rows = connection.execute(text("SELECT id, task_list FROM teams ORDER BY id")).all()
+    persisted = {row.id: json.loads(row.task_list) for row in rows}
+    assert len(persisted[1]) == 12
+    assert persisted[1][-1]["id"] == "task-11"
+    assert persisted[2] == []
+    assert set(persisted[3][0]) == {"id", "title", "done"}
+    assert len(json.dumps(persisted[3], ensure_ascii=True).encode("utf-8")) <= TEAM_TASK_JSON_MAX_BYTES
     constraints = {item["name"] for item in inspect(engine).get_check_constraints("teams")}
     assert "ck_teams_task_list_bounded" in constraints
 
-    with pytest.raises(IntegrityError):
-        with engine.begin() as connection:
-            connection.execute(
-                text("INSERT INTO teams (id, task_list) VALUES (2, :task_list)"),
-                {"task_list": json.dumps(legacy_tasks[:13])},
-            )
+    invalid_values = (
+        json.dumps(legacy_tasks[:13]),
+        json.dumps({"id": "not-an-array"}),
+        json.dumps([{"id": "huge", "title": "x" * TEAM_TASK_JSON_MAX_BYTES}]),
+    )
+    for row_id, task_list in enumerate(invalid_values, start=10):
+        with pytest.raises(IntegrityError):
+            with engine.begin() as connection:
+                connection.execute(
+                    text("INSERT INTO teams (id, task_list) VALUES (:id, :task_list)"),
+                    {"id": row_id, "task_list": task_list},
+                )
 
 
 def test_identity_migration_preserves_legacy_organization_application_rows(tmp_path):

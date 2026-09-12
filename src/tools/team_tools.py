@@ -249,7 +249,6 @@ def create_team_task(
             "assignee_id": str(resolved_assignee) if resolved_assignee is not None else None,
             "due_at": due_at.strip()[:40] or None,
             "done": False,
-            "created_by": str(uid),
         }
         team.task_list = [*(team.task_list or []), task]
         _team_audit(session, uid, "team.task_create", team, {"task_id": task["id"]})
