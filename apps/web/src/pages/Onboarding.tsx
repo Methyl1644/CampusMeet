@@ -23,7 +23,7 @@ import {
   type OnboardingLoadStatus,
 } from '@/components/onboarding/onboardingState'
 import { useAuthStore } from '@/store/authStore'
-import { requiredRoute } from '@/router/authRouting'
+import { commitCompletedOnboarding, requiredRoute } from '@/router/authRouting'
 import { COMMON_SKILLS } from '@shared/constants'
 import type { OnboardingDraft, OnboardingUpdate } from '@shared/types'
 
@@ -256,9 +256,10 @@ function OnboardingFlow() {
     try {
       await saveOnboarding(toUpdate(draft, 6))
       const completedUser = await completeOnboarding()
-      setUser(completedUser)
-      showToast('资料已完成，欢迎来到 CampusMate', 'success')
-      navigate('/home', { replace: true })
+      commitCompletedOnboarding(completedUser, setUser, (to, options) => {
+        showToast('资料已完成，欢迎来到 CampusMate', 'success')
+        navigate(to, options)
+      })
     } catch (error) {
       showToast(getApiErrorMessage(error, '完成失败，本页内容已保留'), 'error')
     } finally {

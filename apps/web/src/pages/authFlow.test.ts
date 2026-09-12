@@ -12,6 +12,10 @@ interface RequestTracker {
 const subject = authFlow as typeof authFlow & {
   createAuthRequestTracker?: (initialMode: AuthMode) => RequestTracker
   passwordForMode?: (value: string, owner: AuthMode, activeMode: AuthMode) => string
+  successfulAuthNavigation?: (user: never) => {
+    to: '/onboarding' | '/home'
+    replace: boolean
+  }
 }
 
 function createTracker(initialMode: AuthMode) {
@@ -26,6 +30,24 @@ describe('destinationAfterAuth', () => {
 
   it('sends complete users home', () => {
     expect(authFlow.destinationAfterAuth({ onboarding_completed: true } as never)).toBe('/home')
+  })
+})
+
+describe('successfulAuthNavigation', () => {
+  it('replaces login history when an incomplete user enters onboarding', () => {
+    expect(subject.successfulAuthNavigation).toBeTypeOf('function')
+    expect(subject.successfulAuthNavigation!({ onboarding_completed: false } as never)).toEqual({
+      to: '/onboarding',
+      replace: true,
+    })
+  })
+
+  it('replaces login history when a complete user enters home', () => {
+    expect(subject.successfulAuthNavigation).toBeTypeOf('function')
+    expect(subject.successfulAuthNavigation!({ onboarding_completed: true } as never)).toEqual({
+      to: '/home',
+      replace: true,
+    })
   })
 })
 

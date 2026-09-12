@@ -1,7 +1,8 @@
-import { createBrowserRouter, Navigate } from 'react-router-dom'
+import { createBrowserRouter, Navigate, type RouteObject } from 'react-router-dom'
 import MainLayout from '@/layouts/MainLayout'
 import Login from '@/pages/Login'
 import Onboarding from '@/pages/Onboarding'
+import { successfulAuthNavigation } from '@/pages/authFlow'
 import Home from '@/pages/Home'
 import Discover from '@/pages/Discover'
 import Publish from '@/pages/Publish'
@@ -11,11 +12,23 @@ import TeamDetail from '@/pages/TeamDetail'
 import Profile from '@/pages/Profile'
 import TopicDetail from '@/pages/TopicDetail'
 import Tutorial from '@/pages/Tutorial'
+import { useAuthStore } from '@/store/authStore'
 
-export const router = createBrowserRouter([
+function LoginRoute() {
+  const { isAuthenticated, user } = useAuthStore()
+
+  if (isAuthenticated && user) {
+    const navigation = successfulAuthNavigation(user)
+    return <Navigate to={navigation.to} replace={navigation.replace} />
+  }
+
+  return <Login />
+}
+
+export const appRoutes: RouteObject[] = [
   {
     path: '/login',
-    element: <Login />,
+    element: <LoginRoute />,
   },
   {
     path: '/onboarding',
@@ -37,4 +50,6 @@ export const router = createBrowserRouter([
       { path: 'profile', element: <Profile /> },
     ],
   },
-])
+]
+
+export const router = createBrowserRouter(appRoutes)

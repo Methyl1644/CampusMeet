@@ -11,3 +11,12 @@ export function requiredRoute(user: User, requestedPath: string): string | null 
 
   return null
 }
+
+export function commitCompletedOnboarding(
+  user: User,
+  setUser: (user: User) => void,
+  navigate: (to: string, options: { replace: boolean }) => void,
+) {
+  setUser(user)
+  navigate('/home', { replace: true })
+}

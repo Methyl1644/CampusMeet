@@ -12,6 +12,20 @@ interface AuthState {
   logout: () => void
 }
 
+export function migrateAuthState(persistedState: unknown, _version: number): AuthState {
+  const state = persistedState as Partial<AuthState>
+
+  if (state.user && typeof state.user.onboarding_completed !== 'boolean') {
+    return {
+      token: null,
+      user: null,
+      isAuthenticated: false,
+    } as AuthState
+  }
+
+  return state as AuthState
+}
+
 export const useAuthStore = create<AuthState>()(
   persist(
     (set) => ({
@@ -26,6 +40,10 @@ export const useAuthStore = create<AuthState>()(
         })),
       logout: () => set({ token: null, user: null, isAuthenticated: false }),
     }),
-    { name: 'campusmate-auth' },
+    {
+      name: 'campusmate-auth',
+      version: 1,
+      migrate: migrateAuthState,
+    },
   ),
 )

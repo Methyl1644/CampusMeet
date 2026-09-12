@@ -9,8 +9,8 @@ import { useToast } from '@/components/Toast'
 import { useAuthStore } from '@/store/authStore'
 import {
   createAuthRequestTracker,
-  destinationAfterAuth,
   passwordForMode,
+  successfulAuthNavigation,
   type AuthMode,
 } from './authFlow'
 
@@ -145,7 +145,8 @@ export default function Login() {
       authRequestTracker.commit(request, () => {
         setAuth(res.token, res.user)
         showToast('登录成功', 'success')
-        navigate(destinationAfterAuth(res.user))
+        const navigation = successfulAuthNavigation(res.user)
+        navigate(navigation.to, { replace: navigation.replace })
       })
     } catch (error) {
       authRequestTracker.commit(request, () => {
@@ -221,7 +222,8 @@ export default function Login() {
       authRequestTracker.commit(request, () => {
         setAuth(res.token, res.user)
         showToast('注册成功', 'success')
-        navigate(destinationAfterAuth(res.user))
+        const navigation = successfulAuthNavigation(res.user)
+        navigate(navigation.to, { replace: navigation.replace })
       })
     } catch (error) {
       authRequestTracker.commit(request, () => {

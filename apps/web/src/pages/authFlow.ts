@@ -45,3 +45,10 @@ export function passwordForMode(value: string, owner: AuthMode, activeMode: Auth
 export function destinationAfterAuth(user: User): '/onboarding' | '/home' {
   return user.onboarding_completed ? '/home' : '/onboarding'
 }
+
+export function successfulAuthNavigation(user: User) {
+  return {
+    to: destinationAfterAuth(user),
+    replace: true as const,
+  }
+}
