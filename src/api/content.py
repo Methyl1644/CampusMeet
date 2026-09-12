@@ -31,6 +31,7 @@ from services.participation import (
     commit_post_participation,
     set_post_status,
 )
+from services.explore import project_activity_cards
 from services.operators import has_platform_role
 from services.tag_governance import review_tag_proposal, submit_tag_proposal
 from storage.database.db import get_session
@@ -48,7 +49,7 @@ from storage.database.models import (
     TopicTag,
     User,
 )
-from tools.post_tools import _post_to_dict
+from tools.post_tools import _batch_post_to_dicts, _post_to_dict
 
 router = APIRouter(tags=["content"])
 
@@ -282,7 +283,7 @@ def list_topics(
         topics = session.execute(query.offset((page - 1) * page_size).limit(page_size)).scalars().all()
         return api_ok(
             {
-                "list": [topic_to_dict(session, topic, int(user_id)) for topic in topics],
+                "list": project_activity_cards(session, topics, int(user_id)),
                 "total": total,
                 "page": page,
                 "page_size": page_size,
@@ -326,7 +327,7 @@ def topic_posts(topic_id: int, user_id: str = Depends(current_user_id)) -> dict[
                 select(User).where(User.id.in_({post.author_id for post in posts}))
             ).scalars().all()
         } if posts else {}
-        return api_ok([_post_to_dict(post, authors.get(post.author_id), session) for post in posts])
+        return api_ok(_batch_post_to_dicts(session, posts, authors, int(user_id)))
     finally:
         session.close()
 
@@ -473,7 +474,10 @@ def moderate_topic_post(
                 detail={"code": exc.code, "message": exc.message},
             ) from exc
         author = session.get(User, post.author_id)
-        return api_ok(_post_to_dict(post, author, session), "帖子状态已更新")
+        return api_ok(
+            _post_to_dict(post, author, session, viewer_id=actor.id),
+            "帖子状态已更新",
+        )
     finally:
         session.close()
 

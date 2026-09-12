@@ -69,6 +69,7 @@ from api.uploads import router as uploads_router
 from api.notifications import router as notifications_router
 from api.operations import router as operations_router
 from api.home import router as home_router
+from api.explore import router as explore_router
 from services.content import bootstrap_operator, seed_content_catalog
 from services.observability import install_observability
 
@@ -383,6 +384,7 @@ app.include_router(uploads_router, prefix="/api")
 app.include_router(notifications_router, prefix="/api")
 app.include_router(operations_router, prefix="/api")
 app.include_router(home_router, prefix="/api")
+app.include_router(explore_router, prefix="/api")
 
 # OpenAI 兼容接口处理器
 openai_handler = OpenAIChatHandler(service)

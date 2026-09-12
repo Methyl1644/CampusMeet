@@ -299,6 +299,1460 @@
         "title": "CollaboratorInviteRequest",
         "type": "object"
       },
+      "ExploreActivityCard": {
+        "additionalProperties": false,
+        "properties": {
+          "activity_end_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Activity End At"
+          },
+          "activity_start_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Activity Start At"
+          },
+          "campus_scope": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Campus Scope"
+          },
+          "capacity": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Capacity"
+          },
+          "channel": {
+            "enum": [
+              "official",
+              "organization"
+            ],
+            "title": "Channel",
+            "type": "string"
+          },
+          "content": {
+            "title": "Content",
+            "type": "string"
+          },
+          "cover_placeholder_key": {
+            "title": "Cover Placeholder Key",
+            "type": "string"
+          },
+          "cover_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cover Url"
+          },
+          "edition": {
+            "title": "Edition",
+            "type": "string"
+          },
+          "favorite": {
+            "title": "Favorite",
+            "type": "boolean"
+          },
+          "followed": {
+            "title": "Followed",
+            "type": "boolean"
+          },
+          "follower_count": {
+            "title": "Follower Count",
+            "type": "integer"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "location_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location Name"
+          },
+          "organizer": {
+            "title": "Organizer",
+            "type": "string"
+          },
+          "participant_count": {
+            "title": "Participant Count",
+            "type": "integer"
+          },
+          "participant_preview": {
+            "items": {
+              "$ref": "#/components/schemas/ExploreUserSummary"
+            },
+            "maxItems": 8,
+            "title": "Participant Preview",
+            "type": "array"
+          },
+          "participation_mode": {
+            "enum": [
+              "open_team",
+              "official_signup",
+              "information_only"
+            ],
+            "title": "Participation Mode",
+            "type": "string"
+          },
+          "participation_state": {
+            "enum": [
+              "owner",
+              "joined",
+              "pending",
+              "rejected",
+              "available",
+              "closed"
+            ],
+            "title": "Participation State",
+            "type": "string"
+          },
+          "registration_deadline": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Registration Deadline"
+          },
+          "responsible_people": {
+            "items": {
+              "$ref": "#/components/schemas/ExploreResponsiblePerson"
+            },
+            "title": "Responsible People",
+            "type": "array"
+          },
+          "short_title": {
+            "title": "Short Title",
+            "type": "string"
+          },
+          "source_status": {
+            "title": "Source Status",
+            "type": "string"
+          },
+          "source_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Url"
+          },
+          "status": {
+            "const": "active",
+            "title": "Status",
+            "type": "string"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          },
+          "tags": {
+            "items": {
+              "$ref": "#/components/schemas/ExploreTag"
+            },
+            "title": "Tags",
+            "type": "array"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "trust_badges": {
+            "items": {
+              "discriminator": {
+                "mapping": {
+                  "platform_official": "#/components/schemas/ExploreOfficialTrustBadge",
+                  "verified_organization": "#/components/schemas/ExploreVerifiedOrganizationTrustBadge"
+                },
+                "propertyName": "kind"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/ExploreOfficialTrustBadge"
+                },
+                {
+                  "$ref": "#/components/schemas/ExploreVerifiedOrganizationTrustBadge"
+                }
+              ]
+            },
+            "title": "Trust Badges",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "channel",
+          "title",
+          "short_title",
+          "organizer",
+          "edition",
+          "summary",
+          "content",
+          "source_url",
+          "source_status",
+          "cover_url",
+          "cover_placeholder_key",
+          "location_name",
+          "campus_scope",
+          "capacity",
+          "registration_deadline",
+          "activity_start_at",
+          "activity_end_at",
+          "follower_count",
+          "participant_count",
+          "participant_preview",
+          "participation_mode",
+          "favorite",
+          "followed",
+          "participation_state",
+          "tags",
+          "status",
+          "trust_badges",
+          "responsible_people"
+        ],
+        "title": "ExploreActivityCard",
+        "type": "object"
+      },
+      "ExploreActivityDetail": {
+        "additionalProperties": false,
+        "properties": {
+          "activity_end_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Activity End At"
+          },
+          "activity_start_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Activity Start At"
+          },
+          "campus_scope": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Campus Scope"
+          },
+          "capacity": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Capacity"
+          },
+          "channel": {
+            "enum": [
+              "official",
+              "organization"
+            ],
+            "title": "Channel",
+            "type": "string"
+          },
+          "content": {
+            "title": "Content",
+            "type": "string"
+          },
+          "cover_placeholder_key": {
+            "title": "Cover Placeholder Key",
+            "type": "string"
+          },
+          "cover_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cover Url"
+          },
+          "edition": {
+            "title": "Edition",
+            "type": "string"
+          },
+          "favorite": {
+            "title": "Favorite",
+            "type": "boolean"
+          },
+          "followed": {
+            "title": "Followed",
+            "type": "boolean"
+          },
+          "follower_count": {
+            "title": "Follower Count",
+            "type": "integer"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "location_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location Name"
+          },
+          "organizer": {
+            "title": "Organizer",
+            "type": "string"
+          },
+          "participant_count": {
+            "title": "Participant Count",
+            "type": "integer"
+          },
+          "participant_preview": {
+            "items": {
+              "$ref": "#/components/schemas/ExploreUserSummary"
+            },
+            "maxItems": 8,
+            "title": "Participant Preview",
+            "type": "array"
+          },
+          "participation_mode": {
+            "enum": [
+              "open_team",
+              "official_signup",
+              "information_only"
+            ],
+            "title": "Participation Mode",
+            "type": "string"
+          },
+          "participation_state": {
+            "enum": [
+              "owner",
+              "joined",
+              "pending",
+              "rejected",
+              "available",
+              "closed"
+            ],
+            "title": "Participation State",
+            "type": "string"
+          },
+          "registration_deadline": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Registration Deadline"
+          },
+          "related_groups": {
+            "items": {
+              "$ref": "#/components/schemas/ExploreGroupCard"
+            },
+            "maxItems": 8,
+            "title": "Related Groups",
+            "type": "array"
+          },
+          "responsible_people": {
+            "items": {
+              "$ref": "#/components/schemas/ExploreResponsiblePerson"
+            },
+            "title": "Responsible People",
+            "type": "array"
+          },
+          "short_title": {
+            "title": "Short Title",
+            "type": "string"
+          },
+          "source_status": {
+            "title": "Source Status",
+            "type": "string"
+          },
+          "source_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Url"
+          },
+          "status": {
+            "const": "active",
+            "title": "Status",
+            "type": "string"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          },
+          "tags": {
+            "items": {
+              "$ref": "#/components/schemas/ExploreTag"
+            },
+            "title": "Tags",
+            "type": "array"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "trust_badges": {
+            "items": {
+              "discriminator": {
+                "mapping": {
+                  "platform_official": "#/components/schemas/ExploreOfficialTrustBadge",
+                  "verified_organization": "#/components/schemas/ExploreVerifiedOrganizationTrustBadge"
+                },
+                "propertyName": "kind"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/ExploreOfficialTrustBadge"
+                },
+                {
+                  "$ref": "#/components/schemas/ExploreVerifiedOrganizationTrustBadge"
+                }
+              ]
+            },
+            "title": "Trust Badges",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "channel",
+          "title",
+          "short_title",
+          "organizer",
+          "edition",
+          "summary",
+          "content",
+          "source_url",
+          "source_status",
+          "cover_url",
+          "cover_placeholder_key",
+          "location_name",
+          "campus_scope",
+          "capacity",
+          "registration_deadline",
+          "activity_start_at",
+          "activity_end_at",
+          "follower_count",
+          "participant_count",
+          "participant_preview",
+          "participation_mode",
+          "favorite",
+          "followed",
+          "participation_state",
+          "tags",
+          "status",
+          "trust_badges",
+          "responsible_people",
+          "related_groups"
+        ],
+        "title": "ExploreActivityDetail",
+        "type": "object"
+      },
+      "ExploreActivityDetailResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "const": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "$ref": "#/components/schemas/ExploreActivityDetail"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "message",
+          "data"
+        ],
+        "title": "ExploreActivityDetailResponse",
+        "type": "object"
+      },
+      "ExploreActivityListResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "const": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "$ref": "#/components/schemas/ExploreActivityPage"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "message",
+          "data"
+        ],
+        "title": "ExploreActivityListResponse",
+        "type": "object"
+      },
+      "ExploreActivityPage": {
+        "additionalProperties": false,
+        "properties": {
+          "list": {
+            "items": {
+              "$ref": "#/components/schemas/ExploreActivityCard"
+            },
+            "title": "List",
+            "type": "array"
+          },
+          "page": {
+            "title": "Page",
+            "type": "integer"
+          },
+          "page_size": {
+            "maximum": 40.0,
+            "title": "Page Size",
+            "type": "integer"
+          },
+          "pages": {
+            "title": "Pages",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "list",
+          "total",
+          "page",
+          "page_size",
+          "pages"
+        ],
+        "title": "ExploreActivityPage",
+        "type": "object"
+      },
+      "ExploreGroupCard": {
+        "additionalProperties": false,
+        "properties": {
+          "activity_name": {
+            "title": "Activity Name",
+            "type": "string"
+          },
+          "author": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ExploreUserSummary"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "author_id": {
+            "title": "Author Id",
+            "type": "string"
+          },
+          "bookmark": {
+            "title": "Bookmark",
+            "type": "boolean"
+          },
+          "collaborators": {
+            "items": {
+              "$ref": "#/components/schemas/ExploreResponsiblePerson"
+            },
+            "title": "Collaborators",
+            "type": "array"
+          },
+          "cover_placeholder_key": {
+            "title": "Cover Placeholder Key",
+            "type": "string"
+          },
+          "cover_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cover Url"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "current_members": {
+            "title": "Current Members",
+            "type": "integer"
+          },
+          "deadline": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deadline"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "join_mode": {
+            "enum": [
+              "application",
+              "direct",
+              "none"
+            ],
+            "title": "Join Mode",
+            "type": "string"
+          },
+          "join_state": {
+            "enum": [
+              "owner",
+              "joined",
+              "pending",
+              "rejected",
+              "available",
+              "closed"
+            ],
+            "title": "Join State",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "topic_team",
+              "casual_invitation"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "linked_activity": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ExploreLinkedActivity"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "main_category": {
+            "title": "Main Category",
+            "type": "string"
+          },
+          "member_preview": {
+            "items": {
+              "$ref": "#/components/schemas/ExploreUserSummary"
+            },
+            "maxItems": 8,
+            "title": "Member Preview",
+            "type": "array"
+          },
+          "needed_roles": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Needed Roles",
+            "type": "array"
+          },
+          "purpose": {
+            "enum": [
+              "team_recruitment",
+              "official_signup",
+              "discussion"
+            ],
+            "title": "Purpose",
+            "type": "string"
+          },
+          "risk_level": {
+            "title": "Risk Level",
+            "type": "string"
+          },
+          "school_scope": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "School Scope"
+          },
+          "source_type": {
+            "title": "Source Type",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "recruiting",
+              "full",
+              "closed"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "tags": {
+            "items": {
+              "$ref": "#/components/schemas/ExploreTag"
+            },
+            "title": "Tags",
+            "type": "array"
+          },
+          "target_members": {
+            "title": "Target Members",
+            "type": "integer"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "topic_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Topic Id"
+          },
+          "weekly_hours": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Weekly Hours"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "description",
+          "source_type",
+          "kind",
+          "purpose",
+          "join_mode",
+          "topic_id",
+          "main_category",
+          "activity_name",
+          "cover_url",
+          "cover_placeholder_key",
+          "current_members",
+          "target_members",
+          "needed_roles",
+          "weekly_hours",
+          "school_scope",
+          "deadline",
+          "risk_level",
+          "status",
+          "author_id",
+          "author",
+          "bookmark",
+          "join_state",
+          "member_preview",
+          "linked_activity",
+          "tags",
+          "collaborators",
+          "created_at"
+        ],
+        "title": "ExploreGroupCard",
+        "type": "object"
+      },
+      "ExploreGroupDetail": {
+        "additionalProperties": false,
+        "properties": {
+          "activity_name": {
+            "title": "Activity Name",
+            "type": "string"
+          },
+          "author": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ExploreUserSummary"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "author_id": {
+            "title": "Author Id",
+            "type": "string"
+          },
+          "bookmark": {
+            "title": "Bookmark",
+            "type": "boolean"
+          },
+          "collaborators": {
+            "items": {
+              "$ref": "#/components/schemas/ExploreResponsiblePerson"
+            },
+            "title": "Collaborators",
+            "type": "array"
+          },
+          "cover_placeholder_key": {
+            "title": "Cover Placeholder Key",
+            "type": "string"
+          },
+          "cover_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cover Url"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "current_members": {
+            "title": "Current Members",
+            "type": "integer"
+          },
+          "deadline": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deadline"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "join_mode": {
+            "enum": [
+              "application",
+              "direct",
+              "none"
+            ],
+            "title": "Join Mode",
+            "type": "string"
+          },
+          "join_state": {
+            "enum": [
+              "owner",
+              "joined",
+              "pending",
+              "rejected",
+              "available",
+              "closed"
+            ],
+            "title": "Join State",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "topic_team",
+              "casual_invitation"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "linked_activity": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ExploreLinkedActivity"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "main_category": {
+            "title": "Main Category",
+            "type": "string"
+          },
+          "member_preview": {
+            "items": {
+              "$ref": "#/components/schemas/ExploreUserSummary"
+            },
+            "maxItems": 8,
+            "title": "Member Preview",
+            "type": "array"
+          },
+          "needed_roles": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Needed Roles",
+            "type": "array"
+          },
+          "purpose": {
+            "enum": [
+              "team_recruitment",
+              "official_signup",
+              "discussion"
+            ],
+            "title": "Purpose",
+            "type": "string"
+          },
+          "risk_level": {
+            "title": "Risk Level",
+            "type": "string"
+          },
+          "school_scope": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "School Scope"
+          },
+          "source_type": {
+            "title": "Source Type",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "recruiting",
+              "full",
+              "closed"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "tags": {
+            "items": {
+              "$ref": "#/components/schemas/ExploreTag"
+            },
+            "title": "Tags",
+            "type": "array"
+          },
+          "target_members": {
+            "title": "Target Members",
+            "type": "integer"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "topic_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Topic Id"
+          },
+          "weekly_hours": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Weekly Hours"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "description",
+          "source_type",
+          "kind",
+          "purpose",
+          "join_mode",
+          "topic_id",
+          "main_category",
+          "activity_name",
+          "cover_url",
+          "cover_placeholder_key",
+          "current_members",
+          "target_members",
+          "needed_roles",
+          "weekly_hours",
+          "school_scope",
+          "deadline",
+          "risk_level",
+          "status",
+          "author_id",
+          "author",
+          "bookmark",
+          "join_state",
+          "member_preview",
+          "linked_activity",
+          "tags",
+          "collaborators",
+          "created_at"
+        ],
+        "title": "ExploreGroupDetail",
+        "type": "object"
+      },
+      "ExploreGroupDetailResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "const": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "$ref": "#/components/schemas/ExploreGroupDetail"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "message",
+          "data"
+        ],
+        "title": "ExploreGroupDetailResponse",
+        "type": "object"
+      },
+      "ExploreGroupListResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "const": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "$ref": "#/components/schemas/ExploreGroupPage"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "message",
+          "data"
+        ],
+        "title": "ExploreGroupListResponse",
+        "type": "object"
+      },
+      "ExploreGroupPage": {
+        "additionalProperties": false,
+        "properties": {
+          "list": {
+            "items": {
+              "$ref": "#/components/schemas/ExploreGroupCard"
+            },
+            "title": "List",
+            "type": "array"
+          },
+          "page": {
+            "title": "Page",
+            "type": "integer"
+          },
+          "page_size": {
+            "maximum": 40.0,
+            "title": "Page Size",
+            "type": "integer"
+          },
+          "pages": {
+            "title": "Pages",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "list",
+          "total",
+          "page",
+          "page_size",
+          "pages"
+        ],
+        "title": "ExploreGroupPage",
+        "type": "object"
+      },
+      "ExploreLinkedActivity": {
+        "additionalProperties": false,
+        "properties": {
+          "activity_start_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Activity Start At"
+          },
+          "cover_placeholder_key": {
+            "title": "Cover Placeholder Key",
+            "type": "string"
+          },
+          "cover_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cover Url"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "organizer": {
+            "title": "Organizer",
+            "type": "string"
+          },
+          "participation_mode": {
+            "enum": [
+              "open_team",
+              "official_signup",
+              "information_only"
+            ],
+            "title": "Participation Mode",
+            "type": "string"
+          },
+          "registration_deadline": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Registration Deadline"
+          },
+          "short_title": {
+            "title": "Short Title",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "short_title",
+          "organizer",
+          "cover_url",
+          "cover_placeholder_key",
+          "registration_deadline",
+          "activity_start_at",
+          "participation_mode",
+          "status"
+        ],
+        "title": "ExploreLinkedActivity",
+        "type": "object"
+      },
+      "ExploreOfficialTrustBadge": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "const": "platform_official",
+            "title": "Kind",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "label"
+        ],
+        "title": "ExploreOfficialTrustBadge",
+        "type": "object"
+      },
+      "ExploreResponsiblePerson": {
+        "additionalProperties": false,
+        "properties": {
+          "badge": {
+            "title": "Badge",
+            "type": "string"
+          },
+          "nickname": {
+            "title": "Nickname",
+            "type": "string"
+          },
+          "role": {
+            "title": "Role",
+            "type": "string"
+          },
+          "user_id": {
+            "title": "User Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "user_id",
+          "nickname",
+          "role",
+          "badge"
+        ],
+        "title": "ExploreResponsiblePerson",
+        "type": "object"
+      },
+      "ExploreTag": {
+        "additionalProperties": false,
+        "properties": {
+          "canonical_name": {
+            "title": "Canonical Name",
+            "type": "string"
+          },
+          "category": {
+            "title": "Category",
+            "type": "string"
+          },
+          "display_color": {
+            "title": "Display Color",
+            "type": "string"
+          },
+          "tag_id": {
+            "title": "Tag Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "tag_id",
+          "canonical_name",
+          "category",
+          "display_color"
+        ],
+        "title": "ExploreTag",
+        "type": "object"
+      },
+      "ExploreUserSummary": {
+        "additionalProperties": false,
+        "properties": {
+          "avatar": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Avatar"
+          },
+          "grade": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Grade"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "major": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Major"
+          },
+          "nickname": {
+            "title": "Nickname",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "nickname",
+          "avatar",
+          "major",
+          "grade"
+        ],
+        "title": "ExploreUserSummary",
+        "type": "object"
+      },
+      "ExploreVerifiedOrganizationTrustBadge": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "const": "verified_organization",
+            "title": "Kind",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "organization_name": {
+            "title": "Organization Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "label",
+          "organization_name"
+        ],
+        "title": "ExploreVerifiedOrganizationTrustBadge",
+        "type": "object"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -4432,6 +5886,398 @@
         "summary": "Verify Email",
         "tags": [
           "auth"
+        ]
+      }
+    },
+    "/api/explore/activities": {
+      "get": {
+        "operationId": "activities_api_explore_activities_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "default": "",
+              "maxLength": 80,
+              "title": "Q",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "tag_ids",
+            "required": false,
+            "schema": {
+              "default": "",
+              "maxLength": 800,
+              "title": "Tag Ids",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "date",
+            "required": false,
+            "schema": {
+              "default": "",
+              "maxLength": 40,
+              "title": "Date",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "default": "active",
+              "maxLength": 40,
+              "title": "Status",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "type",
+            "required": false,
+            "schema": {
+              "default": "",
+              "maxLength": 40,
+              "title": "Type",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "campus",
+            "required": false,
+            "schema": {
+              "default": "",
+              "maxLength": 80,
+              "title": "Campus",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page_size",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 40,
+              "minimum": 1,
+              "title": "Page Size",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExploreActivityListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Activities",
+        "tags": [
+          "explore"
+        ]
+      }
+    },
+    "/api/explore/activities/{topic_id}": {
+      "get": {
+        "operationId": "activity_detail_api_explore_activities__topic_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "topic_id",
+            "required": true,
+            "schema": {
+              "title": "Topic Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExploreActivityDetailResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Activity Detail",
+        "tags": [
+          "explore"
+        ]
+      }
+    },
+    "/api/explore/groups": {
+      "get": {
+        "operationId": "groups_api_explore_groups_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "default": "",
+              "maxLength": 80,
+              "title": "Q",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "tag_ids",
+            "required": false,
+            "schema": {
+              "default": "",
+              "maxLength": 800,
+              "title": "Tag Ids",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "date",
+            "required": false,
+            "schema": {
+              "default": "",
+              "maxLength": 40,
+              "title": "Date",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "default": "",
+              "maxLength": 40,
+              "title": "Status",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "type",
+            "required": false,
+            "schema": {
+              "default": "",
+              "maxLength": 40,
+              "title": "Type",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "campus",
+            "required": false,
+            "schema": {
+              "default": "",
+              "maxLength": 80,
+              "title": "Campus",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page_size",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 40,
+              "minimum": 1,
+              "title": "Page Size",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExploreGroupListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Groups",
+        "tags": [
+          "explore"
+        ]
+      }
+    },
+    "/api/explore/groups/{post_id}": {
+      "get": {
+        "operationId": "group_detail_api_explore_groups__post_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "post_id",
+            "required": true,
+            "schema": {
+              "title": "Post Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExploreGroupDetailResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Group Detail",
+        "tags": [
+          "explore"
         ]
       }
     },

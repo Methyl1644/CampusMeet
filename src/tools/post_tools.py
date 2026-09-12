@@ -25,7 +25,13 @@ from tools.auth_tools import _user_brief
 logger = logging.getLogger(__name__)
 
 
-def _post_to_dict(post: Post, author: User | None = None, session=None) -> dict:
+def _post_to_dict(
+    post: Post,
+    author: User | None = None,
+    session=None,
+    *,
+    viewer_id: int | None = None,
+) -> dict:
     """将 Post 对象转为字典"""
     data = {
         "id": str(post.id),
@@ -33,10 +39,13 @@ def _post_to_dict(post: Post, author: User | None = None, session=None) -> dict:
         "description": post.description,
         "source_type": post.source_type,
         "kind": post.kind,
+        "purpose": post.purpose,
+        "join_mode": post.join_mode,
         "topic_id": str(post.topic_id) if post.topic_id is not None else None,
         "main_category": post.main_category,
         "tags": post.tags or [],
         "activity_name": post.activity_name,
+        "cover_url": post.cover_url,
         "current_members": post.current_members,
         "target_members": post.target_members,
         "needed_roles": post.needed_roles or [],
@@ -48,13 +57,70 @@ def _post_to_dict(post: Post, author: User | None = None, session=None) -> dict:
         "author_id": str(post.author_id),
         "created_at": post.created_at.isoformat() if post.created_at else None,
     }
+    from services.explore import group_placeholder_key
+
+    data["cover_placeholder_key"] = group_placeholder_key(post)
     if author:
         data["author"] = _user_brief(author)
     if session is not None:
-        from services.identity import post_trust_projection
-
-        data.update(post_trust_projection(session, post))
+        projection = _batch_post_to_dicts(
+            session,
+            [post],
+            {author.id: author} if author else {},
+            viewer_id if viewer_id is not None else (author.id if author else None),
+        )[0]
+        for key in ("bookmark", "join_state", "member_preview", "linked_activity", "collaborators"):
+            data[key] = projection[key]
     return data
+
+
+def _batch_post_to_dicts(
+    session,
+    posts: list[Post],
+    authors: dict[int, User] | None = None,
+    user_id: int | None = None,
+) -> list[dict]:
+    from services.explore import project_group_cards
+
+    authors = authors or {}
+    projections = project_group_cards(session, posts, user_id)
+    result = []
+    for post, projection in zip(posts, projections):
+        data = {
+            "id": str(post.id),
+            "title": post.title,
+            "description": post.description,
+            "source_type": post.source_type,
+            "kind": post.kind,
+            "purpose": post.purpose,
+            "join_mode": post.join_mode,
+            "topic_id": str(post.topic_id) if post.topic_id is not None else None,
+            "main_category": post.main_category,
+            "tags": post.tags or [],
+            "activity_name": post.activity_name,
+            "cover_url": post.cover_url,
+            "cover_placeholder_key": projection["cover_placeholder_key"],
+            "current_members": post.current_members,
+            "target_members": post.target_members,
+            "needed_roles": post.needed_roles or [],
+            "weekly_hours": post.weekly_hours,
+            "school_scope": post.school_scope,
+            "deadline": post.deadline,
+            "risk_level": post.risk_level,
+            "status": post.status,
+            "author_id": str(post.author_id),
+            "created_at": post.created_at.isoformat() if post.created_at else None,
+            "bookmark": projection["bookmark"],
+            "join_state": projection["join_state"],
+            "member_preview": projection["member_preview"],
+            "linked_activity": projection["linked_activity"],
+            "collaborators": projection["collaborators"],
+        }
+        author = authors.get(post.author_id)
+        if author:
+            data["author"] = _user_brief(author)
+        result.append(data)
+    return result
 
 
 @tool
@@ -246,6 +312,7 @@ def list_posts(
     sort: str = "latest",
     kind: str = "",
     topic_id: str = "",
+    user_id: str = "",
 ) -> str:
     """浏览帖子列表。tab 为标签页(recommend/recruiting/official/hot)，page 为页码，page_size 为每页数量，category 为主分类筛选，tags 为标签筛选(逗号分隔)，keyword 为搜索关键词，sort 为排序方式(latest/hot/deadline)。"""
     ctx = request_context.get() or new_context(method="list_posts")
@@ -307,7 +374,12 @@ def list_posts(
                 author_results = session.execute(select(User).where(User.id.in_(author_ids))).scalars().all()
                 authors = {a.id: a for a in author_results}
 
-            posts = [_post_to_dict(p, authors.get(p.author_id), session) for p in results]
+            posts = _batch_post_to_dicts(
+                session,
+                results,
+                authors,
+                int(user_id) if user_id else None,
+            )
             return json.dumps({
                 "success": True,
                 "list": posts,
@@ -323,7 +395,7 @@ def list_posts(
 
 
 @tool
-def get_post_detail(post_id: str) -> str:
+def get_post_detail(post_id: str, user_id: str = "") -> str:
     """获取帖子详情。post_id 为帖子ID。"""
     ctx = request_context.get() or new_context(method="get_post_detail")
     try:
@@ -342,7 +414,12 @@ def get_post_detail(post_id: str) -> str:
             author = session.execute(select(User).where(User.id == post.author_id)).scalar_one_or_none()
             return json.dumps({
                 "success": True,
-                "post": _post_to_dict(post, author, session),
+                "post": _batch_post_to_dicts(
+                    session,
+                    [post],
+                    {author.id: author} if author else {},
+                    int(user_id) if user_id else None,
+                )[0],
             }, ensure_ascii=False)
         finally:
             session.close()
@@ -370,7 +447,7 @@ def get_my_posts(user_id: str, page: int = 1, page_size: int = 20) -> str:
                 .offset((page - 1) * page_size)
                 .limit(page_size)
             ).scalars().all()
-            posts = [_post_to_dict(p, session=session) for p in results]
+            posts = _batch_post_to_dicts(session, results, user_id=uid)
             return json.dumps(
                 {
                     "success": True,

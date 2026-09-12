@@ -625,9 +625,9 @@ def test_post_create_and_update_paths_apply_the_policy(monkeypatch):
         str(operator_id),
     )
     post_id = int(created["data"]["id"])
-    assert "cover_url" not in created["data"]
-    assert "purpose" not in created["data"]
-    assert "join_mode" not in created["data"]
+    assert created["data"]["cover_url"] is None
+    assert created["data"]["purpose"] == "official_signup"
+    assert created["data"]["join_mode"] == "direct"
 
     updated = posts_api.update(
         post_id,
@@ -635,15 +635,15 @@ def test_post_create_and_update_paths_apply_the_policy(monkeypatch):
         str(operator_id),
     )
     assert updated["data"]["title"] == "Official signup updated"
-    assert "purpose" not in updated["data"]
-    assert "join_mode" not in updated["data"]
+    assert updated["data"]["purpose"] == "discussion"
+    assert updated["data"]["join_mode"] == "none"
     with factory() as session:
         stored = session.get(Post, post_id)
         assert stored.purpose == "discussion"
         assert stored.join_mode == "none"
 
 
-def test_post_tool_keeps_policy_inputs_but_defers_cover_and_public_projection():
+def test_post_tool_keeps_policy_inputs_and_adds_task_three_public_projection():
     from tools import post_tools
 
     assert "purpose" in post_tools.create_post.args
@@ -657,9 +657,9 @@ def test_post_tool_keeps_policy_inputs_but_defers_cover_and_public_projection():
         cover_url="https://example.test/cover.jpg",
     )
     projection = post_tools._post_to_dict(post)
-    assert "cover_url" not in projection
-    assert "purpose" not in projection
-    assert "join_mode" not in projection
+    assert projection["cover_url"] == "https://example.test/cover.jpg"
+    assert projection["purpose"] == "official_signup"
+    assert projection["join_mode"] == "direct"
 
 
 def test_application_tool_routes_join_mode_errors_through_policy(monkeypatch):

@@ -118,6 +118,7 @@ def posts(
                 "sort": sort,
                 "kind": kind,
                 "topic_id": topic_id,
+                "user_id": user_id,
             },
         )
     )
@@ -139,7 +140,10 @@ def my_posts(
 
 @router.get("/{post_id}")
 def post_detail(post_id: str, user_id: str = Depends(current_user_id)) -> dict[str, Any]:
-    return parse_tool_result(invoke_tool(get_post_detail, {"post_id": post_id}), "post")
+    return parse_tool_result(
+        invoke_tool(get_post_detail, {"post_id": post_id, "user_id": user_id}),
+        "post",
+    )
 
 
 @router.post("")
@@ -348,7 +352,10 @@ def update(post_id: int, body: PostUpdateRequest, user_id: str = Depends(current
         except ParticipationError as exc:
             raise _participation_http_error(exc) from exc
         author = session.get(User, post.author_id)
-        return api_ok(_post_to_dict(post, author, session), "帖子已更新")
+        return api_ok(
+            _post_to_dict(post, author, session, viewer_id=user.id),
+            "帖子已更新",
+        )
     finally:
         session.close()
 
@@ -375,7 +382,10 @@ def _transition(post_id: int, user_id: str, action: str) -> dict[str, Any]:
             session.rollback()
             raise HTTPException(status_code=409, detail=str(exc)) from exc
         author = session.get(User, post.author_id)
-        return api_ok(_post_to_dict(post, author, session), "帖子状态已更新")
+        return api_ok(
+            _post_to_dict(post, author, session, viewer_id=actor.id),
+            "帖子状态已更新",
+        )
     finally:
         session.close()
 
