@@ -1,12 +1,16 @@
 from __future__ import annotations
 
+import importlib
 import json
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 from alembic import command
 from alembic.config import Config
 from sqlalchemy import create_engine, inspect, text
+from sqlalchemy.sql.dml import Update
+from sqlalchemy.sql.selectable import Select
 from sqlalchemy.exc import IntegrityError
 
 from storage.database.models import *  # noqa: F403 - imports register every model
@@ -253,6 +257,21 @@ def test_team_task_bound_migration_trims_legacy_json_and_enforces_the_cap(tmp_pa
                 )
             },
         )
+        connection.execute(
+            text("INSERT INTO teams (id, task_list) VALUES (4, :task_list)"),
+            {
+                "task_list": json.dumps(
+                    [
+                        {
+                            "id": "legacy-malformed",
+                            "title": "safe\ud800\x00\x01🚀text\udfff",
+                            "done": False,
+                        }
+                    ],
+                    ensure_ascii=True,
+                )
+            },
+        )
     config = _alembic_config(database_url)
     command.stamp(config, "20260912_11")
 
@@ -268,6 +287,13 @@ def test_team_task_bound_migration_trims_legacy_json_and_enforces_the_cap(tmp_pa
     assert persisted[2] == []
     assert set(persisted[3][0]) == {"id", "title", "done"}
     assert len(json.dumps(persisted[3], ensure_ascii=True).encode("utf-8")) <= TEAM_TASK_JSON_MAX_BYTES
+    assert "🚀" in persisted[4][0]["title"]
+    assert "\x00" not in persisted[4][0]["title"]
+    assert "\x01" not in persisted[4][0]["title"]
+    assert not any(
+        0xD800 <= ord(character) <= 0xDFFF
+        for character in persisted[4][0]["title"]
+    )
     constraints = {item["name"] for item in inspect(engine).get_check_constraints("teams")}
     assert "ck_teams_task_list_bounded" in constraints
 
@@ -283,6 +309,101 @@ def test_team_task_bound_migration_trims_legacy_json_and_enforces_the_cap(tmp_pa
                     text("INSERT INTO teams (id, task_list) VALUES (:id, :task_list)"),
                     {"id": row_id, "task_list": task_list},
                 )
+
+
+def test_postgresql_task_migration_replaces_restores_and_reapplies_constraint(monkeypatch):
+    migration = importlib.import_module(
+        "migrations.versions.20260913_13_bound_team_task_payload_bytes"
+    )
+    events = []
+
+    class FakeBind:
+        dialect = SimpleNamespace(name="postgresql")
+
+        def execute(self, statement):
+            if isinstance(statement, Select):
+                return [
+                    (
+                        7,
+                        [
+                            {
+                                "id": "legacy",
+                                "title": "safe\ud800\x00🚀text",
+                                "done": False,
+                            }
+                        ],
+                    )
+                ]
+            assert isinstance(statement, Update)
+            events.append(("sanitize", statement.compile().params))
+            return []
+
+    class FakeInspector:
+        def get_table_names(self):
+            return ["teams"]
+
+        def get_check_constraints(self, _table_name):
+            return [{"name": migration.CONSTRAINT_NAME}]
+
+    class FakeBatch:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        def drop_constraint(self, name, *, type_):
+            events.append(("drop", name, type_))
+
+        def create_check_constraint(self, name, condition):
+            events.append(("create", name, condition))
+
+    class FakeOp:
+        bind = FakeBind()
+
+        def get_bind(self):
+            return self.bind
+
+        def batch_alter_table(self, table_name):
+            assert table_name == "teams"
+            return FakeBatch()
+
+    fake_op = FakeOp()
+    monkeypatch.setattr(migration, "op", fake_op)
+    monkeypatch.setattr(migration, "inspect", lambda _bind: FakeInspector())
+
+    migration.upgrade()
+    assert events[0][0] == "sanitize"
+    sanitized_task_list = next(
+        value for value in events[0][1].values() if isinstance(value, list)
+    )
+    sanitized_title = sanitized_task_list[0]["title"]
+    assert "🚀" in sanitized_title
+    assert "\x00" not in sanitized_title
+    assert not any(0xD800 <= ord(character) <= 0xDFFF for character in sanitized_title)
+    assert events[1:] == [
+        ("drop", migration.CONSTRAINT_NAME, "check"),
+        (
+            "create",
+            migration.CONSTRAINT_NAME,
+            migration.POSTGRESQL_TEAM_TASK_CHECK,
+        ),
+    ]
+
+    events.clear()
+    migration.downgrade()
+    assert events == [
+        ("drop", migration.CONSTRAINT_NAME, "check"),
+        ("create", migration.CONSTRAINT_NAME, migration.LEGACY_TASK_COUNT_CHECK),
+    ]
+
+    events.clear()
+    migration.upgrade()
+    assert events[-1] == (
+        "create",
+        migration.CONSTRAINT_NAME,
+        migration.POSTGRESQL_TEAM_TASK_CHECK,
+    )
 
 
 def test_identity_migration_preserves_legacy_organization_application_rows(tmp_path):

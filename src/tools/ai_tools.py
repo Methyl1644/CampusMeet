@@ -16,7 +16,12 @@ from langchain_core.messages import SystemMessage, HumanMessage
 from storage.database.db import get_session
 from storage.database.models.user import User
 from storage.database.models.post import Post
-from storage.database.models.team import TEAM_TASK_LIMIT, Team, TeamMember
+from storage.database.models.team import (
+    TEAM_TASK_LIMIT,
+    Team,
+    TeamMember,
+    normalize_team_task_list,
+)
 from services.observability import record_metric
 from tools.auth_tools import _user_brief, _user_to_dict
 from services.content import OPTIONAL_POST_FIELDS, POST_FIELDS, build_post_draft
@@ -885,11 +890,14 @@ def ai_team_plan(team_id: str) -> str:
             result = _validated_team_plan(result, allowed_member_ids)
             if result is None:
                 result = _deterministic_team_plan(team, member_info, post_info)
+            result["task_list"] = normalize_team_task_list(result.get("task_list", []))
             team.division_of_labor = result.get("division_of_labor", [])
             team.meeting_agenda = result.get("meeting_agenda", [])
             team.task_list = result.get("task_list", [])
             team.risk_reminders = result.get("risk_reminders", [])
             session.commit()
+            session.refresh(team)
+            result["task_list"] = list(team.task_list or [])
 
             return json.dumps({"success": True, "team_plan": result, "message": "AI 成队规划已生成并保存"}, ensure_ascii=False)
         finally:

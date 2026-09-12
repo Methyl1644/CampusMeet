@@ -8,7 +8,13 @@ from coze_coding_utils.log.write_log import request_context
 from coze_coding_utils.runtime_ctx.context import new_context
 from storage.database.db import get_session
 from storage.database.models.user import User
-from storage.database.models.team import TEAM_TASK_LIMIT, Team, TeamMember
+from storage.database.models.team import (
+    TEAM_TASK_CAPACITY_MESSAGE,
+    TEAM_TASK_LIMIT,
+    Team,
+    TeamMember,
+    normalize_team_task_list,
+)
 from storage.database.models.post import Post
 from storage.database.models.content import AuditLog
 from services.collaboration_lifecycle import deadline_has_passed
@@ -250,10 +256,33 @@ def create_team_task(
             "due_at": due_at.strip()[:40] or None,
             "done": False,
         }
-        team.task_list = [*(team.task_list or []), task]
+        bounded_tasks = normalize_team_task_list([*(team.task_list or []), task])
+        persisted_task = next(
+            (item for item in bounded_tasks if item.get("id") == task["id"]),
+            None,
+        )
+        if persisted_task is None:
+            return json.dumps(
+                {"success": False, "message": TEAM_TASK_CAPACITY_MESSAGE},
+                ensure_ascii=False,
+            )
+        team.task_list = bounded_tasks
         _team_audit(session, uid, "team.task_create", team, {"task_id": task["id"]})
         session.commit()
-        return json.dumps({"success": True, "task": task, "team": _team_to_dict(team)}, ensure_ascii=False)
+        session.refresh(team)
+        persisted_task = next(
+            (item for item in (team.task_list or []) if item.get("id") == task["id"]),
+            None,
+        )
+        if persisted_task is None:
+            return json.dumps(
+                {"success": False, "message": TEAM_TASK_CAPACITY_MESSAGE},
+                ensure_ascii=False,
+            )
+        return json.dumps(
+            {"success": True, "task": persisted_task, "team": _team_to_dict(team)},
+            ensure_ascii=False,
+        )
     finally:
         session.close()
 

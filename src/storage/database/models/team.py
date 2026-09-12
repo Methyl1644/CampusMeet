@@ -9,6 +9,7 @@ from storage.database.shared.types import BIGINT_PRIMARY_KEY
 
 TEAM_TASK_LIMIT = 12
 TEAM_TASK_JSON_MAX_BYTES = 12_288
+TEAM_TASK_CAPACITY_MESSAGE = "任务存储空间已满，请先删除或缩短现有任务"
 TEAM_TASK_FIELD_LIMITS = {
     "id": (64, 256),
     "title": (120, 480),
@@ -34,7 +35,16 @@ POSTGRESQL_TEAM_TASK_CHECK = (
 def _trim_task_string(value: object, *, max_chars: int, max_bytes: int) -> str | None:
     if not isinstance(value, str):
         return None
-    trimmed = value.strip()[:max_chars]
+    safe_characters = []
+    for character in value:
+        codepoint = ord(character)
+        if codepoint < 32 or 0x7F <= codepoint <= 0x9F:
+            continue
+        if 0xD800 <= codepoint <= 0xDFFF:
+            safe_characters.append("�")
+        else:
+            safe_characters.append(character)
+    trimmed = "".join(safe_characters).strip()[:max_chars]
     if not trimmed:
         return None
     if len(trimmed.encode("utf-8")) > max_bytes:

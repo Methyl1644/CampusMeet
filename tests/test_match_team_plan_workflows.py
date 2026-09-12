@@ -173,6 +173,36 @@ def test_deployed_team_plan_bounds_imported_tasks_as_input_grows(monkeypatch):
         assert len(session.get(Team, 1).task_list) == 12
 
 
+def test_deployed_team_plan_returns_the_byte_bounded_persisted_tasks(monkeypatch):
+    factory = _factory()
+    monkeypatch.setattr(ai_tools, "get_session", factory)
+    monkeypatch.setenv("COZE_TEAM_PLAN_API_URL", "https://plan.coze.site/run")
+    monkeypatch.setenv("COZE_DEPLOY_API_TOKEN", "secret")
+    supplementary_title = "🚀" * 120
+    imported_tasks = [
+        {"id": f"task-{index}", "title": supplementary_title, "done": False}
+        for index in range(12)
+    ]
+    monkeypatch.setattr(
+        ai_tools,
+        "_try_coze_deployed_api",
+        lambda *_args: {
+            "division_of_labor": [],
+            "meeting_agenda": [],
+            "task_list": imported_tasks,
+            "risk_reminders": [],
+        },
+    )
+
+    result = json.loads(ai_tools.ai_team_plan.invoke({"team_id": "1"}))
+
+    assert result["success"] is True
+    assert len(result["team_plan"]["task_list"]) < 12
+    with factory() as session:
+        persisted = session.get(Team, 1).task_list
+    assert result["team_plan"]["task_list"] == persisted
+
+
 def test_malformed_match_output_uses_deterministic_candidate_fallback(monkeypatch):
     factory = _factory()
     monkeypatch.setattr(ai_tools, "get_session", factory)
