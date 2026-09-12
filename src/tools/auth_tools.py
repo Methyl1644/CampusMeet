@@ -25,7 +25,7 @@ CODE_RESEND_COOLDOWN_SECONDS = 60
 MAX_CODE_ATTEMPTS = 5
 MAX_PASSWORD_ATTEMPTS = 5
 PASSWORD_LOCK_MINUTES = 15
-ALLOWED_CODE_PURPOSES = {"register", "login", "campus_verify", "reset_password"}
+ALLOWED_CODE_PURPOSES = {"register", "campus_verify", "reset_password"}
 PHONE_PATTERN = re.compile(r"^1[3-9]\d{9}$")
 
 
@@ -142,6 +142,13 @@ def _user_to_dict(user: User) -> dict:
         "avatar": user.avatar,
         "major": user.major,
         "grade": user.grade,
+        "onboarding_step": user.onboarding_step,
+        "onboarding_completed": user.onboarding_completed_at is not None,
+        "bio": user.bio,
+        "interests": user.interests or [],
+        "looking_for": user.looking_for or [],
+        "availability": user.availability or {},
+        "profile_visibility": user.profile_visibility or {},
         "skills": user.skills or [],
         "auth_status": user.auth_status,
         "site_role": user.site_role,
@@ -171,7 +178,7 @@ def register_auth_send_code(
     purpose: str = "register",
     network_identifier: str = "",
 ) -> str:
-    """发送验证码到手机号或邮箱。purpose 为 register、login 或 campus_verify。"""
+    """发送验证码到手机号或邮箱。purpose 为 register、campus_verify 或 reset_password。"""
     ctx = request_context.get() or new_context(method="register_auth_send_code")
     try:
         account = account.strip().lower() if is_email(account) else account.strip()
@@ -182,11 +189,6 @@ def register_auth_send_code(
         if purpose == "register" and not _is_campus_email(account):
             return json.dumps(
                 {"sent": False, "message": "仅支持南京大学校园邮箱注册"},
-                ensure_ascii=False,
-            )
-        if purpose == "login" and not _is_campus_email(account):
-            return json.dumps(
-                {"sent": False, "message": "请使用南京大学校园邮箱登录"},
                 ensure_ascii=False,
             )
         if purpose in {"campus_verify", "reset_password"} and not _is_campus_email(account):
@@ -290,11 +292,6 @@ def register_user(
     account: str,
     code: str,
     password: str,
-    nickname: str,
-    major: str,
-    grade: str,
-    skills: str,
-    wechat: str = "",
     network_identifier: str = "",
 ) -> str:
     """使用南京大学校园邮箱验证码注册新用户。"""
@@ -346,19 +343,13 @@ def register_user(
             if existing:
                 return json.dumps({"success": False, "message": "该账号已注册"}, ensure_ascii=False)
 
-            # 解析技能
-            skill_list = [s.strip() for s in skills.split(",") if s.strip()] if skills else []
-
             # 创建用户
             user = User(
                 email=account,
                 phone=None,
-                wechat=wechat if wechat else None,
                 password_hash=hash_password(password),
-                nickname=nickname,
-                major=major,
-                grade=grade,
-                skills=skill_list,
+                nickname=account.split("@", 1)[0],
+                onboarding_step=1,
                 auth_status="verified",
                 verified_email=account,
             )
@@ -385,14 +376,15 @@ def register_user(
 @tool
 def login_user(
     account: str,
-    password: str = "",
-    code: str = "",
+    password: str,
     network_identifier: str = "",
 ) -> str:
-    """用户登录。密码和登录验证码二选一，验证码只能使用一次。"""
+    """使用账号和密码登录。"""
     ctx = request_context.get() or new_context(method="login_user")
     try:
         account = account.strip().lower() if is_email(account) else account.strip()
+        if not password:
+            return json.dumps({"success": False, "message": "请输入密码"}, ensure_ascii=False)
         session = get_session()
         try:
             result = session.execute(
@@ -423,33 +415,25 @@ def login_user(
                     ensure_ascii=False,
                 )
 
-            if password:
-                now = datetime.datetime.now(datetime.timezone.utc)
-                locked_until = user.locked_until
-                if locked_until and locked_until.tzinfo is None:
-                    locked_until = locked_until.replace(tzinfo=datetime.timezone.utc)
-                if locked_until and locked_until > now:
-                    return json.dumps(
-                        {"success": False, "message": "登录尝试过多，请稍后再试"},
-                        ensure_ascii=False,
-                    )
-                if not verify_password(password, user.password_hash):
-                    user.failed_login_attempts = (user.failed_login_attempts or 0) + 1
-                    if user.failed_login_attempts >= MAX_PASSWORD_ATTEMPTS:
-                        user.failed_login_attempts = 0
-                        user.locked_until = now + datetime.timedelta(minutes=PASSWORD_LOCK_MINUTES)
-                    session.commit()
-                    return json.dumps({"success": False, "message": "密码错误"}, ensure_ascii=False)
-                user.failed_login_attempts = 0
-                user.locked_until = None
+            now = datetime.datetime.now(datetime.timezone.utc)
+            locked_until = user.locked_until
+            if locked_until and locked_until.tzinfo is None:
+                locked_until = locked_until.replace(tzinfo=datetime.timezone.utc)
+            if locked_until and locked_until > now:
+                return json.dumps(
+                    {"success": False, "message": "登录尝试过多，请稍后再试"},
+                    ensure_ascii=False,
+                )
+            if not verify_password(password, user.password_hash):
+                user.failed_login_attempts = (user.failed_login_attempts or 0) + 1
+                if user.failed_login_attempts >= MAX_PASSWORD_ATTEMPTS:
+                    user.failed_login_attempts = 0
+                    user.locked_until = now + datetime.timedelta(minutes=PASSWORD_LOCK_MINUTES)
                 session.commit()
-            elif code:
-                vc = _verify_code(session, account, "login", code)
-                if not vc:
-                    return json.dumps({"success": False, "message": "验证码无效或已过期"}, ensure_ascii=False)
-                session.commit()
-            else:
-                return json.dumps({"success": False, "message": "请输入密码或验证码"}, ensure_ascii=False)
+                return json.dumps({"success": False, "message": "密码错误"}, ensure_ascii=False)
+            user.failed_login_attempts = 0
+            user.locked_until = None
+            session.commit()
 
             token = issue_access_token(session, user.id)
             session.commit()

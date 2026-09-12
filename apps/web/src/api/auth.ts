@@ -9,7 +9,7 @@ import type {
 } from '@shared/types'
 import type { VerificationCodeResponse } from './auth-feedback'
 
-export type VerificationCodePurpose = 'register' | 'login' | 'campus_verify' | 'reset_password'
+export type VerificationCodePurpose = 'register' | 'campus_verify' | 'reset_password'
 
 /** 发送验证码 */
 export function sendCode(account: string, purpose: VerificationCodePurpose = 'register') {

@@ -57,18 +57,12 @@ def send_code(body: SendCodeRequest, request: Request) -> dict[str, Any]:
 
 @router.post("/register")
 def register(body: RegisterRequest, request: Request) -> dict[str, Any]:
-    skills = body.skills
     raw = invoke_tool(
         register_user,
         {
             "account": body.account,
             "code": body.code,
             "password": body.password,
-            "nickname": body.nickname,
-            "major": body.major,
-            "grade": body.grade,
-            "skills": ",".join(skills) if isinstance(skills, list) else str(skills),
-            "wechat": body.wechat,
             "network_identifier": request.client.host if request.client else "",
         },
     )
@@ -83,7 +77,6 @@ def login(body: LoginRequest, request: Request) -> dict[str, Any]:
         {
             "account": body.account,
             "password": body.password,
-            "code": body.code,
             "network_identifier": request.client.host if request.client else "",
         },
     )

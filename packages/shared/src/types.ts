@@ -105,6 +105,13 @@ export interface User extends UserBrief {
   email: string;
   phone?: string;
   skills: string[];
+  onboarding_step: number;
+  onboarding_completed: boolean;
+  bio?: string | null;
+  interests: string[];
+  looking_for: string[];
+  availability: Record<string, unknown>;
+  profile_visibility: Record<string, unknown>;
   verified_email?: string;
   post_count?: number;
   team_count?: number;
@@ -114,9 +121,8 @@ export interface User extends UserBrief {
 
 /** 登录/注册请求 */
 export interface LoginRequest {
-  account: string; // 手机号或邮箱
-  code?: string;   // 验证码
-  password?: string;
+  account: string;
+  password: string;
 }
 
 export interface PasswordResetRequest {
@@ -128,11 +134,7 @@ export interface PasswordResetRequest {
 export interface RegisterRequest {
   account: string;
   code: string;
-  password?: string;
-  nickname: string;
-  major: string;
-  grade: string;
-  skills: string[];
+  password: string;
 }
 
 /** 认证响应 */

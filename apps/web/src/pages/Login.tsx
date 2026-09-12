@@ -33,6 +33,12 @@ const DEMO_USER: User = {
   major: '计算机科学与技术',
   grade: '大三',
   skills: ['产品设计', 'React', 'Python'],
+  onboarding_step: 1,
+  onboarding_completed: true,
+  interests: [],
+  looking_for: [],
+  availability: {},
+  profile_visibility: {},
   post_count: 0,
   team_count: 0,
 }
@@ -139,7 +145,7 @@ export default function Login() {
       showToast('请输入南京大学学生或教职工邮箱', 'error')
       return
     }
-    const requestPurpose = step === 'login' ? 'login' : 'register'
+    const requestPurpose = 'register'
     const requestGeneration = ++primaryCodeRequestGeneration.current
     primaryAuthPurpose.current = requestPurpose
     const requestIsCurrent = () =>
@@ -165,14 +171,18 @@ export default function Login() {
       showToast('请输入南京大学学生或教职工邮箱', 'error')
       return
     }
+    if (!password) {
+      showToast('请输入密码', 'error')
+      return
+    }
     setSubmitting(true)
     try {
-      const res = await login({ account, code: code || undefined, password: password || undefined })
+      const res = await login({ account, password })
       setAuth(res.token, res.user)
       showToast('登录成功', 'success')
       navigate('/home')
     } catch (error) {
-      showToast(getApiErrorMessage(error, '登录失败，请检查账号和验证码'), 'error')
+      showToast(getApiErrorMessage(error, '登录失败，请检查账号和密码'), 'error')
     } finally {
       setSubmitting(false)
     }
@@ -233,7 +243,7 @@ export default function Login() {
     if (!validateRegistrationAccount()) return
     setSubmitting(true)
     try {
-      const res = await register({ account, code, password, nickname, major, grade, skills })
+      const res = await register({ account, code, password })
       setAuth(res.token, res.user)
       showToast('注册成功', 'success')
       navigate('/home')
@@ -365,34 +375,36 @@ export default function Login() {
                     </div>
                   </div>
 
-                  <div>
-                    <label htmlFor="auth-code" className="mb-1.5 block text-sm font-medium text-ink">
-                      验证码
-                    </label>
-                    <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-2">
-                      <input
-                        id="auth-code"
-                        type="text"
-                        inputMode="numeric"
-                        value={code}
-                        onChange={(event) => setCode(event.target.value)}
-                        autoComplete="one-time-code"
-                        className="input-base min-w-0"
-                      />
-                      <button
-                        type="button"
-                        onClick={handleSendCode}
-                        disabled={sendingCode || codeCooldown > 0}
-                        className="btn-secondary min-w-[6.5rem] whitespace-nowrap px-3"
-                      >
-                        {sendingCode
-                          ? '发送中...'
-                          : codeCooldown > 0
-                            ? `${codeCooldown}s 后重发`
-                            : '获取验证码'}
-                      </button>
+                  {step === 'register' && (
+                    <div>
+                      <label htmlFor="auth-code" className="mb-1.5 block text-sm font-medium text-ink">
+                        验证码
+                      </label>
+                      <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-2">
+                        <input
+                          id="auth-code"
+                          type="text"
+                          inputMode="numeric"
+                          value={code}
+                          onChange={(event) => setCode(event.target.value)}
+                          autoComplete="one-time-code"
+                          className="input-base min-w-0"
+                        />
+                        <button
+                          type="button"
+                          onClick={handleSendCode}
+                          disabled={sendingCode || codeCooldown > 0}
+                          className="btn-secondary min-w-[6.5rem] whitespace-nowrap px-3"
+                        >
+                          {sendingCode
+                            ? '发送中...'
+                            : codeCooldown > 0
+                              ? `${codeCooldown}s 后重发`
+                              : '获取验证码'}
+                        </button>
+                      </div>
                     </div>
-                  </div>
+                  )}
 
                   <div>
                     <div className="mb-1.5 flex items-center justify-between gap-3">
