@@ -31,7 +31,6 @@ from services.participation import (
     commit_post_participation,
     set_post_status,
 )
-from services.explore import project_activity_cards
 from services.operators import has_platform_role
 from services.tag_governance import review_tag_proposal, submit_tag_proposal
 from storage.database.db import get_session
@@ -283,7 +282,7 @@ def list_topics(
         topics = session.execute(query.offset((page - 1) * page_size).limit(page_size)).scalars().all()
         return api_ok(
             {
-                "list": project_activity_cards(session, topics, int(user_id)),
+                "list": [topic_to_dict(session, topic, int(user_id)) for topic in topics],
                 "total": total,
                 "page": page,
                 "page_size": page_size,

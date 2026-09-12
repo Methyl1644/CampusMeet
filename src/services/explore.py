@@ -5,7 +5,7 @@ import math
 from collections import defaultdict
 from typing import Any, Sequence
 
-from sqlalchemy import Integer, exists, func, or_, select
+from sqlalchemy import Date, DateTime, Integer, and_, case, cast, exists, func, or_, select
 from sqlalchemy.orm import Session
 
 from services.collaboration_lifecycle import PUBLIC_POST_STATUSES
@@ -32,6 +32,7 @@ from storage.database.models import (
 MAX_PAGE_SIZE = 40
 PREVIEW_LIMIT = 8
 RELATED_GROUP_LIMIT = 8
+FORMAL_ACTIVITY_CHANNELS = ("official", "organization")
 
 CATEGORY_PLACEHOLDER_KEYS = {
     "竞赛与项目": "category:competition-project",
@@ -41,6 +42,12 @@ CATEGORY_PLACEHOLDER_KEYS = {
     "校园生活": "category:campus-life",
     "拼团与AA": "category:group-buying",
 }
+
+POSTGRES_DATE_ONLY_PATTERN = r"^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+POSTGRES_ZONED_DATETIME_PATTERN = (
+    r"^[0-9]{4}-[0-9]{2}-[0-9]{2}[Tt ][0-9]{2}:[0-9]{2}"
+    r"(:[0-9]{2}(\.[0-9]{1,6})?)?([Zz]|[+-][0-9]{2}:[0-9]{2})$"
+)
 
 
 def _utcnow() -> datetime.datetime:
@@ -76,6 +83,42 @@ def _page(items: list[dict[str, Any]], total: int, page: int, page_size: int) ->
     }
 
 
+def _deadline_range_predicate(
+    date_filter: str,
+    now: datetime.datetime,
+    dialect_name: str,
+):
+    if dialect_name == "postgresql":
+        parsed_deadline = case(
+            (
+                Post.deadline.op("~")(POSTGRES_DATE_ONLY_PATTERN),
+                func.timezone(
+                    "UTC",
+                    cast(cast(Post.deadline, Date), DateTime(timezone=False)),
+                ),
+            ),
+            (
+                Post.deadline.op("~")(POSTGRES_ZONED_DATETIME_PATTERN),
+                cast(Post.deadline, DateTime(timezone=True)),
+            ),
+            else_=None,
+        )
+        comparison_time: Any = _ensure_utc(now)
+    else:
+        parsed_deadline = func.julianday(Post.deadline)
+        comparison_time = func.julianday(_ensure_utc(now).isoformat())
+
+    if date_filter == "upcoming":
+        return or_(Post.deadline.is_(None), parsed_deadline >= comparison_time)
+    if date_filter in {"past", "ended"}:
+        return and_(
+            Post.deadline.is_not(None),
+            parsed_deadline.is_not(None),
+            parsed_deadline < comparison_time,
+        )
+    return None
+
+
 def _user_summary(user: User) -> dict[str, Any]:
     return {
         "id": str(user.id),
@@ -103,36 +146,190 @@ def _tag_projection(tag: Tag) -> dict[str, str]:
     }
 
 
-def _activity_state(
-    topic: Topic,
+def _participant_count_rows(
+    session: Session, topic_ids: Sequence[int]
+) -> list[Any]:
+    return session.execute(
+        select(
+            Post.topic_id,
+            func.count(func.distinct(TeamMember.user_id)),
+        )
+        .join(Team, Team.post_id == Post.id)
+        .join(TeamMember, TeamMember.team_id == Team.id)
+        .where(
+            Post.topic_id.in_(topic_ids),
+            Post.status.in_(PUBLIC_POST_STATUSES),
+            Team.status == "active",
+        )
+        .group_by(Post.topic_id)
+    ).all()
+
+
+def _participant_preview_rows(
+    session: Session, topic_ids: Sequence[int]
+) -> list[Any]:
+    unique_participants = (
+        select(
+            Post.topic_id.label("topic_id"),
+            TeamMember.user_id.label("user_id"),
+            func.min(TeamMember.created_at).label("joined_at"),
+        )
+        .join(Team, Team.post_id == Post.id)
+        .join(TeamMember, TeamMember.team_id == Team.id)
+        .where(
+            Post.topic_id.in_(topic_ids),
+            Post.status.in_(PUBLIC_POST_STATUSES),
+            Team.status == "active",
+        )
+        .group_by(Post.topic_id, TeamMember.user_id)
+        .subquery()
+    )
+    ranked = (
+        select(
+            unique_participants.c.topic_id,
+            unique_participants.c.user_id,
+            unique_participants.c.joined_at,
+            func.row_number()
+            .over(
+                partition_by=unique_participants.c.topic_id,
+                order_by=(
+                    unique_participants.c.joined_at,
+                    unique_participants.c.user_id,
+                ),
+            )
+            .label("preview_rank"),
+        )
+        .subquery()
+    )
+    return session.execute(
+        select(ranked.c.topic_id, ranked.c.joined_at, User)
+        .join(User, User.id == ranked.c.user_id)
+        .where(ranked.c.preview_rank <= PREVIEW_LIMIT)
+        .order_by(ranked.c.topic_id, ranked.c.preview_rank)
+    ).all()
+
+
+def _activity_state_rows(
+    session: Session,
+    topic_ids: Sequence[int],
     user_id: int,
-    posts: Sequence[Post],
-    joined_post_ids: set[int],
-    applications: dict[int, str],
     *,
     now: datetime.datetime,
-) -> str:
+) -> list[Any]:
+    public_post = (
+        Post.topic_id == Topic.id,
+        Post.status.in_(PUBLIC_POST_STATUSES),
+    )
+    owner = exists(select(Post.id).where(*public_post, Post.author_id == user_id))
+    joined = exists(
+        select(TeamMember.id)
+        .join(Team, Team.id == TeamMember.team_id)
+        .join(Post, Post.id == Team.post_id)
+        .where(
+            *public_post,
+            Team.status == "active",
+            TeamMember.user_id == user_id,
+        )
+    )
+    pending = exists(
+        select(Application.id)
+        .join(Post, Post.id == Application.post_id)
+        .where(
+            *public_post,
+            Application.applicant_id == user_id,
+            Application.status.in_(("pending", "accepted")),
+        )
+    )
+    rejected = exists(
+        select(Application.id)
+        .join(Post, Post.id == Application.post_id)
+        .where(
+            *public_post,
+            Application.applicant_id == user_id,
+            Application.status == "rejected",
+        )
+    )
+    deadline_is_open = _deadline_range_predicate(
+        "upcoming", now, session.get_bind().dialect.name
+    )
+    available = exists(
+        select(Post.id).where(
+            Post.topic_id == Topic.id,
+            Post.status == "recruiting",
+            Post.join_mode != "none",
+            deadline_is_open,
+            Post.current_members < func.coalesce(Topic.capacity, Post.target_members),
+        )
+    )
+    return session.execute(
+        select(
+            Topic.id,
+            owner.label("is_owner"),
+            joined.label("is_joined"),
+            pending.label("is_pending"),
+            rejected.label("is_rejected"),
+            available.label("is_available"),
+        ).where(Topic.id.in_(topic_ids))
+    ).all()
+
+
+def _activity_state_from_signals(topic: Topic, signals: Any | None) -> str:
     if topic.participation_mode == "information_only":
         return "closed"
-    if any(post.author_id == user_id for post in posts):
+    if signals and signals.is_owner:
         return "owner"
-    if any(post.id in joined_post_ids for post in posts):
+    if signals and signals.is_joined:
         return "joined"
-    if any(applications.get(post.id) in {"pending", "accepted"} for post in posts):
+    if signals and signals.is_pending:
         return "pending"
-    if any(applications.get(post.id) == "rejected" for post in posts):
+    if signals and signals.is_rejected:
         return "rejected"
     if topic.participation_mode == "open_team":
         return "available"
-    if any(
-        post.join_mode != "none"
-        and post.status == "recruiting"
-        and not deadline_has_passed(post, now=now)
-        and post.current_members < (topic.capacity or post.target_members)
-        for post in posts
-    ):
+    if signals and signals.is_available:
         return "available"
     return "closed"
+
+
+def activity_additive_fields(
+    session: Session,
+    topic: Topic,
+    user_id: int,
+    *,
+    now: datetime.datetime | None = None,
+) -> dict[str, Any]:
+    current = now or _utcnow()
+    counts = {
+        topic_id: int(count)
+        for topic_id, count in _participant_count_rows(session, [topic.id])
+    }
+    preview = [
+        _user_summary(participant)
+        for _topic_id, _joined_at, participant in _participant_preview_rows(
+            session, [topic.id]
+        )
+    ]
+    signals = _activity_state_rows(
+        session,
+        [topic.id],
+        user_id,
+        now=current,
+    )
+    return {
+        "location_name": topic.location_name,
+        "campus_scope": topic.campus_scope,
+        "capacity": topic.capacity,
+        "registration_deadline": _iso(topic.registration_deadline),
+        "activity_start_at": _iso(topic.activity_start_at),
+        "activity_end_at": _iso(topic.activity_end_at),
+        "participant_count": counts.get(topic.id, 0),
+        "participant_preview": preview,
+        "participation_mode": topic.participation_mode,
+        "cover_placeholder_key": activity_placeholder_key(topic),
+        "participation_state": _activity_state_from_signals(
+            topic, signals[0] if signals else None
+        ),
+    }
 
 
 def project_activity_cards(
@@ -204,68 +401,25 @@ def project_activity_cards(
         else {}
     )
 
+    participant_counts = {
+        topic_id: int(count)
+        for topic_id, count in _participant_count_rows(session, topic_ids)
+    }
     participants_by_topic: dict[int, list[dict[str, Any]]] = defaultdict(list)
-    participant_ids_by_topic: dict[int, set[int]] = defaultdict(set)
-    participant_rows = session.execute(
-        select(Post.topic_id, TeamMember.created_at, User)
-        .join(Team, Team.id == TeamMember.team_id)
-        .join(Post, Post.id == Team.post_id)
-        .join(User, User.id == TeamMember.user_id)
-        .where(
-            Post.topic_id.in_(topic_ids),
-            Post.status.in_(PUBLIC_POST_STATUSES),
-            Team.status == "active",
-        )
-        .order_by(Post.topic_id, TeamMember.created_at, User.id)
-    ).all()
-    for topic_id, _joined_at, participant in participant_rows:
-        if participant.id in participant_ids_by_topic[topic_id]:
-            continue
-        participant_ids_by_topic[topic_id].add(participant.id)
-        if len(participants_by_topic[topic_id]) < PREVIEW_LIMIT:
-            participants_by_topic[topic_id].append(_user_summary(participant))
+    for topic_id, _joined_at, participant in _participant_preview_rows(
+        session, topic_ids
+    ):
+        participants_by_topic[topic_id].append(_user_summary(participant))
 
-    posts_by_topic: dict[int, list[Post]] = defaultdict(list)
-    related_posts = list(
-        session.scalars(
-            select(Post)
-            .where(
-                Post.topic_id.in_(topic_ids),
-                Post.status.in_(PUBLIC_POST_STATUSES),
-            )
-            .order_by(Post.topic_id, Post.updated_at.desc(), Post.id.desc())
+    state_by_topic = {
+        row.id: row
+        for row in _activity_state_rows(
+            session,
+            topic_ids,
+            user_id,
+            now=current,
         )
-    )
-    for post in related_posts:
-        posts_by_topic[post.topic_id].append(post)
-
-    related_post_ids = [post.id for post in related_posts]
-    joined_post_ids = (
-        set(
-            session.scalars(
-                select(Team.post_id)
-                .join(TeamMember, TeamMember.team_id == Team.id)
-                .where(
-                    Team.post_id.in_(related_post_ids),
-                    Team.status == "active",
-                    TeamMember.user_id == user_id,
-                )
-            )
-        )
-        if related_post_ids
-        else set()
-    )
-    application_by_post: dict[int, str] = {}
-    if related_post_ids:
-        for application in session.scalars(
-            select(Application)
-            .where(
-                Application.post_id.in_(related_post_ids),
-                Application.applicant_id == user_id,
-            )
-            .order_by(Application.post_id, Application.created_at.desc(), Application.id.desc())
-        ):
-            application_by_post.setdefault(application.post_id, application.status)
+    }
 
     projections: list[dict[str, Any]] = []
     for topic in topics:
@@ -283,7 +437,6 @@ def project_activity_cards(
                         "organization_name": organization.name,
                     }
                 )
-        topic_posts = posts_by_topic[topic.id]
         projections.append(
             {
                 "id": str(topic.id),
@@ -305,18 +458,13 @@ def project_activity_cards(
                 "activity_start_at": _iso(topic.activity_start_at),
                 "activity_end_at": _iso(topic.activity_end_at),
                 "follower_count": follower_count,
-                "participant_count": len(participant_ids_by_topic[topic.id]),
+                "participant_count": participant_counts.get(topic.id, 0),
                 "participant_preview": participants_by_topic[topic.id],
                 "participation_mode": topic.participation_mode,
                 "favorite": favorite,
                 "followed": favorite,
-                "participation_state": _activity_state(
-                    topic,
-                    user_id,
-                    topic_posts,
-                    joined_post_ids,
-                    application_by_post,
-                    now=current,
+                "participation_state": _activity_state_from_signals(
+                    topic, state_by_topic.get(topic.id)
                 ),
                 "tags": tags_by_topic[topic.id],
                 "status": topic.status,
@@ -374,6 +522,61 @@ def _group_join_state(
     return "available"
 
 
+def _group_member_preview_rows(
+    session: Session, post_ids: Sequence[int]
+) -> list[Any]:
+    ranked = (
+        select(
+            Team.post_id.label("post_id"),
+            TeamMember.user_id.label("user_id"),
+            TeamMember.created_at.label("joined_at"),
+            func.row_number()
+            .over(
+                partition_by=Team.post_id,
+                order_by=(TeamMember.created_at, TeamMember.user_id),
+            )
+            .label("preview_rank"),
+        )
+        .join(TeamMember, TeamMember.team_id == Team.id)
+        .where(Team.post_id.in_(post_ids), Team.status == "active")
+        .subquery()
+    )
+    return session.execute(
+        select(ranked.c.post_id, ranked.c.joined_at, User)
+        .join(User, User.id == ranked.c.user_id)
+        .where(ranked.c.preview_rank <= PREVIEW_LIMIT)
+        .order_by(ranked.c.post_id, ranked.c.preview_rank)
+    ).all()
+
+
+def _related_group_rows(
+    session: Session, topic_ids: Sequence[int]
+) -> list[Any]:
+    ranked = (
+        select(
+            Post.id.label("post_id"),
+            Post.topic_id.label("topic_id"),
+            func.row_number()
+            .over(
+                partition_by=Post.topic_id,
+                order_by=(Post.updated_at.desc(), Post.id.desc()),
+            )
+            .label("preview_rank"),
+        )
+        .where(
+            Post.topic_id.in_(topic_ids),
+            Post.status.in_(PUBLIC_POST_STATUSES),
+        )
+        .subquery()
+    )
+    return session.execute(
+        select(ranked.c.topic_id, Post)
+        .join(Post, Post.id == ranked.c.post_id)
+        .where(ranked.c.preview_rank <= RELATED_GROUP_LIMIT)
+        .order_by(ranked.c.topic_id, ranked.c.preview_rank)
+    ).all()
+
+
 def project_group_cards(
     session: Session,
     posts: Sequence[Post],
@@ -414,18 +617,24 @@ def project_group_cards(
     )
 
     members_by_post: dict[int, list[dict[str, Any]]] = defaultdict(list)
-    joined_post_ids: set[int] = set()
-    for post_id, joined_at, member in session.execute(
-        select(Team.post_id, TeamMember.created_at, User)
-        .join(TeamMember, TeamMember.team_id == Team.id)
-        .join(User, User.id == TeamMember.user_id)
-        .where(Team.post_id.in_(post_ids), Team.status == "active")
-        .order_by(Team.post_id, TeamMember.created_at, User.id)
-    ):
-        if member.id == user_id:
-            joined_post_ids.add(post_id)
-        if len(members_by_post[post_id]) < PREVIEW_LIMIT:
-            members_by_post[post_id].append(_user_summary(member))
+    for post_id, _joined_at, member in _group_member_preview_rows(session, post_ids):
+        members_by_post[post_id].append(_user_summary(member))
+
+    joined_post_ids = (
+        set(
+            session.scalars(
+                select(Team.post_id)
+                .join(TeamMember, TeamMember.team_id == Team.id)
+                .where(
+                    Team.post_id.in_(post_ids),
+                    Team.status == "active",
+                    TeamMember.user_id == user_id,
+                )
+            )
+        )
+        if user_id is not None
+        else set()
+    )
 
     applications: dict[int, str] = {}
     if user_id is not None:
@@ -532,7 +741,10 @@ def _activity_query(
     campus: str = "",
     now: datetime.datetime,
 ):
-    statement = select(Topic).where(Topic.status == "active")
+    statement = select(Topic).where(
+        Topic.status == "active",
+        Topic.channel.in_(FORMAL_ACTIVITY_CHANNELS),
+    )
     query_text = q.strip()
     if query_text:
         pattern = f"%{query_text}%"
@@ -547,9 +759,12 @@ def _activity_query(
     for tag_id in _selected_tags(tag_ids):
         statement = statement.where(
             exists(
-                select(TopicTag.topic_id).where(
+                select(TopicTag.topic_id)
+                .join(Tag, Tag.id == TopicTag.tag_id)
+                .where(
                     TopicTag.topic_id == Topic.id,
                     TopicTag.tag_id == tag_id,
+                    Tag.active.is_(True),
                 )
             )
         )
@@ -623,22 +838,16 @@ def get_activity_detail(
 ) -> dict[str, Any] | None:
     current = now or _utcnow()
     topic = session.scalar(
-        select(Topic).where(Topic.id == topic_id, Topic.status == "active")
+        select(Topic).where(
+            Topic.id == topic_id,
+            Topic.status == "active",
+            Topic.channel.in_(FORMAL_ACTIVITY_CHANNELS),
+        )
     )
     if topic is None:
         return None
     detail = project_activity_cards(session, [topic], user_id, now=current)[0]
-    related_posts = list(
-        session.scalars(
-            select(Post)
-            .where(
-                Post.topic_id == topic.id,
-                Post.status.in_(PUBLIC_POST_STATUSES),
-            )
-            .order_by(Post.updated_at.desc(), Post.id.desc())
-            .limit(RELATED_GROUP_LIMIT)
-        )
-    )
+    related_posts = [post for _topic_id, post in _related_group_rows(session, [topic.id])]
     detail["related_groups"] = project_group_cards(
         session, related_posts, user_id, now=current
     )
@@ -654,6 +863,7 @@ def _group_query(
     type_filter: str = "",
     campus: str = "",
     now: datetime.datetime,
+    dialect_name: str = "sqlite",
 ):
     statement = select(Post).where(Post.status.in_(PUBLIC_POST_STATUSES))
     query_text = q.strip()
@@ -669,9 +879,12 @@ def _group_query(
     for tag_id in _selected_tags(tag_ids):
         statement = statement.where(
             exists(
-                select(PostTag.post_id).where(
+                select(PostTag.post_id)
+                .join(Tag, Tag.id == PostTag.tag_id)
+                .where(
                     PostTag.post_id == Post.id,
                     PostTag.tag_id == tag_id,
+                    Tag.active.is_(True),
                 )
             )
         )
@@ -684,11 +897,9 @@ def _group_query(
         )
     if campus.strip():
         statement = statement.where(Post.school_scope == campus.strip())
-    now_iso = _ensure_utc(now).isoformat()
-    if date_filter == "upcoming":
-        statement = statement.where(or_(Post.deadline.is_(None), Post.deadline >= now_iso))
-    elif date_filter in {"past", "ended"}:
-        statement = statement.where(Post.deadline.is_not(None), Post.deadline < now_iso)
+    deadline_predicate = _deadline_range_predicate(date_filter, now, dialect_name)
+    if deadline_predicate is not None:
+        statement = statement.where(deadline_predicate)
     return statement
 
 
@@ -716,6 +927,7 @@ def list_groups(
         type_filter=type_filter,
         campus=campus,
         now=current,
+        dialect_name=session.get_bind().dialect.name,
     )
     total = int(session.scalar(select(func.count()).select_from(statement.subquery())) or 0)
     posts = list(

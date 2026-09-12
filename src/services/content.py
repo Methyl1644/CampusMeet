@@ -537,9 +537,46 @@ def create_topic(session: Session, user: User, payload: dict[str, Any]) -> Topic
 
 
 def topic_to_dict(session: Session, topic: Topic, user_id: int | None = None) -> dict[str, Any]:
-    from services.explore import project_activity_cards
+    from services.explore import activity_additive_fields
+    from services.identity import topic_trust_projection
 
-    return project_activity_cards(session, [topic], user_id or 0)[0]
+    tags = session.execute(
+        select(Tag).join(TopicTag, TopicTag.tag_id == Tag.id).where(TopicTag.topic_id == topic.id)
+    ).scalars().all()
+    follower_count = session.scalar(
+        select(func.count()).select_from(TopicFollow).where(TopicFollow.topic_id == topic.id)
+    ) or 0
+    followed = False
+    if user_id is not None:
+        followed = session.get(TopicFollow, {"topic_id": topic.id, "user_id": user_id}) is not None
+    return {
+        "id": str(topic.id),
+        "channel": topic.channel,
+        "title": topic.title,
+        "short_title": topic.short_title,
+        "organizer": topic.organizer,
+        "edition": topic.edition,
+        "summary": topic.summary,
+        "content": topic.content,
+        "source_url": topic.source_url,
+        "source_status": topic.source_status,
+        "cover_url": topic.cover_url,
+        "follower_count": follower_count,
+        "followed": followed,
+        "tags": [
+            {
+                "tag_id": tag.id,
+                "canonical_name": tag.canonical_name,
+                "category": tag.category,
+                "display_color": tag.display_color,
+            }
+            for tag in tags
+        ],
+        "status": topic.status,
+        **topic_trust_projection(session, topic),
+        **activity_additive_fields(session, topic, user_id or 0),
+        "favorite": followed,
+    }
 
 
 def _initial_field_states(kind: str, previous_fields: dict[str, Any]) -> dict[str, dict[str, Any]]:
