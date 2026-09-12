@@ -253,6 +253,90 @@ def test_followed_topics_and_deadline_reminder_use_recent_active_follows(session
     assert feed["deadline_reminder"]["days_remaining"] == 3
 
 
+def test_attending_topics_are_projected_from_active_team_memberships(session, user):
+    topic = _topic(session, topic_id=1, title="正在参加的校赛")
+    post = Post(
+        id=1,
+        title="校赛官方队伍",
+        main_category="学习与科研",
+        activity_name="校赛官方队伍",
+        current_members=2,
+        target_members=4,
+        author_id=user.id,
+        topic_id=topic.id,
+    )
+    session.add(post)
+    session.flush()
+    team = Team(id=1, post_id=post.id, owner_id=user.id, activity_name=post.activity_name)
+    session.add(team)
+    session.flush()
+    session.add(TeamMember(team_id=team.id, user_id=user.id, member_role="member"))
+    duplicate_post = Post(
+        id=2,
+        title="校赛第二支队伍",
+        main_category="学习与科研",
+        activity_name="校赛第二支队伍",
+        current_members=3,
+        target_members=5,
+        author_id=user.id,
+        topic_id=topic.id,
+    )
+    session.add(duplicate_post)
+    session.flush()
+    duplicate_team = Team(
+        id=2,
+        post_id=duplicate_post.id,
+        owner_id=user.id,
+        activity_name=duplicate_post.activity_name,
+    )
+    session.add(duplicate_team)
+    session.flush()
+    session.add(TeamMember(team_id=duplicate_team.id, user_id=user.id, member_role="member"))
+    session.flush()
+
+    feed = _build_home_feed(session, user)
+
+    assert [item["id"] for item in feed["attending_topics"]] == ["1"]
+    assert feed["attending_topics"][0]["title"] == "正在参加的校赛"
+
+
+def test_recommendations_weight_interest_major_follow_and_participation(session, user):
+    user.interests = ["人工智能"]
+    user.major = "软件工程"
+    interest = _topic(session, topic_id=1, title="兴趣活动", tags=(("ai", "人工智能"),))
+    major = _topic(session, topic_id=2, title="软件工程实践")
+    followed = _topic(session, topic_id=3, title="收藏活动")
+    participated = _topic(session, topic_id=4, title="参与活动")
+    session.add(TopicFollow(topic_id=followed.id, user_id=user.id, created_at=UTC_NOW))
+    post = Post(
+        id=1,
+        title="参与队伍",
+        main_category="学习与科研",
+        activity_name="参与队伍",
+        current_members=2,
+        target_members=4,
+        author_id=user.id,
+        topic_id=participated.id,
+    )
+    session.add(post)
+    session.flush()
+    team = Team(id=1, post_id=post.id, owner_id=user.id, activity_name=post.activity_name)
+    session.add(team)
+    session.flush()
+    session.add(TeamMember(team_id=team.id, user_id=user.id, member_role="member"))
+    session.flush()
+
+    recommendations = _build_home_feed(session, user)["recommended_topics"]
+
+    assert [item["id"] for item in recommendations[:4]] == ["1", "2", "4", "3"]
+    assert [item["recommendation_reason"] for item in recommendations[:4]] == [
+        "与你的人工智能兴趣相关",
+        "与你的软件工程专业相关",
+        "基于你正在参加的活动",
+        "你已收藏此活动",
+    ]
+
+
 def test_joined_groups_timeline_and_unread_counts_use_only_memberships(session, user):
     other = User(id=2, email="other@nju.edu.cn", password_hash="hash", nickname="队友")
     session.add(other)
@@ -456,7 +540,7 @@ def test_home_feed_queries_compile_for_postgresql_with_bounded_ordering():
     dialect = postgresql.dialect()
 
     ranked_sql = str(
-        home._ranked_topics_statement(["人工智能"], UTC_NOW).compile(
+        home._ranked_topics_statement(["人工智能"], "软件工程", 7, UTC_NOW).compile(
             dialect=dialect,
             compile_kwargs={"literal_binds": True},
         )
@@ -476,7 +560,10 @@ def test_home_feed_queries_compile_for_postgresql_with_bounded_ordering():
 
     assert "LIMIT 8" in ranked_sql
     ranked_order_terms = [
-        "count(topic_tags.tag_id)",
+        "recommendation_signals.interest_matches * 100",
+        "recommendation_signals.major_match * 40",
+        "recommendation_signals.participated * 30",
+        "recommendation_signals.followed * 20",
         "anon_1.next_date IS NULL",
         "anon_1.next_date ASC",
         "topics.updated_at DESC",
@@ -490,6 +577,39 @@ def test_home_feed_queries_compile_for_postgresql_with_bounded_ordering():
     assert "LIMIT 1" in reminder_sql
     assert "topic_follows.user_id = 7" in reminder_sql
     assert "ORDER BY topics.registration_deadline ASC, topics.id DESC" in reminder_sql
+
+
+def test_timeline_query_caps_rows_and_selects_only_computation_columns(session, user):
+    home = importlib.import_module("services.home")
+    for team_id in range(1, 30):
+        post = Post(
+            id=team_id,
+            title=f"增长小组 {team_id}",
+            main_category="学习与科研",
+            activity_name=f"增长小组 {team_id}",
+            current_members=1,
+            target_members=4,
+            author_id=user.id,
+        )
+        session.add(post)
+        session.flush()
+        team = Team(
+            id=team_id,
+            post_id=post.id,
+            owner_id=user.id,
+            activity_name=post.activity_name,
+            task_list=[{"id": f"{team_id}-{task}", "title": "任务"} for task in range(40)],
+        )
+        session.add(team)
+        session.flush()
+        session.add(TeamMember(team_id=team.id, user_id=user.id, member_role="owner"))
+    session.flush()
+
+    rows = home._timeline_team_rows(session, user.id)
+
+    assert len(rows) == home.TIMELINE_TEAM_LIMIT
+    assert all(len(row) == 3 for row in rows)
+    assert len(_build_home_feed(session, user)["group_timeline"]) == home.TIMELINE_ITEM_LIMIT
 
 
 def test_home_feed_query_plan_stays_bounded_as_the_catalog_grows(session, user):
@@ -618,6 +738,7 @@ def test_home_endpoint_requires_auth_wraps_contract_and_rejects_missing_users(fa
             "profile",
             "deadline_reminder",
             "recommended_topics",
+            "attending_topics",
             "followed_topics",
             "joined_groups",
             "group_timeline",

@@ -61,9 +61,9 @@ export default function RecommendationRail({ topics, degraded = false }: Recomme
     <section aria-labelledby="home-recommendations-title" className="min-w-0 overflow-hidden">
       <div className="flex min-h-10 items-center justify-between gap-4">
         <div className="min-w-0">
-          <h1 id="home-recommendations-title" className="text-2xl font-bold text-ink sm:text-[28px]">
+          <h2 id="home-recommendations-title" className="text-2xl font-bold text-ink sm:text-[28px]">
             为你推荐
-          </h1>
+          </h2>
           <p className="mt-1 text-sm text-ink-muted">结合你的兴趣与近期校园安排</p>
         </div>
 

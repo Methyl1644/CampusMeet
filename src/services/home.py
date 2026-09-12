@@ -6,7 +6,7 @@ import math
 from copy import deepcopy
 from typing import Any, Callable
 
-from sqlalchemy import case, func, literal, or_, select, union_all
+from sqlalchemy import case, exists, func, literal, literal_column, or_, select, union_all
 from sqlalchemy.orm import Session
 
 from services.identity import organization_is_active
@@ -32,11 +32,20 @@ logger = logging.getLogger(__name__)
 SECTION_DEFAULTS = {
     "deadline_reminder": None,
     "recommended_topics": [],
+    "attending_topics": [],
     "followed_topics": [],
     "joined_groups": [],
     "group_timeline": [],
     "unread": {"messages": 0, "notifications": 0},
 }
+
+RECOMMENDATION_INTEREST_WEIGHT = 100
+RECOMMENDATION_MAJOR_WEIGHT = 40
+RECOMMENDATION_PARTICIPATION_WEIGHT = 30
+RECOMMENDATION_FOLLOW_WEIGHT = 20
+TIMELINE_TEAM_LIMIT = 12
+TIMELINE_TASKS_PER_TEAM = 12
+TIMELINE_ITEM_LIMIT = 12
 
 
 def ensure_utc(value: datetime.datetime) -> datetime.datetime:
@@ -219,7 +228,7 @@ def _batch_topic_projections(
 
 
 def _ranked_topics_statement(
-    interests: list[str], current: datetime.datetime
+    interests: list[str], major: str, user_id: int, current: datetime.datetime
 ):
     overlap_count = (
         select(func.count(TopicTag.tag_id))
@@ -234,13 +243,80 @@ def _ranked_topics_statement(
         if interests
         else literal(0)
     )
+    major_match = case(
+        (
+            or_(
+                exists(
+                    select(TopicTag.topic_id)
+                    .join(Tag, Tag.id == TopicTag.tag_id)
+                    .where(
+                        TopicTag.topic_id == Topic.id,
+                        Tag.active.is_(True),
+                        Tag.canonical_name == major,
+                    )
+                ),
+                Topic.title.contains(major),
+                Topic.summary.contains(major),
+                Topic.content.contains(major),
+            ),
+            1,
+        ),
+        else_=0,
+    ) if major else literal(0)
+    followed = case(
+        (
+            exists(
+                select(TopicFollow.topic_id).where(
+                    TopicFollow.topic_id == Topic.id,
+                    TopicFollow.user_id == user_id,
+                )
+            ),
+            1,
+        ),
+        else_=0,
+    )
+    participated = case(
+        (
+            exists(
+                select(TeamMember.id)
+                .join(Team, Team.id == TeamMember.team_id)
+                .join(Post, Post.id == Team.post_id)
+                .where(
+                    TeamMember.user_id == user_id,
+                    Team.status == "active",
+                    Post.topic_id == Topic.id,
+                )
+            ),
+            1,
+        ),
+        else_=0,
+    )
+    signals = select(
+        Topic.id.label("topic_id"),
+        overlap_count.label("interest_matches"),
+        major_match.label("major_match"),
+        participated.label("participated"),
+        followed.label("followed"),
+    ).where(Topic.status == "active").subquery("recommendation_signals")
+    score = (
+        signals.c.interest_matches * literal_column(str(RECOMMENDATION_INTEREST_WEIGHT))
+        + signals.c.major_match * literal_column(str(RECOMMENDATION_MAJOR_WEIGHT))
+        + signals.c.participated * literal_column(str(RECOMMENDATION_PARTICIPATION_WEIGHT))
+        + signals.c.followed * literal_column(str(RECOMMENDATION_FOLLOW_WEIGHT))
+    )
     next_dates = _next_topic_date_expression(current)
     return (
-        select(Topic)
+        select(
+            Topic,
+            signals.c.interest_matches,
+            signals.c.major_match,
+            signals.c.participated,
+            signals.c.followed,
+        )
+        .join(signals, signals.c.topic_id == Topic.id)
         .outerjoin(next_dates, next_dates.c.topic_id == Topic.id)
-        .where(Topic.status == "active")
         .order_by(
-            overlap_count.desc(),
+            score.desc(),
             next_dates.c.next_date.is_(None),
             next_dates.c.next_date.asc(),
             Topic.updated_at.desc(),
@@ -252,17 +328,26 @@ def _ranked_topics_statement(
 
 def _recommended_topics(session: Session, user: User, current: datetime.datetime) -> list[dict[str, Any]]:
     interests = [str(value).strip() for value in (user.interests or []) if str(value).strip()]
-    topics = list(
-        session.scalars(_ranked_topics_statement(interests, current))
-    )
+    major = str(user.major or "").strip()
+    ranked_rows = session.execute(
+        _ranked_topics_statement(interests, major, user.id, current)
+    ).all()
+    topics = [row[0] for row in ranked_rows]
     projections = _batch_topic_projections(session, topics, user.id, current)
 
     result: list[dict[str, Any]] = []
-    for topic, projection in zip(topics, projections):
+    for row, projection in zip(ranked_rows, projections):
+        topic, _interest_matches, major_match, participated, followed = row
         topic_names = {tag["canonical_name"] for tag in projection["tags"]}
         overlap = [interest for interest in interests if interest in topic_names]
         if overlap:
             reason = f"与你的{'、'.join(overlap)}兴趣相关"
+        elif major_match:
+            reason = f"与你的{major}专业相关"
+        elif participated:
+            reason = "基于你正在参加的活动"
+        elif followed:
+            reason = "你已收藏此活动"
         elif any(
             value is not None and ensure_utc(value) > current
             for value in (
@@ -276,6 +361,34 @@ def _recommended_topics(session: Session, user: User, current: datetime.datetime
             reason = "近期更新的校园活动"
         result.append({**projection, "recommendation_reason": reason})
     return result
+
+
+def _attending_topics_statement(user_id: int):
+    return (
+        select(Topic)
+        .where(
+            Topic.status == "active",
+            exists(
+                select(TeamMember.id)
+                .join(Team, Team.id == TeamMember.team_id)
+                .join(Post, Post.id == Team.post_id)
+                .where(
+                    TeamMember.user_id == user_id,
+                    Team.status == "active",
+                    Post.topic_id == Topic.id,
+                )
+            ),
+        )
+        .order_by(Topic.updated_at.desc(), Topic.id.desc())
+        .limit(4)
+    )
+
+
+def _attending_topics(
+    session: Session, user: User, current: datetime.datetime
+) -> list[dict[str, Any]]:
+    topics = list(session.scalars(_attending_topics_statement(user.id)))
+    return _batch_topic_projections(session, topics, user.id, current)
 
 
 def _followed_topics_statement(user_id: int):
@@ -356,8 +469,8 @@ def _joined_groups(session: Session, user: User, _current: datetime.datetime) ->
 
 def _group_timeline(session: Session, user: User, _current: datetime.datetime) -> list[dict[str, Any]]:
     items: list[tuple[datetime.datetime | None, dict[str, Any]]] = []
-    for team, _membership, _post in _joined_team_rows(session, user):
-        for task in team.task_list or []:
+    for team_id, team_name, task_list in _timeline_team_rows(session, user.id):
+        for task in (task_list or [])[:TIMELINE_TASKS_PER_TEAM]:
             if not isinstance(task, dict):
                 continue
             due_at = _parse_datetime(task.get("due_at")) or _parse_datetime(
@@ -367,8 +480,8 @@ def _group_timeline(session: Session, user: User, _current: datetime.datetime) -
                 (
                     due_at,
                     {
-                        "team_id": str(team.id),
-                        "team_name": team.activity_name,
+                        "team_id": str(team_id),
+                        "team_name": team_name,
                         "task_id": str(task.get("id") or ""),
                         "title": str(task.get("title") or ""),
                         "due_at": due_at.isoformat() if due_at else None,
@@ -384,7 +497,17 @@ def _group_timeline(session: Session, user: User, _current: datetime.datetime) -
             item[1]["task_id"],
         )
     )
-    return [item for _due_at, item in items[:12]]
+    return [item for _due_at, item in items[:TIMELINE_ITEM_LIMIT]]
+
+
+def _timeline_team_rows(session: Session, user_id: int):
+    return session.execute(
+        select(Team.id, Team.activity_name, Team.task_list)
+        .join(TeamMember, TeamMember.team_id == Team.id)
+        .where(TeamMember.user_id == user_id, Team.status == "active")
+        .order_by(TeamMember.created_at.desc(), Team.id.desc())
+        .limit(TIMELINE_TEAM_LIMIT)
+    ).all()
 
 
 def _unread(session: Session, user: User, _current: datetime.datetime) -> dict[str, int]:
@@ -409,6 +532,7 @@ HOME_SECTION_BUILDERS: dict[
 ] = {
     "deadline_reminder": _deadline_reminder,
     "recommended_topics": _recommended_topics,
+    "attending_topics": _attending_topics,
     "followed_topics": _followed_topics,
     "joined_groups": _joined_groups,
     "group_timeline": _group_timeline,

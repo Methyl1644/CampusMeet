@@ -54,6 +54,7 @@ const feed: HomeFeed = {
   },
   deadline_reminder: null,
   recommended_topics: [],
+  attending_topics: [],
   followed_topics: [],
   joined_groups: [],
   group_timeline: [],
@@ -364,6 +365,30 @@ describe('responsive application navigation', () => {
 })
 
 describe('authenticated application shell', () => {
+  it('announces degraded unread counts without presenting false zeroes and retries them', async () => {
+    vi.mocked(getHomeFeed).mockResolvedValue({ ...feed, unread: { messages: 0, notifications: 0 }, warnings: ['unread'] })
+
+    render(
+      <MemoryRouter initialEntries={['/home']}>
+        <Routes>
+          <Route path="/" element={<MainLayout />}>
+            <Route path="home" element={<p>首页</p>} />
+          </Route>
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    const desktop = screen.getByLabelText('桌面端应用导航')
+    expect(await within(desktop).findByLabelText('消息，未读数暂不可用')).not.toBeNull()
+    expect(within(desktop).getByLabelText('通知，未读数暂不可用')).not.toBeNull()
+    expect(within(desktop).getByLabelText('消息，未读数暂不可用').getAttribute('href')).toBe('/messages')
+    const mobile = screen.getByLabelText('移动端主导航')
+    expect(within(mobile).getByLabelText('消息，未读数暂不可用').getAttribute('href')).toBe('/messages')
+    expect(within(mobile).getByRole('button', { name: '重新加载未读数' })).not.toBeNull()
+    fireEvent.click(within(desktop).getByRole('button', { name: '重新加载未读数' }))
+    await waitFor(() => expect(getHomeFeed).toHaveBeenCalledTimes(2))
+  })
+
   it('shares one aggregate request between navigation badges and routed content', async () => {
     vi.mocked(getHomeFeed).mockResolvedValue(feed)
 

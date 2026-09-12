@@ -1,4 +1,4 @@
-import { Compass, Home, MessageCircle, Plus } from 'lucide-react'
+import { Compass, Home, MessageCircle, Plus, RefreshCw } from 'lucide-react'
 import { NavLink } from 'react-router-dom'
 import type { HomeFeed, User } from '@shared/types'
 import UnreadBadge, { unreadLabel } from './UnreadBadge'
@@ -13,10 +13,17 @@ const mobileItems = [
 
 interface MobileNavigationProps {
   unread: HomeFeed['unread']
+  unreadState: 'loading' | 'ready' | 'degraded'
   user: User
+  onRetryUnread?: () => void
 }
 
-export default function MobileNavigation({ unread, user }: MobileNavigationProps) {
+export default function MobileNavigation({
+  unread,
+  unreadState,
+  user,
+  onRetryUnread,
+}: MobileNavigationProps) {
   return (
     <nav
       aria-label="移动端主导航"
@@ -27,7 +34,15 @@ export default function MobileNavigation({ unread, user }: MobileNavigationProps
           <NavLink
             key={to}
             to={to}
-            aria-label={to === '/messages' ? unreadLabel(label, unread.messages) : undefined}
+            aria-label={
+              to === '/messages'
+                ? unreadState === 'ready'
+                  ? unreadLabel(label, unread.messages)
+                  : unreadState === 'loading'
+                    ? `${label}，未读数加载中`
+                    : `${label}，未读数暂不可用`
+                : undefined
+            }
             data-primary-action={primary ? 'true' : undefined}
             className={({ isActive }) =>
               `flex min-w-0 flex-col items-center justify-center gap-0.5 text-[11px] font-medium transition-colors duration-fast ${
@@ -41,13 +56,26 @@ export default function MobileNavigation({ unread, user }: MobileNavigationProps
               }`}
             >
               <Icon aria-hidden="true" className="size-5" />
-              {to === '/messages' && <UnreadBadge count={unread.messages} />}
+              {to === '/messages' && unreadState === 'ready' && (
+                <UnreadBadge count={unread.messages} />
+              )}
             </span>
             <span className="w-full truncate px-1 text-center">{label}</span>
           </NavLink>
         ))}
         <UserMenu user={user} variant="mobile" />
       </div>
+      {unreadState === 'degraded' && (
+        <button
+          type="button"
+          aria-label="重新加载未读数"
+          title="重新加载未读数"
+          onClick={onRetryUnread}
+          className="absolute right-1 top-1 flex size-6 items-center justify-center rounded-card bg-paper text-ink-muted"
+        >
+          <RefreshCw aria-hidden="true" className="size-3.5" />
+        </button>
+      )}
     </nav>
   )
 }

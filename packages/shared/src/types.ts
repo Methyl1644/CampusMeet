@@ -54,6 +54,7 @@ export interface Topic {
 export type HomeWarningSection =
   | 'deadline_reminder'
   | 'recommended_topics'
+  | 'attending_topics'
   | 'followed_topics'
   | 'joined_groups'
   | 'group_timeline'
@@ -139,6 +140,7 @@ export interface HomeFeed {
   profile: HomeProfile;
   deadline_reminder: HomeDeadlineReminder | null;
   recommended_topics: RecommendedHomeTopic[];
+  attending_topics: HomeTopic[];
   followed_topics: HomeTopic[];
   joined_groups: HomeJoinedGroup[];
   group_timeline: HomeTimelineItem[];

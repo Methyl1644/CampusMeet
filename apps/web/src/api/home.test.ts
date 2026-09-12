@@ -18,6 +18,7 @@ const feed: HomeFeed = {
   },
   deadline_reminder: null,
   recommended_topics: [],
+  attending_topics: [],
   followed_topics: [],
   joined_groups: [],
   group_timeline: [],

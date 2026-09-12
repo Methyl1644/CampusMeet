@@ -107,6 +107,7 @@ class HomeUnread(HomeResponseModel):
 HomeWarningSection = Literal[
     "deadline_reminder",
     "recommended_topics",
+    "attending_topics",
     "followed_topics",
     "joined_groups",
     "group_timeline",
@@ -118,6 +119,7 @@ class HomeFeed(HomeResponseModel):
     profile: HomeProfile
     deadline_reminder: HomeDeadlineReminder | None
     recommended_topics: list[RecommendedHomeTopic]
+    attending_topics: list[HomeTopic]
     followed_topics: list[HomeTopic]
     joined_groups: list[HomeJoinedGroup]
     group_timeline: list[HomeTimelineItem]

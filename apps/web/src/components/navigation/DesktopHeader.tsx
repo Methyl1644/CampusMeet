@@ -1,4 +1,4 @@
-import { Bell, CircleHelp, Compass, Home, MessageCircle, Plus } from 'lucide-react'
+import { Bell, CircleHelp, Compass, Home, MessageCircle, Plus, RefreshCw } from 'lucide-react'
 import { NavLink, useLocation } from 'react-router-dom'
 import type { HomeFeed, User } from '@shared/types'
 import CampusMark from '@/components/CampusMark'
@@ -7,8 +7,10 @@ import UserMenu from './UserMenu'
 
 interface DesktopHeaderProps {
   unread: HomeFeed['unread']
+  unreadState: 'loading' | 'ready' | 'degraded'
   user: User
   onRefreshHome?: () => void
+  onRetryUnread?: () => void
 }
 
 const primaryItems = [
@@ -17,7 +19,19 @@ const primaryItems = [
   { to: '/publish', label: '发布', icon: Plus },
 ]
 
-export default function DesktopHeader({ unread, user, onRefreshHome }: DesktopHeaderProps) {
+function navUnreadLabel(label: string, count: number, state: DesktopHeaderProps['unreadState']) {
+  if (state === 'loading') return `${label}，未读数加载中`
+  if (state === 'degraded') return `${label}，未读数暂不可用`
+  return unreadLabel(label, count)
+}
+
+export default function DesktopHeader({
+  unread,
+  unreadState,
+  user,
+  onRefreshHome,
+  onRetryUnread,
+}: DesktopHeaderProps) {
   const location = useLocation()
 
   return (
@@ -58,7 +72,7 @@ export default function DesktopHeader({ unread, user, onRefreshHome }: DesktopHe
         <div className="flex h-full shrink-0 items-center gap-1 lg:gap-2">
           <NavLink
             to="/messages"
-            aria-label={unreadLabel('消息', unread.messages)}
+            aria-label={navUnreadLabel('消息', unread.messages, unreadState)}
             title="消息"
             className={({ isActive }) =>
               `relative flex size-10 items-center justify-center rounded-card transition duration-fast hover:bg-primary-50 hover:text-primary-700 ${
@@ -67,17 +81,28 @@ export default function DesktopHeader({ unread, user, onRefreshHome }: DesktopHe
             }
           >
             <MessageCircle aria-hidden="true" className="size-5" />
-            <UnreadBadge count={unread.messages} />
+            {unreadState === 'ready' && <UnreadBadge count={unread.messages} />}
           </NavLink>
           <NavLink
             to="/profile?view=notifications"
-            aria-label={unreadLabel('通知', unread.notifications)}
+            aria-label={navUnreadLabel('通知', unread.notifications, unreadState)}
             title="通知"
             className="relative flex size-10 items-center justify-center rounded-card text-ink-muted transition duration-fast hover:bg-primary-50 hover:text-primary-700"
           >
             <Bell aria-hidden="true" className="size-5" />
-            <UnreadBadge count={unread.notifications} />
+            {unreadState === 'ready' && <UnreadBadge count={unread.notifications} />}
           </NavLink>
+          {unreadState === 'degraded' && (
+            <button
+              type="button"
+              aria-label="重新加载未读数"
+              title="重新加载未读数"
+              onClick={onRetryUnread}
+              className="flex size-10 items-center justify-center rounded-card text-ink-muted transition duration-fast hover:bg-primary-50 hover:text-primary-700"
+            >
+              <RefreshCw aria-hidden="true" className="size-4" />
+            </button>
+          )}
           <NavLink
             to="/tutorial"
             aria-label="教程"

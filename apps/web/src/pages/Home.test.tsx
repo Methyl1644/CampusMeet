@@ -48,6 +48,12 @@ const recommendedTopic: RecommendedHomeTopic = {
   recommendation_reason: '与你的人工智能兴趣相关',
 }
 
+const attendingTopic = {
+  ...recommendedTopic,
+  id: 'topic-attending-workshop',
+  title: '软件工程实践工作坊',
+}
+
 const feedFixture: HomeFeed = {
   profile: {
     id: 'student-1',
@@ -74,6 +80,7 @@ const feedFixture: HomeFeed = {
       recommendation_reason: '近期校园热门活动',
     },
   ],
+  attending_topics: [attendingTopic],
   followed_topics: [recommendedTopic],
   joined_groups: [
     {
@@ -146,6 +153,16 @@ afterEach(() => {
 })
 
 describe('Home', () => {
+  it('uses attending topics in the summary and exposes one page-level heading', async () => {
+    vi.mocked(getHomeFeed).mockResolvedValue(feedFixture)
+
+    renderHome()
+
+    expect(await screen.findByRole('heading', { level: 1, name: '你的 CampusMate 首页' })).toBeTruthy()
+    expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1)
+    expect(screen.getByRole('tabpanel').textContent).toContain(attendingTopic.title)
+  })
+
   it('keeps timeline rows distinct when two teams share a task id across a rerender', () => {
     const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined)
     const sharedDueAt = localIso(0, 20)
