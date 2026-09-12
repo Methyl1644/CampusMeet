@@ -39,8 +39,18 @@ class Post(Base):
     cover_url: Mapped[str | None] = mapped_column(Text)
     source_type: Mapped[str] = mapped_column(Text, nullable=False, default="user")
     kind: Mapped[str] = mapped_column(Text, nullable=False, default="casual_invitation")
-    purpose: Mapped[str] = mapped_column(Text, nullable=False, default="team_recruitment")
-    join_mode: Mapped[str] = mapped_column(Text, nullable=False, default="application")
+    purpose: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+        default="team_recruitment",
+        server_default="team_recruitment",
+    )
+    join_mode: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+        default="application",
+        server_default="application",
+    )
     topic_id: Mapped[int | None] = mapped_column(BigInteger, ForeignKey("topics.id", ondelete="SET NULL"))
     main_category: Mapped[str] = mapped_column(Text, nullable=False)
     tags: Mapped[list] = mapped_column(JSON, default=list)

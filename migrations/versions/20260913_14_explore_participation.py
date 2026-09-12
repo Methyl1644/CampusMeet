@@ -28,7 +28,10 @@ BOOKMARK_INDEX = "ix_post_bookmarks_user_created"
 TOPIC_PARTICIPATION_SQL = (
     "participation_mode IN ('open_team', 'official_signup', 'information_only')"
 )
-TOPIC_CAPACITY_SQL = "capacity IS NULL OR capacity > 0"
+SQLITE_TOPIC_CAPACITY_SQL = (
+    "capacity IS NULL OR (typeof(capacity) = 'integer' AND capacity > 0)"
+)
+POSTGRESQL_TOPIC_CAPACITY_SQL = "capacity IS NULL OR capacity > 0"
 POST_PURPOSE_SQL = (
     "purpose IN ('team_recruitment', 'official_signup', 'discussion')"
 )
@@ -37,6 +40,16 @@ OFFICIAL_SIGNUP_PREDICATE = (
     "topic_id IS NOT NULL AND purpose = 'official_signup' "
     "AND status IN ('recruiting', 'full')"
 )
+
+
+def _topic_capacity_sql(dialect_name: str) -> str:
+    if dialect_name == "sqlite":
+        return SQLITE_TOPIC_CAPACITY_SQL
+    if dialect_name == "postgresql":
+        return POSTGRESQL_TOPIC_CAPACITY_SQL
+    raise RuntimeError(
+        f"Unsupported database dialect for Topic capacity: {dialect_name}"
+    )
 
 
 def _column_map(table_name: str) -> dict[str, dict]:
@@ -85,22 +98,29 @@ def _upgrade_topics() -> None:
             "OR participation_mode NOT IN ('open_team', 'official_signup', 'information_only')"
         )
     )
-    bind.execute(
-        sa.text(
-            "UPDATE topics SET capacity = NULL "
-            "WHERE capacity IS NOT NULL AND capacity <= 0"
+    if bind.dialect.name == "sqlite":
+        bind.execute(
+            sa.text(
+                "UPDATE topics SET capacity = NULL WHERE capacity IS NOT NULL "
+                "AND (typeof(capacity) != 'integer' OR capacity <= 0)"
+            )
         )
-    )
+    else:
+        bind.execute(
+            sa.text(
+                "UPDATE topics SET capacity = NULL "
+                "WHERE capacity IS NOT NULL AND capacity <= 0"
+            )
+        )
 
-    columns = _column_map("topics")
     checks = _check_names("topics")
     with op.batch_alter_table("topics") as batch_op:
-        if columns["participation_mode"]["nullable"]:
-            batch_op.alter_column(
-                "participation_mode",
-                existing_type=sa.Text(),
-                nullable=False,
-            )
+        batch_op.alter_column(
+            "participation_mode",
+            existing_type=sa.Text(),
+            nullable=False,
+            server_default="open_team",
+        )
         if TOPIC_PARTICIPATION_CHECK not in checks:
             batch_op.create_check_constraint(
                 TOPIC_PARTICIPATION_CHECK,
@@ -109,7 +129,7 @@ def _upgrade_topics() -> None:
         if TOPIC_CAPACITY_CHECK not in checks:
             batch_op.create_check_constraint(
                 TOPIC_CAPACITY_CHECK,
-                TOPIC_CAPACITY_SQL,
+                _topic_capacity_sql(bind.dialect.name),
             )
 
 
@@ -153,13 +173,20 @@ def _upgrade_posts() -> None:
             f"exist for topic_id={duplicate.topic_id}."
         )
 
-    columns = _column_map("posts")
     checks = _check_names("posts")
     with op.batch_alter_table("posts") as batch_op:
-        if columns["purpose"]["nullable"]:
-            batch_op.alter_column("purpose", existing_type=sa.Text(), nullable=False)
-        if columns["join_mode"]["nullable"]:
-            batch_op.alter_column("join_mode", existing_type=sa.Text(), nullable=False)
+        batch_op.alter_column(
+            "purpose",
+            existing_type=sa.Text(),
+            nullable=False,
+            server_default="team_recruitment",
+        )
+        batch_op.alter_column(
+            "join_mode",
+            existing_type=sa.Text(),
+            nullable=False,
+            server_default="application",
+        )
         if POST_PURPOSE_CHECK not in checks:
             batch_op.create_check_constraint(POST_PURPOSE_CHECK, POST_PURPOSE_SQL)
         if POST_JOIN_MODE_CHECK not in checks:

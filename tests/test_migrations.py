@@ -6,6 +6,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
+import sqlalchemy as sa
 from alembic import command
 from alembic.config import Config
 from sqlalchemy import create_engine, inspect, text
@@ -418,6 +419,270 @@ def test_postgresql_task_migration_replaces_restores_and_reapplies_constraint(mo
     )
 
 
+def test_postgresql_explore_participation_migration_operations_are_reversible(monkeypatch):
+    migration = _load_migration(
+        "migration_20260913_14",
+        "20260913_14_explore_participation.py",
+    )
+    events = []
+    initial_columns = {
+        "users": {"id": {"name": "id", "nullable": False}},
+        "topics": {
+            "id": {"name": "id", "nullable": False},
+            "title": {"name": "title", "nullable": False},
+        },
+        "posts": {
+            "id": {"name": "id", "nullable": False},
+            "topic_id": {"name": "topic_id", "nullable": True},
+            "status": {"name": "status", "nullable": False},
+        },
+    }
+    state = {
+        "tables": set(initial_columns),
+        "columns": {
+            table: {name: dict(column) for name, column in columns.items()}
+            for table, columns in initial_columns.items()
+        },
+        "checks": {"topics": {}, "posts": {}},
+        "indexes": {"topics": {}, "posts": {}},
+    }
+
+    class FakeResult:
+        def first(self):
+            return None
+
+    class FakeBind:
+        dialect = SimpleNamespace(name="postgresql")
+
+        def execute(self, statement):
+            events.append(("execute", " ".join(str(statement).split())))
+            return FakeResult()
+
+    class FakeInspector:
+        def get_table_names(self):
+            return sorted(state["tables"])
+
+        def get_columns(self, table_name):
+            return list(state["columns"].get(table_name, {}).values())
+
+        def get_check_constraints(self, table_name):
+            return [
+                {"name": name, "sqltext": condition}
+                for name, condition in state["checks"].get(table_name, {}).items()
+            ]
+
+        def get_indexes(self, table_name):
+            return list(state["indexes"].get(table_name, {}).values())
+
+    class FakeBatch:
+        def __init__(self, table_name):
+            self.table_name = table_name
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        def add_column(self, column):
+            state["columns"][self.table_name][column.name] = {
+                "name": column.name,
+                "nullable": column.nullable,
+            }
+            events.append(("add_column", self.table_name, column.name))
+
+        def alter_column(self, name, **kwargs):
+            column = state["columns"][self.table_name][name]
+            column["nullable"] = kwargs.get("nullable", column["nullable"])
+            column["server_default"] = kwargs.get("server_default")
+            events.append(
+                (
+                    "alter_column",
+                    self.table_name,
+                    name,
+                    kwargs.get("nullable"),
+                    kwargs.get("server_default"),
+                )
+            )
+
+        def create_check_constraint(self, name, condition):
+            state["checks"][self.table_name][name] = condition
+            events.append(("create_check", self.table_name, name, condition))
+
+        def drop_constraint(self, name, *, type_):
+            assert type_ == "check"
+            state["checks"][self.table_name].pop(name)
+            events.append(("drop_check", self.table_name, name))
+
+        def drop_column(self, name):
+            state["columns"][self.table_name].pop(name)
+            events.append(("drop_column", self.table_name, name))
+
+    class FakeOp:
+        bind = FakeBind()
+
+        def get_bind(self):
+            return self.bind
+
+        def batch_alter_table(self, table_name):
+            return FakeBatch(table_name)
+
+        def create_index(self, name, table_name, columns, *, unique, **kwargs):
+            index = {
+                "name": name,
+                "column_names": list(columns),
+                "unique": unique,
+            }
+            state["indexes"].setdefault(table_name, {})[name] = index
+            events.append(
+                (
+                    "create_index",
+                    table_name,
+                    name,
+                    tuple(columns),
+                    unique,
+                    str(kwargs.get("sqlite_where")),
+                    str(kwargs.get("postgresql_where")),
+                )
+            )
+
+        def drop_index(self, name, *, table_name):
+            state["indexes"][table_name].pop(name)
+            events.append(("drop_index", table_name, name))
+
+        def create_table(self, name, *items):
+            columns = [item for item in items if isinstance(item, sa.Column)]
+            state["tables"].add(name)
+            state["columns"][name] = {
+                column.name: {"name": column.name, "nullable": column.nullable}
+                for column in columns
+            }
+            state["checks"][name] = {}
+            state["indexes"][name] = {}
+            events.append(("create_table", name, tuple(column.name for column in columns)))
+
+        def drop_table(self, name):
+            state["tables"].remove(name)
+            state["columns"].pop(name)
+            state["checks"].pop(name)
+            state["indexes"].pop(name)
+            events.append(("drop_table", name))
+
+    fake_op = FakeOp()
+    monkeypatch.setattr(migration, "op", fake_op)
+    monkeypatch.setattr(migration, "inspect", lambda _bind: FakeInspector())
+
+    def position(kind, *values):
+        prefix = (kind, *values)
+        return next(
+            index for index, event in enumerate(events) if event[: len(prefix)] == prefix
+        )
+
+    migration.upgrade()
+
+    topic_backfill = next(
+        index
+        for index, event in enumerate(events)
+        if event[0] == "execute" and "SET participation_mode = 'open_team'" in event[1]
+    )
+    topic_capacity_sanitize = next(
+        index
+        for index, event in enumerate(events)
+        if event[0] == "execute" and "SET capacity = NULL" in event[1]
+    )
+    post_purpose_backfill = next(
+        index
+        for index, event in enumerate(events)
+        if event[0] == "execute" and "SET purpose = 'team_recruitment'" in event[1]
+    )
+    post_join_backfill = next(
+        index
+        for index, event in enumerate(events)
+        if event[0] == "execute" and "SET join_mode = 'application'" in event[1]
+    )
+    assert position("add_column", "topics", "participation_mode") < topic_backfill
+    assert topic_backfill < position("alter_column", "topics", "participation_mode")
+    assert position("alter_column", "topics", "participation_mode") < position(
+        "create_check", "topics", migration.TOPIC_PARTICIPATION_CHECK
+    )
+    assert topic_capacity_sanitize < position(
+        "create_check", "topics", migration.TOPIC_CAPACITY_CHECK
+    )
+    assert position("add_column", "posts", "purpose") < post_purpose_backfill
+    assert post_purpose_backfill < position("alter_column", "posts", "purpose")
+    assert position("alter_column", "posts", "purpose") < position(
+        "create_check", "posts", migration.POST_PURPOSE_CHECK
+    )
+    assert position("add_column", "posts", "join_mode") < post_join_backfill
+    assert post_join_backfill < position("alter_column", "posts", "join_mode")
+    assert position("alter_column", "posts", "join_mode") < position(
+        "create_check", "posts", migration.POST_JOIN_MODE_CHECK
+    )
+    assert position("create_check", "posts", migration.POST_JOIN_MODE_CHECK) < position(
+        "create_index", "posts", migration.OFFICIAL_SIGNUP_INDEX
+    )
+    assert position("create_index", "posts", migration.OFFICIAL_SIGNUP_INDEX) < position(
+        "create_table", "post_bookmarks"
+    )
+    assert position("create_table", "post_bookmarks") < position(
+        "create_index", "post_bookmarks", migration.BOOKMARK_INDEX
+    )
+
+    alter_events = {
+        (event[1], event[2]): event[3:]
+        for event in events
+        if event[0] == "alter_column"
+    }
+    assert alter_events[("topics", "participation_mode")] == (False, "open_team")
+    assert alter_events[("posts", "purpose")] == (False, "team_recruitment")
+    assert alter_events[("posts", "join_mode")] == (False, "application")
+    assert state["checks"]["topics"][migration.TOPIC_CAPACITY_CHECK] == (
+        migration.POSTGRESQL_TOPIC_CAPACITY_SQL
+    )
+    assert "typeof" not in events[topic_capacity_sanitize][1]
+    assert "capacity <= 0" in events[topic_capacity_sanitize][1]
+    official_index = next(
+        event
+        for event in events
+        if event[:3] == ("create_index", "posts", migration.OFFICIAL_SIGNUP_INDEX)
+    )
+    assert official_index[3:] == (
+        ("topic_id",),
+        True,
+        migration.OFFICIAL_SIGNUP_PREDICATE,
+        migration.OFFICIAL_SIGNUP_PREDICATE,
+    )
+
+    events.clear()
+    migration.downgrade()
+
+    assert state["tables"] == set(initial_columns)
+    assert {
+        table: set(columns)
+        for table, columns in state["columns"].items()
+    } == {table: set(columns) for table, columns in initial_columns.items()}
+    assert state["checks"] == {"topics": {}, "posts": {}}
+    assert state["indexes"] == {"topics": {}, "posts": {}}
+    assert position("drop_table", "post_bookmarks") < position(
+        "drop_index", "posts", migration.OFFICIAL_SIGNUP_INDEX
+    )
+    assert position("drop_check", "posts", migration.POST_JOIN_MODE_CHECK) < position(
+        "drop_column", "posts", "join_mode"
+    )
+
+    events.clear()
+    migration.upgrade()
+
+    assert "post_bookmarks" in state["tables"]
+    assert state["columns"]["topics"]["participation_mode"]["server_default"] == "open_team"
+    assert state["columns"]["posts"]["purpose"]["server_default"] == "team_recruitment"
+    assert state["columns"]["posts"]["join_mode"]["server_default"] == "application"
+    assert state["checks"]["topics"][migration.TOPIC_CAPACITY_CHECK] == (
+        migration.POSTGRESQL_TOPIC_CAPACITY_SQL
+    )
+    assert migration.OFFICIAL_SIGNUP_INDEX in state["indexes"]["posts"]
+
+
 def _create_phase_two_participation_schema(engine, *, dirty_fields: bool = False) -> None:
     with engine.begin() as connection:
         connection.execute(text("CREATE TABLE users (id INTEGER PRIMARY KEY)"))
@@ -496,6 +761,25 @@ def test_explore_participation_migration_preserves_legacy_rows_and_is_reversible
     assert tuple(post) == ("Legacy group", "team_recruitment", "application")
     assert revision == "20260913_14"
 
+    with engine.begin() as connection:
+        connection.execute(
+            text("INSERT INTO topics (id, title) VALUES (11, 'Raw activity')")
+        )
+        connection.execute(
+            text(
+                "INSERT INTO posts (id, title, topic_id, status) VALUES "
+                "(21, 'Raw group', 11, 'recruiting')"
+            )
+        )
+        raw_topic = connection.execute(
+            text("SELECT participation_mode FROM topics WHERE id = 11")
+        ).scalar_one()
+        raw_post = connection.execute(
+            text("SELECT purpose, join_mode FROM posts WHERE id = 21")
+        ).one()
+    assert raw_topic == "open_team"
+    assert tuple(raw_post) == ("team_recruitment", "application")
+
     command.downgrade(config, "20260913_13")
 
     inspector = inspect(engine)
@@ -528,7 +812,9 @@ def test_explore_participation_migration_sanitizes_legacy_values_before_checks(t
             text(
                 "INSERT INTO topics "
                 "(id, title, capacity, participation_mode) "
-                "VALUES (10, 'Dirty activity', -50, 'legacy_mode')"
+                "VALUES (10, 'Dirty activity', -50, 'legacy_mode'), "
+                "(11, 'Fractional activity', 1.5, 'open_team'), "
+                "(12, 'Text capacity activity', 'abc', 'open_team')"
             )
         )
         connection.execute(
@@ -544,13 +830,17 @@ def test_explore_participation_migration_sanitizes_legacy_values_before_checks(t
     command.upgrade(config, "head")
 
     with engine.connect() as connection:
-        topic = connection.execute(
-            text("SELECT title, capacity, participation_mode FROM topics WHERE id = 10")
-        ).one()
+        topics = connection.execute(
+            text("SELECT id, capacity, participation_mode FROM topics ORDER BY id")
+        ).all()
         post = connection.execute(
             text("SELECT title, purpose, join_mode FROM posts WHERE id = 20")
         ).one()
-    assert tuple(topic) == ("Dirty activity", None, "open_team")
+    assert [tuple(topic) for topic in topics] == [
+        (10, None, "open_team"),
+        (11, None, "open_team"),
+        (12, None, "open_team"),
+    ]
     assert tuple(post) == ("Dirty group", "team_recruitment", "application")
     assert {
         "ck_topics_participation_mode",
@@ -559,6 +849,14 @@ def test_explore_participation_migration_sanitizes_legacy_values_before_checks(t
     assert {"ck_posts_purpose", "ck_posts_join_mode"} <= {
         item["name"] for item in inspect(engine).get_check_constraints("posts")
     }
+
+    for invalid_capacity in (0, -1, 1.5, "abc"):
+        with pytest.raises(IntegrityError):
+            with engine.begin() as connection:
+                connection.execute(
+                    text("UPDATE topics SET capacity = :capacity WHERE id = 10"),
+                    {"capacity": invalid_capacity},
+                )
 
 
 def test_identity_migration_preserves_legacy_organization_application_rows(tmp_path):

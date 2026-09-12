@@ -83,12 +83,56 @@ def test_participation_models_persist_safe_legacy_defaults():
         assert post.join_mode == "application"
 
 
+def test_participation_database_defaults_apply_to_raw_sqlite_inserts():
+    engine = create_engine("sqlite+pysqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    with Session(engine) as session:
+        user = _user("raw-defaults@nju.edu.cn")
+        session.add(user)
+        session.commit()
+        user_id = user.id
+
+    with engine.begin() as connection:
+        connection.execute(
+            text(
+                "INSERT INTO topics ("
+                "id, channel, title, short_title, organizer, organizer_key, "
+                "canonical_event_key, edition, summary, content, source_status, "
+                "created_by, status) VALUES ("
+                "100, 'official', 'Raw activity', 'Raw', 'CampusMate', 'campusmate', "
+                "'raw-activity', '2026', 'Summary', 'Details', 'verified', :user_id, 'active')"
+            ),
+            {"user_id": user_id},
+        )
+        connection.execute(
+            text(
+                "INSERT INTO posts ("
+                "id, title, source_type, kind, topic_id, main_category, activity_name, "
+                "tags, current_members, target_members, needed_roles, risk_level, status, author_id) VALUES ("
+                "200, 'Raw group', 'user', 'casual_invitation', 100, 'sports', "
+                "'Badminton', '[]', 1, 4, '[]', 'low', 'recruiting', :user_id)"
+            ),
+            {"user_id": user_id},
+        )
+        topic_defaults = connection.execute(
+            text("SELECT participation_mode FROM topics WHERE id = 100")
+        ).one()
+        post_defaults = connection.execute(
+            text("SELECT purpose, join_mode FROM posts WHERE id = 200")
+        ).one()
+
+    assert tuple(topic_defaults) == ("open_team",)
+    assert tuple(post_defaults) == ("team_recruitment", "application")
+
+
 @pytest.mark.parametrize(
     ("table_name", "column_name", "invalid_value"),
     [
         ("topics", "participation_mode", "ticketed"),
         ("topics", "capacity", 0),
         ("topics", "capacity", -1),
+        ("topics", "capacity", 1.5),
+        ("topics", "capacity", "abc"),
         ("posts", "purpose", "announcement"),
         ("posts", "join_mode", "invite_only"),
     ],
@@ -96,7 +140,7 @@ def test_participation_models_persist_safe_legacy_defaults():
 def test_participation_model_checks_reject_invalid_raw_values(
     table_name: str,
     column_name: str,
-    invalid_value: str | int,
+    invalid_value: str | int | float,
 ):
     with _session() as session:
         user = _user(f"{table_name}-{column_name}-{invalid_value}@nju.edu.cn")
@@ -207,12 +251,20 @@ def test_participation_model_metadata_emits_dialect_safe_ddl(dialect):
 
     assert "ck_topics_participation_mode" in topic_ddl
     assert "participation_mode IN ('open_team', 'official_signup', 'information_only')" in topic_ddl
+    assert "participation_mode TEXT DEFAULT 'open_team' NOT NULL" in topic_ddl
     assert "ck_topics_capacity_positive" in topic_ddl
-    assert "capacity IS NULL OR capacity > 0" in topic_ddl
+    if dialect.name == "sqlite":
+        assert "capacity IS NULL OR (typeof(capacity) = 'integer' AND capacity > 0)" in topic_ddl
+        assert "typeof(capacity) = 'integer'" in topic_ddl
+    else:
+        assert "capacity IS NULL OR capacity > 0" in topic_ddl
+        assert "typeof" not in topic_ddl
     assert "ck_posts_purpose" in post_ddl
     assert "purpose IN ('team_recruitment', 'official_signup', 'discussion')" in post_ddl
+    assert "purpose TEXT DEFAULT 'team_recruitment' NOT NULL" in post_ddl
     assert "ck_posts_join_mode" in post_ddl
     assert "join_mode IN ('application', 'direct', 'none')" in post_ddl
+    assert "join_mode TEXT DEFAULT 'application' NOT NULL" in post_ddl
     assert "PRIMARY KEY (post_id, user_id)" in bookmark_ddl
     assert "CREATE UNIQUE INDEX uq_posts_effective_official_signup_topic" in official_index_ddl
     assert "purpose = 'official_signup'" in official_index_ddl

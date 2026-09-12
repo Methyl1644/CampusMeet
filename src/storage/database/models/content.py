@@ -7,6 +7,12 @@ from storage.database.shared.model import Base
 from storage.database.shared.types import BIGINT_PRIMARY_KEY
 
 
+SQLITE_TOPIC_CAPACITY_CHECK = (
+    "capacity IS NULL OR (typeof(capacity) = 'integer' AND capacity > 0)"
+)
+POSTGRESQL_TOPIC_CAPACITY_CHECK = "capacity IS NULL OR capacity > 0"
+
+
 class Tag(Base):
     __tablename__ = "tags"
 
@@ -106,9 +112,13 @@ class Topic(Base):
             name="ck_topics_participation_mode",
         ),
         CheckConstraint(
-            "capacity IS NULL OR capacity > 0",
+            SQLITE_TOPIC_CAPACITY_CHECK,
             name="ck_topics_capacity_positive",
-        ),
+        ).ddl_if(dialect="sqlite"),
+        CheckConstraint(
+            POSTGRESQL_TOPIC_CAPACITY_CHECK,
+            name="ck_topics_capacity_positive",
+        ).ddl_if(dialect="postgresql"),
     )
 
     id: Mapped[int] = mapped_column(BIGINT_PRIMARY_KEY, primary_key=True, autoincrement=True)
@@ -127,7 +137,12 @@ class Topic(Base):
     location_name: Mapped[str | None] = mapped_column(Text)
     campus_scope: Mapped[str | None] = mapped_column(Text)
     capacity: Mapped[int | None] = mapped_column(Integer)
-    participation_mode: Mapped[str] = mapped_column(Text, nullable=False, default="open_team")
+    participation_mode: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+        default="open_team",
+        server_default="open_team",
+    )
     registration_deadline: Mapped[datetime.datetime | None] = mapped_column(DateTime(timezone=True))
     activity_start_at: Mapped[datetime.datetime | None] = mapped_column(DateTime(timezone=True))
     activity_end_at: Mapped[datetime.datetime | None] = mapped_column(DateTime(timezone=True))
