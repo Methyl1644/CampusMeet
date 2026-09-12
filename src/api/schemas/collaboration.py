@@ -33,6 +33,8 @@ class PostCreateRequest(RequestModel):
     deadline: str = Field(default="", max_length=80)
     kind: Literal["topic_team", "casual_invitation"] = "casual_invitation"
     topic_id: int | None = Field(default=None, ge=1)
+    purpose: Literal["team_recruitment", "official_signup", "discussion"] = "team_recruitment"
+    join_mode: Literal["application", "direct", "none"] | None = None
     tag_ids: list[TagId] = Field(default_factory=list, max_length=8)
     tags: list[TagId] | None = Field(default=None, max_length=8)
 
@@ -60,6 +62,8 @@ class PostUpdateRequest(RequestModel):
     weekly_hours: str | None = Field(default=None, max_length=80)
     school_scope: str | None = Field(default=None, max_length=80)
     deadline: str | None = Field(default=None, max_length=80)
+    purpose: Literal["team_recruitment", "official_signup", "discussion"] | None = None
+    join_mode: Literal["application", "direct", "none"] | None = None
     tag_ids: list[TagId] | None = Field(default=None, max_length=8)
 
     @model_validator(mode="after")

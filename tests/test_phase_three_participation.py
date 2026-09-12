@@ -588,6 +588,7 @@ def test_application_join_rejects_direct_and_information_only_posts():
 
 def test_post_create_and_update_paths_apply_the_policy(monkeypatch):
     from api import posts as posts_api
+    from api.schemas.collaboration import PostCreateRequest
     from tools import post_tools
 
     factory = _factory()
@@ -608,35 +609,57 @@ def test_post_create_and_update_paths_apply_the_policy(monkeypatch):
     monkeypatch.setattr(posts_api, "_moderate_post", lambda *args, **kwargs: None)
     monkeypatch.setattr(posts_api, "_classification_review", lambda *args, **kwargs: {})
 
-    created = json.loads(
-        post_tools.create_post.invoke(
-        {
-            "user_id": str(operator_id),
-            "title": "Official signup",
-            "description": "Campus registration",
-            "main_category": "校园生活",
-            "activity_name": "Campus activity",
-            "target_members": 20,
-            "needed_roles": "",
-            "kind": "topic_team",
-            "topic_id": str(topic_id),
-            "purpose": "official_signup",
-            "join_mode": "direct",
-        }
-        )
+    created = posts_api.create(
+        PostCreateRequest(
+            title="Official signup",
+            description="Campus registration",
+            main_category="校园生活",
+            activity_name="Campus activity",
+            target_members=20,
+            needed_roles=[],
+            kind="topic_team",
+            topic_id=topic_id,
+            purpose="official_signup",
+            join_mode="direct",
+        ),
+        str(operator_id),
     )
-    post_id = int(created["post"]["id"])
-    assert created["post"]["purpose"] == "official_signup"
-    assert created["post"]["join_mode"] == "direct"
+    post_id = int(created["data"]["id"])
+    assert "cover_url" not in created["data"]
+    assert "purpose" not in created["data"]
+    assert "join_mode" not in created["data"]
 
     updated = posts_api.update(
         post_id,
-        {"title": "Official signup updated"},
+        {"title": "Official signup updated", "purpose": "discussion", "join_mode": "none"},
         str(operator_id),
     )
     assert updated["data"]["title"] == "Official signup updated"
-    assert updated["data"]["purpose"] == "official_signup"
-    assert updated["data"]["join_mode"] == "direct"
+    assert "purpose" not in updated["data"]
+    assert "join_mode" not in updated["data"]
+    with factory() as session:
+        stored = session.get(Post, post_id)
+        assert stored.purpose == "discussion"
+        assert stored.join_mode == "none"
+
+
+def test_post_tool_keeps_policy_inputs_but_defers_cover_and_public_projection():
+    from tools import post_tools
+
+    assert "purpose" in post_tools.create_post.args
+    assert "join_mode" in post_tools.create_post.args
+    assert "cover_url" not in post_tools.create_post.args
+
+    post = _post(
+        1,
+        purpose="official_signup",
+        join_mode="direct",
+        cover_url="https://example.test/cover.jpg",
+    )
+    projection = post_tools._post_to_dict(post)
+    assert "cover_url" not in projection
+    assert "purpose" not in projection
+    assert "join_mode" not in projection
 
 
 def test_application_tool_routes_join_mode_errors_through_policy(monkeypatch):

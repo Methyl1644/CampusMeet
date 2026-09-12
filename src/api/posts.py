@@ -12,7 +12,11 @@ from services.content_moderation import ModerationContext, moderate_content
 from services.moderation_cases import has_active_restriction
 from services.collaboration_lifecycle import transition_post
 from services.permissions import can_manage_post
-from services.participation import ParticipationError, validate_post_participation
+from services.participation import (
+    ParticipationError,
+    commit_post_participation,
+    validate_post_participation,
+)
 from storage.database.db import get_session
 from storage.database.models import AuditLog, Post, PostTag, User
 from tools.post_tools import _post_to_dict, create_post, get_my_posts, get_post_detail, list_posts
@@ -22,6 +26,14 @@ router = APIRouter(prefix="/posts", tags=["posts"])
 logger = logging.getLogger(__name__)
 MAIN_CATEGORIES = {"竞赛与项目", "学习与科研", "体育与健身", "旅行与户外", "校园生活", "拼团与AA"}
 RISK_LEVELS = {"low": 0, "medium": 1, "high": 2}
+
+
+def _participation_http_error(exc: ParticipationError) -> HTTPException:
+    status_code = 403 if exc.code == "participation.official_signup_forbidden" else 409
+    return HTTPException(
+        status_code=status_code,
+        detail={"code": exc.code, "message": exc.message},
+    )
 
 
 def _classification_review(title: str, description: str, user_id: str) -> dict[str, Any]:
@@ -181,8 +193,15 @@ def create(body: PostCreateRequest, user_id: str = Depends(current_user_id)) -> 
             "tag_ids": ",".join(selected_tag_ids),
             "suggested_tag_ids": ",".join(dict.fromkeys(suggested_tag_ids)),
             "review_risk_level": resolved_risk_level,
+            "purpose": body.get("purpose", "team_recruitment"),
+            "join_mode": body.get("join_mode") or "",
         },
     )
+    raw_payload = json.loads(raw) if isinstance(raw, str) else raw
+    if raw_payload.get("success") is False and raw_payload.get("error_code"):
+        code = str(raw_payload["error_code"])
+        if code.startswith("participation."):
+            raise _participation_http_error(ParticipationError(code))
     result = parse_tool_result(raw, "post")
     concepts = review.get("unknown_concepts") if isinstance(review.get("unknown_concepts"), list) else []
     if concepts:
@@ -221,6 +240,8 @@ def update(post_id: int, body: PostUpdateRequest, user_id: str = Depends(current
             "school_scope",
             "deadline",
             "tag_ids",
+            "purpose",
+            "join_mode",
         }
         requested_content = content_fields.intersection(body)
         if requested_content and not can_manage_post(session, user, post, "edit_post"):
@@ -231,8 +252,7 @@ def update(post_id: int, body: PostUpdateRequest, user_id: str = Depends(current
         try:
             participation = validate_post_participation(session, user, body, existing=post)
         except ParticipationError as exc:
-            status_code = 403 if exc.code == "participation.official_signup_forbidden" else 409
-            raise HTTPException(status_code=status_code, detail=exc.message) from exc
+            raise _participation_http_error(exc) from exc
 
         changed: dict[str, Any] = {}
         text_limits = {
@@ -279,6 +299,13 @@ def update(post_id: int, body: PostUpdateRequest, user_id: str = Depends(current
             session.add_all(PostTag(post_id=post.id, tag_id=tag_id, source="user") for tag_id in tag_ids)
             post.tags = tag_ids
             changed["tag_ids"] = tag_ids
+        if "purpose" in body or "join_mode" in body:
+            post.purpose = participation.purpose
+            post.join_mode = participation.join_mode
+            if "purpose" in body:
+                changed["purpose"] = str(participation.purpose)
+            if "join_mode" in body:
+                changed["join_mode"] = str(participation.join_mode)
         _moderate_post(
             {
                 "activity_name": post.activity_name,
@@ -316,7 +343,10 @@ def update(post_id: int, body: PostUpdateRequest, user_id: str = Depends(current
                 detail=json.dumps({"fields": sorted(changed)}, ensure_ascii=False),
             )
         )
-        session.commit()
+        try:
+            commit_post_participation(session, post)
+        except ParticipationError as exc:
+            raise _participation_http_error(exc) from exc
         author = session.get(User, post.author_id)
         return api_ok(_post_to_dict(post, author, session), "帖子已更新")
     finally:
@@ -334,7 +364,10 @@ def _transition(post_id: int, user_id: str, action: str) -> dict[str, Any]:
             raise HTTPException(status_code=404, detail="帖子不存在")
         try:
             transition_post(session, actor, post, action)
-            session.commit()
+            commit_post_participation(session, post)
+        except ParticipationError as exc:
+            session.rollback()
+            raise _participation_http_error(exc) from exc
         except PermissionError as exc:
             session.rollback()
             raise HTTPException(status_code=403, detail=str(exc)) from exc

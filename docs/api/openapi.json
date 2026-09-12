@@ -1656,6 +1656,22 @@
             "title": "Description",
             "type": "string"
           },
+          "join_mode": {
+            "anyOf": [
+              {
+                "enum": [
+                  "application",
+                  "direct",
+                  "none"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Join Mode"
+          },
           "kind": {
             "default": "casual_invitation",
             "enum": [
@@ -1693,6 +1709,16 @@
             "maxItems": 10,
             "title": "Needed Roles",
             "type": "array"
+          },
+          "purpose": {
+            "default": "team_recruitment",
+            "enum": [
+              "team_recruitment",
+              "official_signup",
+              "discussion"
+            ],
+            "title": "Purpose",
+            "type": "string"
           },
           "school_scope": {
             "default": "",
@@ -1869,6 +1895,22 @@
             ],
             "title": "Description"
           },
+          "join_mode": {
+            "anyOf": [
+              {
+                "enum": [
+                  "application",
+                  "direct",
+                  "none"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Join Mode"
+          },
           "main_category": {
             "anyOf": [
               {
@@ -1904,6 +1946,22 @@
               }
             ],
             "title": "Needed Roles"
+          },
+          "purpose": {
+            "anyOf": [
+              {
+                "enum": [
+                  "team_recruitment",
+                  "official_signup",
+                  "discussion"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Purpose"
           },
           "school_scope": {
             "anyOf": [

@@ -26,6 +26,11 @@ from services.content_moderation import ModerationContext, moderate_content
 from services.collaboration_lifecycle import PUBLIC_POST_STATUSES
 from services.moderation_cases import has_active_restriction
 from services.permissions import can_manage_topic
+from services.participation import (
+    ParticipationError,
+    commit_post_participation,
+    set_post_status,
+)
 from services.operators import has_platform_role
 from services.tag_governance import review_tag_proposal, submit_tag_proposal
 from storage.database.db import get_session
@@ -440,7 +445,14 @@ def moderate_topic_post(
         status = str(body.get("status") or "")
         if status not in {"recruiting", "closed", "hidden"}:
             raise HTTPException(status_code=400, detail="帖子状态不正确")
-        post.status = status
+        try:
+            set_post_status(session, post, status, actor=actor)
+        except ParticipationError as exc:
+            session.rollback()
+            raise HTTPException(
+                status_code=409,
+                detail={"code": exc.code, "message": exc.message},
+            ) from exc
         session.add(
             AuditLog(
                 user_id=actor.id,
@@ -453,7 +465,13 @@ def moderate_topic_post(
                 ),
             )
         )
-        session.commit()
+        try:
+            commit_post_participation(session, post)
+        except ParticipationError as exc:
+            raise HTTPException(
+                status_code=409,
+                detail={"code": exc.code, "message": exc.message},
+            ) from exc
         author = session.get(User, post.author_id)
         return api_ok(_post_to_dict(post, author, session), "帖子状态已更新")
     finally:

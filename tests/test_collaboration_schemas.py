@@ -54,3 +54,19 @@ def test_post_update_rejects_unknown_status_and_empty_request():
         PostUpdateRequest(status="recruiting")
     with pytest.raises(ValidationError):
         PostUpdateRequest()
+
+
+def test_post_requests_accept_policy_fields_but_not_post_cover_input():
+    created = PostCreateRequest(
+        activity_name="Official signup",
+        purpose="official_signup",
+        join_mode="direct",
+    )
+    updated = PostUpdateRequest(purpose="discussion", join_mode="none")
+
+    assert created.purpose == "official_signup"
+    assert created.join_mode == "direct"
+    assert updated.purpose == "discussion"
+    assert updated.join_mode == "none"
+    with pytest.raises(ValidationError):
+        PostCreateRequest(activity_name="No cover yet", cover_url="https://example.test/cover.jpg")

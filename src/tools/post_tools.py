@@ -13,7 +13,12 @@ from services.content import validate_tag_ids
 from services.abuse_monitoring import check_and_record
 from services.collaboration_lifecycle import PUBLIC_POST_STATUSES
 from services.moderation_cases import has_active_restriction
-from services.participation import ParticipationError, validate_post_participation
+from services.participation import (
+    ParticipationError,
+    commit_post_participation,
+    flush_post_participation,
+    validate_post_participation,
+)
 from utils.security import screen_post_content
 from tools.auth_tools import _user_brief
 
@@ -26,11 +31,8 @@ def _post_to_dict(post: Post, author: User | None = None, session=None) -> dict:
         "id": str(post.id),
         "title": post.title,
         "description": post.description,
-        "cover_url": post.cover_url,
         "source_type": post.source_type,
         "kind": post.kind,
-        "purpose": post.purpose,
-        "join_mode": post.join_mode,
         "topic_id": str(post.topic_id) if post.topic_id is not None else None,
         "main_category": post.main_category,
         "tags": post.tags or [],
@@ -72,9 +74,8 @@ def create_post(
     tag_ids: str = "",
     suggested_tag_ids: str = "",
     review_risk_level: str = "low",
-    cover_url: str = "",
     purpose: str = "team_recruitment",
-    join_mode: str = "application",
+    join_mode: str = "",
 ) -> str:
     """创建组队帖。user_id 为用户ID，title 为标题，description 为描述，main_category 为主分类，activity_name 为活动名称，target_members 为目标人数，needed_roles 为所需角色(逗号分隔)，weekly_hours 为每周时长，school_scope 为学校范围，deadline 为截止日期。"""
     ctx = request_context.get() or new_context(method="create_post")
@@ -134,14 +135,16 @@ def create_post(
                 return json.dumps({"success": False, "message": "日常邀约不能关联正式话题"}, ensure_ascii=False)
 
             try:
+                participation_payload = {
+                    "topic_id": resolved_topic_id,
+                    "purpose": purpose,
+                }
+                if join_mode:
+                    participation_payload["join_mode"] = join_mode
                 participation = validate_post_participation(
                     session,
                     user,
-                    {
-                        "topic_id": resolved_topic_id,
-                        "purpose": purpose,
-                        "join_mode": join_mode,
-                    },
+                    participation_payload,
                 )
             except ParticipationError as exc:
                 return json.dumps(
@@ -181,7 +184,6 @@ def create_post(
             post = Post(
                 title=title,
                 description=description,
-                cover_url=cover_url.strip()[:500] or None,
                 source_type="user",
                 kind=kind,
                 purpose=participation.purpose,
@@ -199,7 +201,7 @@ def create_post(
                 author_id=uid,
             )
             session.add(post)
-            session.flush()
+            flush_post_participation(session, post)
             session.add_all(
                 PostTag(
                     post_id=post.id,
@@ -212,7 +214,7 @@ def create_post(
 
             # 更新用户发帖数
             user.post_count = (user.post_count or 0) + 1
-            session.commit()
+            commit_post_participation(session, post)
 
             return json.dumps({
                 "success": True,
@@ -223,6 +225,11 @@ def create_post(
             }, ensure_ascii=False)
         finally:
             session.close()
+    except ParticipationError as e:
+        return json.dumps(
+            {"success": False, "error_code": e.code, "message": e.message},
+            ensure_ascii=False,
+        )
     except Exception as e:
         logger.error(f"create_post error: {e}")
         return json.dumps({"success": False, "message": f"发布失败: {str(e)}"}, ensure_ascii=False)

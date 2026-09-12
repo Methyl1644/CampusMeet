@@ -17,7 +17,7 @@ from storage.database.models.team import (
 )
 from storage.database.models.post import Post
 from storage.database.models.content import AuditLog
-from services.collaboration_lifecycle import deadline_has_passed
+from services.participation import synchronize_post_membership
 from tools.auth_tools import _user_brief
 
 logger = logging.getLogger(__name__)
@@ -346,15 +346,9 @@ def _remove_member_record(session, team: Team, member: TeamMember, actor_id: int
         item for item in (team.contact_info or []) if str(item.get("user_id")) != str(target_id)
     ]
     session.flush()
-    remaining = int(
-        session.scalar(select(func.count()).select_from(TeamMember).where(TeamMember.team_id == team.id))
-        or 0
-    )
     post = session.get(Post, team.post_id)
     if post:
-        post.current_members = remaining
-        if remaining < post.target_members and post.status == "full":
-            post.status = "closed" if deadline_has_passed(post) else "recruiting"
+        synchronize_post_membership(session, post, team)
     _team_audit(session, actor_id, "team.member_remove", team, {"target_user_id": target_id})
 
 
