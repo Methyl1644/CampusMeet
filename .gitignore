@@ -23,6 +23,12 @@ Thumbs.db
 # Logs
 *.log
 npm-debug.log*
+.runtime/
+
+# Local development database
+campusmate.db
+/work/
+/.worktrees/
 
 # Cache
 .cache/

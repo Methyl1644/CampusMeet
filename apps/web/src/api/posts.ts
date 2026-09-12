@@ -11,11 +11,17 @@ export interface PostListParams {
   tab?: 'recommend' | 'recruiting' | 'official' | 'hot'
   page?: number
   page_size?: number
+  kind?: 'topic_team' | 'casual_invitation'
+  topic_id?: string
 }
 
 /** 获取帖子列表 */
 export function getPosts(params: PostListParams) {
-  return get<PaginatedResponse<Post>>(API_PATHS.posts.list, params as Record<string, unknown>)
+  const query = {
+    ...params,
+    tags: params.tags?.join(','),
+  }
+  return get<PaginatedResponse<Post>>(API_PATHS.posts.list, query as Record<string, unknown>)
 }
 
 /** 获取帖子详情 */

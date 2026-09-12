@@ -2,72 +2,51 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "campusmate/coze/schemas/post_draft.output.json",
   "title": "PostDraftOutput",
-  "description": "工作流① AI 对话式发帖的输出。对应后端 ai_post_draft 返回值与前端 PostDraftResponse。字段未确认时置 null 并把字段名加入 missing_fields，不得编造。",
+  "description": "需求拆解与发帖工作流的受控输出。",
   "type": "object",
-  "required": [
-    "title", "activity_name", "category", "source_type",
-    "current_members", "target_members", "needed_roles", "skills_required",
-    "time_commitment", "location_scope", "deadline", "goal", "description",
-    "tags", "missing_fields", "follow_up_questions",
-    "risk_level", "risk_reasons", "draft_text", "confidence"
-  ],
+  "required": ["reply", "draft", "is_complete", "field_states", "suggested_tag_ids"],
   "additionalProperties": false,
   "properties": {
-    "title": { "type": ["string", "null"], "description": "帖子标题草稿，如 美赛队伍招募编程和英文写作队友" },
-    "activity_name": { "type": ["string", "null"], "description": "活动名称，如 美国大学生数学建模竞赛（MCM/ICM）" },
-    "category": {
-      "type": ["string", "null"],
-      "enum": ["竞赛与项目", "学习与科研", "体育与健身", "旅行与户外", "校园生活", "拼团与AA", null],
-      "description": "主分类，取值与 PRD §5.2 分类体系一致"
+    "reply": { "type": "string", "maxLength": 500 },
+    "draft": {
+      "type": "object",
+      "required": [
+        "activity_name",
+        "target_members",
+        "needed_roles",
+        "weekly_hours",
+        "school_scope",
+        "deadline",
+        "description"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "activity_name": { "type": "string" },
+        "target_members": { "type": "integer", "minimum": 0 },
+        "needed_roles": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+        "weekly_hours": { "type": "string" },
+        "school_scope": { "type": "string" },
+        "deadline": { "type": "string" },
+        "description": { "type": "string" }
+      }
     },
-    "source_type": {
-      "type": "string",
-      "enum": ["user", "org", "official"],
-      "description": "来源类型：个人用户 / 认证组织 / 官方来源。普通发帖固定为 user"
+    "is_complete": { "type": "boolean" },
+    "field_states": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["value", "status"],
+        "additionalProperties": false,
+        "properties": {
+          "value": {},
+          "status": { "type": "string", "enum": ["confirmed", "none", "unknown", "skipped", "pending"] }
+        }
+      }
     },
-    "current_members": { "type": "integer", "minimum": 1, "description": "当前已有成员数（含发帖者），默认 1" },
-    "target_members": { "type": ["integer", "null"], "minimum": 2, "description": "目标总人数（含发帖者）" },
-    "needed_roles": {
-      "type": "array",
-      "items": { "type": "string" },
-      "description": "需要的角色，如 [\"编程\", \"英文写作\"]"
-    },
-    "skills_required": {
-      "type": "array",
-      "items": { "type": "string" },
-      "description": "需要的技能标签，如 [\"Python\", \"英语写作\"]"
-    },
-    "time_commitment": { "type": ["string", "null"], "description": "每周可投入时间，如 10h/周；对应前端的 weekly_hours 语义" },
-    "location_scope": { "type": ["string", "null"], "description": "地点/范围，如 南京大学仙林校区、线上；对应前端的 school_scope 语义" },
-    "deadline": { "type": ["string", "null"], "description": "招募或报名截止日期，ISO 日期 YYYY-MM-DD" },
-    "goal": { "type": ["string", "null"], "description": "组队目标，如 冲奖 / 完成课程作业 / 日常锻炼" },
-    "description": { "type": ["string", "null"], "description": "帖子正文草稿，面向招募对象的一段说明" },
-    "tags": {
-      "type": "array",
-      "items": { "type": "string" },
-      "description": "动态标签，如 [\"数学建模\", \"Python\", \"英文写作\"]"
-    },
-    "missing_fields": {
-      "type": "array",
-      "items": { "type": "string" },
-      "description": "尚未确认的关键字段名列表，如 [\"time_commitment\", \"deadline\"]"
-    },
-    "follow_up_questions": {
-      "type": "array",
-      "items": { "type": "string" },
-      "description": "向用户追问的问题，与 missing_fields 对应，一次不超过 3 个"
-    },
-    "risk_level": {
-      "type": "string",
-      "enum": ["low", "medium", "high"],
-      "description": "草稿层面的初步风险等级，最终评级以 classify-review 工作流与后端规则引擎为准"
-    },
-    "risk_reasons": {
-      "type": "array",
-      "items": { "type": "string" },
-      "description": "风险原因说明，无风险为空数组"
-    },
-    "draft_text": { "type": "string", "description": "给用户预览的完整草稿文本（人类可读）" },
-    "confidence": { "type": "number", "minimum": 0, "maximum": 1, "description": "草稿完整度置信度，0-1" }
+    "suggested_tag_ids": { "type": "array", "items": { "type": "string" }, "maxItems": 4, "uniqueItems": true },
+    "candidate_tags": { "type": "array", "items": { "type": "object" }, "maxItems": 120 },
+    "next_field": { "type": ["string", "null"] },
+    "missing_fields": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+    "degraded": { "type": "boolean" }
   }
 }

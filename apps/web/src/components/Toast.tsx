@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useCallback, type ReactNode } from 'react'
-import { CheckCircle, XCircle, Info, X } from 'lucide-react'
+import { CheckCircle2, CircleAlert, Info, X } from 'lucide-react'
 
 type ToastType = 'success' | 'error' | 'info'
 
@@ -39,25 +39,54 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   return (
     <ToastContext.Provider value={{ showToast }}>
       {children}
-      {/* Toast 容器 */}
-      <div className="fixed right-4 top-4 z-50 flex flex-col gap-2">
+      <div
+        className="pointer-events-none fixed inset-x-4 top-4 z-50 flex flex-col items-end gap-2 sm:left-auto sm:w-96"
+      >
         {toasts.map((toast) => {
           const config = {
-            success: { icon: CheckCircle, color: 'text-green-500', bg: 'bg-green-50 border-green-200' },
-            error: { icon: XCircle, color: 'text-red-500', bg: 'bg-red-50 border-red-200' },
-            info: { icon: Info, color: 'text-blue-500', bg: 'bg-blue-50 border-blue-200' },
+            success: {
+              icon: CheckCircle2,
+              color: 'text-campus-green',
+              surface: 'border-campus-green/25 bg-green-50',
+              label: '成功',
+            },
+            error: {
+              icon: CircleAlert,
+              color: 'text-red-700',
+              surface: 'border-red-200 bg-red-50',
+              label: '错误',
+            },
+            info: {
+              icon: Info,
+              color: 'text-campus-gold',
+              surface: 'border-campus-gold/25 bg-amber-50',
+              label: '提示',
+            },
           }[toast.type]
           const Icon = config.icon
           return (
             <div
               key={toast.id}
-              className={`flex items-center gap-2 rounded-lg border px-4 py-2.5 shadow-md ${config.bg} animate-slide-up`}
+              role={toast.type === 'error' ? 'alert' : 'status'}
+              aria-label={`${config.label}：${toast.message}`}
+              className={`pointer-events-auto flex w-full items-start gap-2.5 rounded-card border px-3.5 py-3 shadow-panel ${config.surface} animate-slide-up`}
             >
-              <Icon size={18} className={config.color} />
-              <span className="text-sm text-gray-700">{toast.message}</span>
+              <Icon
+                aria-hidden="true"
+                className={`mt-0.5 size-[18px] shrink-0 ${config.color}`}
+              />
+              <span className="min-w-0 flex-1 text-sm leading-5 text-ink">
+                {toast.message}
+              </span>
               {toast.type === 'error' && (
-                <button onClick={() => dismiss(toast.id)} className="ml-2 text-gray-400 hover:text-gray-600">
-                  <X size={14} />
+                <button
+                  type="button"
+                  aria-label="关闭错误提示"
+                  title="关闭"
+                  onClick={() => dismiss(toast.id)}
+                  className="icon-button -m-1 size-8"
+                >
+                  <X aria-hidden="true" className="size-4" />
                 </button>
               )}
             </div>

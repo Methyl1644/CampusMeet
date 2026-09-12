@@ -2,54 +2,42 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "campusmate/coze/schemas/post_draft.input.json",
   "title": "PostDraftInput",
-  "description": "工作流① AI 对话式发帖的输入。对应后端工具 ai_post_draft，前端 POST /api/agent/post-draft 请求体。多轮对话时后端回传上一轮 existing_draft 与 conversation_context。",
+  "description": "需求拆解与发帖工作流的后端实际入参。",
   "type": "object",
-  "required": ["user_text"],
+  "required": ["message", "kind", "field_states", "candidate_tags"],
   "additionalProperties": false,
   "properties": {
-    "user_text": {
-      "type": "string",
-      "minLength": 1,
-      "maxLength": 2000,
-      "description": "用户本轮输入的自然语言需求，例如：我想参加美赛，还缺两个队友，一个会编程一个英语好"
-    },
-    "user_profile": {
-      "type": ["object", "null"],
-      "description": "当前用户的基础资料（已脱敏，不含联系方式）",
-      "additionalProperties": false,
-      "properties": {
-        "user_id": { "type": "string" },
-        "nickname": { "type": "string" },
-        "major": { "type": "string", "description": "专业，如 数学系" },
-        "grade": { "type": "string", "description": "年级，如 大三" },
-        "skills": {
-          "type": "array",
-          "items": { "type": "string" },
-          "description": "技能标签，如 [\"Python\", \"数学建模\"]"
-        },
-        "auth_level": {
-          "type": "string",
-          "enum": ["unverified", "campus_verified", "org_verified"],
-          "description": "认证等级：未认证 / 校内认证 / 组织认证"
+    "message": { "type": "string", "minLength": 1, "maxLength": 2000 },
+    "draft": { "type": "string", "description": "当前草稿的 JSON 字符串；首轮为空字符串。" },
+    "user_skills": { "type": "string", "description": "用户技能，以逗号分隔。" },
+    "kind": { "type": "string", "enum": ["topic_team", "casual_invitation"] },
+    "field_states": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["value", "status"],
+        "additionalProperties": false,
+        "properties": {
+          "value": {},
+          "status": { "type": "string", "enum": ["confirmed", "none", "unknown", "skipped", "pending"] }
         }
       }
     },
-    "existing_draft": {
-      "type": ["object", "null"],
-      "description": "上一轮已生成的草稿子集（PostDraftOutput 中的结构化字段），多轮补全时传入；首轮为 null",
-      "additionalProperties": true
-    },
-    "conversation_context": {
-      "type": ["array", "null"],
-      "description": "本轮发帖会话的历史消息（按时间升序），首轮为 null 或空数组",
+    "candidate_tags": {
+      "type": "array",
+      "maxItems": 120,
       "items": {
         "type": "object",
-        "required": ["role", "content"],
+        "required": ["tag_id", "canonical_name", "category"],
+        "additionalProperties": true,
         "properties": {
-          "role": { "type": "string", "enum": ["user", "assistant"] },
-          "content": { "type": "string" }
+          "tag_id": { "type": "string", "minLength": 1 },
+          "canonical_name": { "type": "string", "minLength": 1 },
+          "category": { "type": "string", "enum": ["activity", "skill", "role", "level", "audience"] },
+          "display_color": { "type": "string" }
         }
       }
-    }
+    },
+    "topic_id": { "type": ["string", "null"] }
   }
 }

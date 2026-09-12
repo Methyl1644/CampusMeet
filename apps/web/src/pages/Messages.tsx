@@ -1,15 +1,15 @@
-import { useState, useEffect, useRef } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { ArrowLeft, Send, Shield, Handshake, XCircle, Lock } from 'lucide-react'
-import { getConversations, getMessages, sendMessage, confirmTeam, closeConversation } from '@/api/messages'
+import { useEffect, useRef, useState } from 'react'
+import { motion, useReducedMotion } from 'motion/react'
+import { ArrowLeft, Handshake, Lock, Send, XCircle } from 'lucide-react'
+import { closeConversation, confirmTeam, getConversations, getMessages, sendMessage } from '@/api/messages'
 import type { Conversation, Message } from '@shared/types'
 import Loading from '@/components/Loading'
 import EmptyState from '@/components/EmptyState'
 import { useToast } from '@/components/Toast'
 
 export default function Messages() {
-  const navigate = useNavigate()
   const { showToast } = useToast()
+  const shouldReduceMotion = useReducedMotion()
 
   const [conversations, setConversations] = useState<Conversation[]>([])
   const [activeConv, setActiveConv] = useState<Conversation | null>(null)
@@ -50,8 +50,11 @@ export default function Messages() {
   }, [activeConv]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' })
-  }, [messages])
+    scrollRef.current?.scrollTo({
+      top: scrollRef.current.scrollHeight,
+      behavior: shouldReduceMotion ? 'auto' : 'smooth',
+    })
+  }, [messages, shouldReduceMotion])
 
   const handleSend = async () => {
     if (!input.trim() || !activeConv || sending) return
@@ -102,37 +105,43 @@ export default function Messages() {
   if (loading) return <Loading />
 
   return (
-    <div className="flex h-[calc(100vh-120px)] gap-3 md:h-[calc(100vh-160px)]">
-      {/* 会话列表 */}
-      <div className={`${mobileChatOpen ? 'hidden' : 'flex'} w-full flex-col overflow-hidden rounded-xl border border-gray-200 bg-white md:w-72 md:flex`}>
-        <div className="border-b border-gray-200 p-3">
-          <h2 className="text-sm font-semibold text-gray-900">消息</h2>
-        </div>
-        <div className="flex-1 overflow-y-auto">
+    <div className="-mx-4 -mt-6 grid h-[calc(100dvh-5rem-env(safe-area-inset-bottom))] min-h-[28rem] grid-cols-1 overflow-hidden border-y border-stone bg-paper sm:-mx-6 md:mx-0 md:mt-0 md:h-[calc(100dvh-10rem)] md:min-h-[32rem] md:grid-cols-[20rem_minmax(0,1fr)] md:rounded-card md:border">
+      <aside className={`${mobileChatOpen ? 'hidden' : 'flex'} min-w-0 flex-col overflow-hidden border-stone md:flex md:border-r`} aria-label="会话列表">
+        <header className="shrink-0 border-b border-stone px-4 py-4">
+          <p className="section-label">沟通中心</p>
+          <h1 className="mt-2 font-serif text-xl font-semibold text-ink">消息</h1>
+        </header>
+
+        <div className="min-h-0 flex-1 overflow-y-auto">
           {conversations.length === 0 ? (
-            <EmptyState title="暂无会话" description="接受申请后会自动创建会话" />
+            <EmptyState title="暂无会话" />
           ) : (
             conversations.map((conv) => (
               <button
                 key={conv.id}
                 onClick={() => openConversation(conv)}
-                className={`flex w-full items-start gap-3 border-b border-gray-100 p-3 text-left transition-colors hover:bg-gray-50 ${
-                  activeConv?.id === conv.id ? 'bg-primary-50' : ''
+                aria-current={activeConv?.id === conv.id ? 'true' : undefined}
+                className={`flex min-h-20 w-full items-start gap-3 border-b border-stone px-4 py-3 text-left transition-colors ${
+                  activeConv?.id === conv.id
+                    ? 'border-l-2 border-l-primary-600 bg-primary-50'
+                    : 'border-l-2 border-l-transparent hover:bg-paper-warm'
                 }`}
               >
-                <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-primary-100 text-sm font-medium text-primary-600">
+                <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary-100 text-sm font-semibold text-primary-700">
                   {conv.other_user.nickname.charAt(0)}
                 </div>
                 <div className="min-w-0 flex-1">
-                  <div className="flex items-center justify-between">
-                    <span className="truncate text-sm font-medium text-gray-900">
+                  <div className="flex items-baseline justify-between gap-2">
+                    <span className="truncate text-sm font-semibold text-ink">
                       {conv.other_user.nickname}
                     </span>
-                    <span className="text-xs text-gray-400">{conv.last_message_at}</span>
+                    <span className="shrink-0 text-[11px] tabular-nums text-ink-muted">
+                      {conv.last_message_at || '暂无'}
+                    </span>
                   </div>
-                  <p className="truncate text-xs text-gray-500">{conv.last_message}</p>
+                  <p className="mt-1 truncate text-xs text-ink-muted">{conv.last_message || '暂无'}</p>
                   {conv.unread_count > 0 && (
-                    <span className="mt-0.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-xs text-white">
+                    <span className="mt-1 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-red-600 px-1 text-[11px] font-semibold tabular-nums text-white">
                       {conv.unread_count}
                     </span>
                   )}
@@ -141,109 +150,111 @@ export default function Messages() {
             ))
           )}
         </div>
-      </div>
+      </aside>
 
-      {/* 聊天界面 */}
-      <div className={`${mobileChatOpen ? 'flex' : 'hidden'} flex-1 flex-col overflow-hidden rounded-xl border border-gray-200 bg-white md:flex`}>
+      <section className={`${mobileChatOpen ? 'flex' : 'hidden'} min-w-0 flex-col overflow-hidden bg-paper md:flex`} aria-label="当前对话">
         {activeConv ? (
           <>
-            {/* 顶部操作栏 */}
-            <div className="flex items-center justify-between border-b border-gray-200 p-3">
-              <div className="flex items-center gap-2">
+            <header className="shrink-0 border-b border-stone px-3 py-3 sm:px-4">
+              <div className="flex min-w-0 items-start gap-2">
                 <button
+                  type="button"
                   onClick={() => setMobileChatOpen(false)}
-                  className="md:hidden"
+                  className="icon-button -ml-2 -mt-1 md:hidden"
+                  aria-label="返回会话列表"
+                  title="返回会话列表"
                 >
-                  <ArrowLeft size={18} className="text-gray-500" />
+                  <ArrowLeft aria-hidden="true" size={18} />
                 </button>
-                <div>
-                  <span className="text-sm font-medium text-gray-900">
+                <div className="min-w-0 flex-1">
+                  <span className="block truncate text-sm font-semibold text-ink">
                     {activeConv.other_user.nickname}
                   </span>
-                  <p className="text-xs text-gray-400">{activeConv.post_title}</p>
+                  <p className="mt-0.5 truncate text-xs text-ink-muted">{activeConv.post_title}</p>
+                </div>
+                <div className="flex shrink-0 gap-1.5">
+                  {activeConv.status === 'active' && (
+                    <button onClick={handleConfirmTeam} className="btn-secondary min-h-9 px-2.5 text-xs sm:px-3">
+                      <Handshake aria-hidden="true" size={14} />
+                      <span className="hidden sm:inline">愿意组队</span>
+                      <span className="sm:hidden">确认</span>
+                    </button>
+                  )}
+                  <button onClick={handleClose} className="btn-secondary min-h-9 px-2.5 text-xs text-red-700 sm:px-3">
+                    <XCircle aria-hidden="true" size={14} />
+                    结束
+                  </button>
                 </div>
               </div>
-              <div className="flex gap-2">
-                {activeConv.status === 'active' && (
-                  <button onClick={handleConfirmTeam} className="btn-secondary text-xs">
-                    <Handshake size={14} />
-                    愿意组队
-                  </button>
-                )}
-                <button onClick={handleClose} className="btn-secondary text-xs text-red-500">
-                  <XCircle size={14} />
-                  结束
-                </button>
-              </div>
-            </div>
+            </header>
 
-            {/* 安全提示 */}
-            <div className="flex items-center gap-2 bg-yellow-50 px-3 py-1.5">
-              <Shield size={14} className="text-yellow-500" />
-              <p className="text-xs text-yellow-700">
-                请勿在聊天中交换联系方式，确认组队后将自动解锁
-              </p>
-            </div>
-
-            {/* 消息列表 */}
-            <div ref={scrollRef} className="flex-1 overflow-y-auto p-3">
-              <div className="space-y-2">
+            <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto bg-paper-warm/45 px-3 py-4 sm:px-5">
+              <div className="space-y-3" aria-live="polite">
                 {messages.map((msg) => (
-                  <div
+                  <motion.div
                     key={msg.id}
+                    initial={shouldReduceMotion ? false : { opacity: 0, y: 6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={shouldReduceMotion ? { duration: 0 } : { duration: 0.18 }}
                     className={`flex ${msg.is_mine ? 'justify-end' : 'justify-start'}`}
                   >
                     <div
-                      className={`max-w-[75%] rounded-2xl px-3 py-2 text-sm ${
+                      className={`max-w-[82%] break-words rounded-card border px-3.5 py-2.5 text-sm leading-6 sm:max-w-[72%] ${
                         msg.is_mine
-                          ? 'bg-primary-600 text-white'
-                          : 'bg-gray-100 text-gray-700'
+                          ? 'border-primary-600 bg-primary-600 text-white'
+                          : 'border-stone bg-paper text-ink'
                       }`}
                     >
                       {msg.content}
                     </div>
-                  </div>
+                  </motion.div>
                 ))}
               </div>
             </div>
 
-            {/* 输入区 */}
             {activeConv.status === 'closed' ? (
-              <div className="border-t border-gray-200 p-3 text-center text-sm text-gray-400">
+              <div className="shrink-0 border-t border-stone p-3 text-center text-sm text-ink-muted">
                 对话已结束
               </div>
             ) : activeConv.status === 'team_confirmed' ? (
-              <div className="border-t border-gray-200 p-3">
-                <div className="flex items-center justify-center gap-2 rounded-lg bg-green-50 py-2 text-sm text-green-600">
-                  <Lock size={14} />
-                  组队确认中，联系方式即将解锁
+              <div className="shrink-0 border-t border-stone p-3">
+                <div className="flex min-h-10 items-center justify-center gap-2 bg-green-50 px-3 text-sm font-medium text-campus-green">
+                  <Lock aria-hidden="true" size={14} />
+                  组队确认中
                 </div>
               </div>
             ) : (
-              <div className="border-t border-gray-200 p-3">
-                <div className="flex gap-2">
+              <div className="shrink-0 border-t border-stone bg-paper p-3">
+                <div className="flex min-w-0 gap-2">
+                  <label htmlFor="message-input" className="sr-only">输入消息</label>
                   <input
+                    id="message-input"
                     type="text"
                     value={input}
-                    onChange={(e) => setInput(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-                    placeholder="输入消息..."
+                    onChange={(event) => setInput(event.target.value)}
+                    onKeyDown={(event) => event.key === 'Enter' && handleSend()}
                     disabled={sending}
-                    className="input-base flex-1"
+                    className="input-base min-w-0 flex-1"
                   />
-                  <button onClick={handleSend} disabled={sending || !input.trim()} className="btn-primary">
-                    <Send size={16} />
+                  <button
+                    onClick={handleSend}
+                    disabled={sending || !input.trim()}
+                    className="btn-primary size-10 shrink-0 p-0"
+                    aria-label="发送消息"
+                    title="发送消息"
+                  >
+                    <Send aria-hidden="true" size={17} />
                   </button>
                 </div>
               </div>
             )}
           </>
         ) : (
-          <div className="flex flex-1 items-center justify-center">
-            <EmptyState title="选择一个会话开始聊天" />
+          <div className="flex min-h-0 flex-1 items-center justify-center">
+            <EmptyState title="未选择会话" />
           </div>
         )}
-      </div>
+      </section>
     </div>
   )
 }

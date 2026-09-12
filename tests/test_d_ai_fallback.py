@@ -18,39 +18,502 @@ CANONICAL_WORKFLOW_KEYS = (
     "COZE_WORKFLOW_TEAM_PLAN",
 )
 
+DEPLOYED_API_KEYS = (
+    "COZE_DEPLOY_API_TOKEN",
+    "COZE_POST_DRAFT_API_URL",
+    "COZE_CLASSIFY_REVIEW_API_URL",
+)
+
 
 def _disable_coze(monkeypatch):
     monkeypatch.delenv("COZE_API_TOKEN", raising=False)
     for key in CANONICAL_WORKFLOW_KEYS:
         monkeypatch.delenv(key, raising=False)
+    for key in DEPLOYED_API_KEYS:
+        monkeypatch.delenv(key, raising=False)
 
 
-@pytest.mark.parametrize(
-    ("tool", "payload", "workflow_key"),
-    [
-        (ai_tools.ai_post_draft, {"message": "想参加美赛", "draft": "", "user_skills": "Python"}, "COZE_WORKFLOW_POST_DRAFT"),
-        (ai_tools.ai_classify_review, {"post_title": "美赛招募", "post_description": "招募两名队友"}, "COZE_WORKFLOW_CLASSIFY_REVIEW"),
-        (ai_tools.ai_match_teammates, {"post_id": "1"}, "COZE_WORKFLOW_MATCH"),
-        (ai_tools.ai_team_plan, {"team_id": "1"}, "COZE_WORKFLOW_TEAM_PLAN"),
-    ],
-)
-def test_each_ai_tool_honors_its_canonical_coze_environment_key(monkeypatch, tool, payload, workflow_key):
-    """A configured canonical key must use Coze instead of entering the local fallback."""
+def test_post_draft_uses_local_fast_path_for_clear_message(monkeypatch):
+    candidates = [
+        {
+            "tag_id": "activity_badminton",
+            "canonical_name": "羽毛球",
+            "category": "activity",
+            "display_color": "#2563EB",
+        }
+    ]
+    _disable_coze(monkeypatch)
+    monkeypatch.setenv("COZE_DEPLOY_API_TOKEN", "deploy-token")
+    monkeypatch.setenv("COZE_POST_DRAFT_API_URL", "https://example.coze.site/run")
+    monkeypatch.setattr(
+        ai_tools,
+        "_try_coze_deployed_api",
+        lambda *_args, **_kwargs: pytest.fail("clear input should not call Coze"),
+    )
+
+    result = json.loads(
+        ai_tools.ai_post_draft.invoke(
+            {
+                "message": "找两个羽毛球搭子，周末下午，技术和性别不限",
+                "draft": "",
+                "user_skills": "",
+                "kind": "casual_invitation",
+                "field_states": "{}",
+                "candidate_tags": json.dumps(candidates, ensure_ascii=False),
+                "topic_id": "",
+            }
+        )
+    )
+
+    assert result["draft"]["activity_name"] == "羽毛球"
+    assert result["draft"]["target_members"] == 3
+    assert result["draft"]["weekly_hours"] == "周末下午"
+    assert result["next_field"] == "school_scope"
+    assert result["degraded"] is False
+
+
+def test_post_draft_sends_only_top_candidates_to_coze_but_returns_full_catalog(monkeypatch):
+    candidates = [
+        {
+            "tag_id": f"activity_{index}",
+            "canonical_name": f"活动{index}",
+            "category": "activity",
+            "display_color": "#2563EB",
+        }
+        for index in range(30)
+    ]
+    captured = {}
+
+    def fake_deployed(_key, parameters):
+        captured.update(parameters)
+        return {
+            "reply": "你准备参加或组织什么活动？",
+            "draft": {
+                "activity_name": "",
+                "target_members": 0,
+                "needed_roles": [],
+                "weekly_hours": "",
+                "school_scope": "",
+                "deadline": "",
+                "description": "",
+            },
+            "is_complete": False,
+            "field_states": {
+                "activity_name": {"value": None, "status": "pending"},
+                "target_members": {"value": None, "status": "pending"},
+                "weekly_hours": {"value": None, "status": "pending"},
+                "school_scope": {"value": None, "status": "pending"},
+                "needed_roles": {"value": None, "status": "pending"},
+                "description": {"value": None, "status": "none"},
+            },
+            "suggested_tag_ids": [],
+            "candidate_tags": parameters["candidate_tags"],
+            "next_field": "activity_name",
+            "missing_fields": [
+                "activity_name",
+                "target_members",
+                "weekly_hours",
+                "school_scope",
+                "needed_roles",
+            ],
+            "degraded": False,
+        }
+
+    _disable_coze(monkeypatch)
+    monkeypatch.setenv("COZE_DEPLOY_API_TOKEN", "deploy-token")
+    monkeypatch.setenv("COZE_POST_DRAFT_API_URL", "https://example.coze.site/run")
+    monkeypatch.setattr(ai_tools, "_try_coze_deployed_api", fake_deployed)
+
+    result = json.loads(
+        ai_tools.ai_post_draft.invoke(
+            {
+                "message": "想找人一起做点有意思的事情",
+                "draft": "",
+                "user_skills": "",
+                "kind": "casual_invitation",
+                "field_states": "{}",
+                "candidate_tags": json.dumps(candidates, ensure_ascii=False),
+                "topic_id": "",
+            }
+        )
+    )
+
+    assert len(captured["candidate_tags"]) == 20
+    assert result["candidate_tags"] == candidates
+
+
+def test_post_draft_does_not_chain_legacy_after_deployed_coze_failure(monkeypatch):
+    _disable_coze(monkeypatch)
+    monkeypatch.setenv("COZE_DEPLOY_API_TOKEN", "deploy-token")
+    monkeypatch.setenv("COZE_POST_DRAFT_API_URL", "https://example.coze.site/run")
+    monkeypatch.setattr(ai_tools, "_try_coze_deployed_api", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(
+        ai_tools,
+        "_try_coze_workflow",
+        lambda *_args, **_kwargs: pytest.fail("a failed deployed request must not start another slow request"),
+    )
+
+    result = json.loads(
+        ai_tools.ai_post_draft.invoke(
+            {
+                "message": "想找人一起做点有意思的事情",
+                "draft": "",
+                "user_skills": "",
+                "kind": "casual_invitation",
+                "field_states": "{}",
+                "candidate_tags": "[]",
+                "topic_id": "",
+            }
+        )
+    )
+
+    assert result["draft"]["activity_name"] == ""
+    assert result["next_field"] == "activity_name"
+    assert result["reply"] == "你准备参加或组织什么活动？"
+    assert result["degraded"] is True
+
+
+def test_post_draft_prefers_deployed_coze_api_and_normalizes_empty_next_field(monkeypatch):
+    candidates = [
+        {
+            "tag_id": "activity_modeling",
+            "canonical_name": "数学建模",
+            "category": "activity",
+            "display_color": "#2563EB",
+        }
+    ]
+    captured = {}
 
     class Response:
         @staticmethod
         def json():
-            return {"code": 0, "data": json.dumps({"source": "coze"})}
+            return {
+                "reply": "信息已齐全",
+                "draft": {
+                    "activity_name": "美赛",
+                    "target_members": 3,
+                    "needed_roles": ["编程"],
+                    "weekly_hours": "每周10小时",
+                    "school_scope": "南京大学",
+                    "deadline": "2026-09-20",
+                    "description": "",
+                },
+                "is_complete": True,
+                "field_states": {
+                    "activity_name": {"value": "美赛", "status": "confirmed"},
+                    "target_members": {"value": 3, "status": "confirmed"},
+                    "needed_roles": {"value": "编程", "status": "confirmed"},
+                    "weekly_hours": {"value": "每周10小时", "status": "confirmed"},
+                    "school_scope": {"value": "南京大学", "status": "confirmed"},
+                    "deadline": {"value": "2026-09-20", "status": "confirmed"},
+                    "description": {"value": None, "status": "none"},
+                },
+                "suggested_tag_ids": ["activity_modeling"],
+                "candidate_tags": candidates,
+                "next_field": {},
+                "missing_fields": [],
+                "degraded": False,
+            }
 
-    for key in CANONICAL_WORKFLOW_KEYS:
-        monkeypatch.delenv(key, raising=False)
+    def fake_post(url, **kwargs):
+        captured["url"] = url
+        captured.update(kwargs)
+        return Response()
+
+    _disable_coze(monkeypatch)
+    monkeypatch.setenv("COZE_DEPLOY_API_TOKEN", "deploy-token")
+    monkeypatch.setenv("COZE_POST_DRAFT_API_URL", "https://example.coze.site/run")
+    monkeypatch.setattr("requests.post", fake_post)
+    monkeypatch.setattr(
+        ai_tools,
+        "_try_coze_workflow",
+        lambda *_args, **_kwargs: pytest.fail("legacy workflow should not be called"),
+    )
+
+    result = json.loads(
+        ai_tools.ai_post_draft.invoke(
+            {
+                "message": "想找人一起做点有意思的事情，手机号 13812345678",
+                "draft": "",
+                "user_skills": "Python",
+                "kind": "topic_team",
+                "field_states": json.dumps(
+                    {"description": {"value": "备用电话 13912345678", "status": "confirmed"}},
+                    ensure_ascii=False,
+                ),
+                "candidate_tags": json.dumps(candidates, ensure_ascii=False),
+                "topic_id": "",
+            }
+        )
+    )
+
+    assert captured["url"] == "https://example.coze.site/run"
+    assert captured["headers"]["Authorization"] == "Bearer deploy-token"
+    assert captured["json"]["topic_id"] == ""
+    assert "13812345678" not in captured["json"]["message"]
+    assert "138****5678" in captured["json"]["message"]
+    assert "13912345678" not in captured["json"]["field_states"]["description"]["value"]
+    assert captured["timeout"] == 15
+    assert result["reply"] == "信息已齐全"
+    assert result["next_field"] is None
+
+
+def test_post_draft_rejects_incomplete_deployed_output_and_uses_safe_fallback(monkeypatch):
+    class Response:
+        @staticmethod
+        def json():
+            return {
+                "reply": "已整理",
+                "draft": {"activity_name": "羽毛球"},
+                "is_complete": True,
+                "field_states": {
+                    "activity_name": {"value": "羽毛球", "status": "confirmed"},
+                },
+                "suggested_tag_ids": [],
+            }
+
+    _disable_coze(monkeypatch)
+    monkeypatch.setenv("COZE_DEPLOY_API_TOKEN", "deploy-token")
+    monkeypatch.setenv("COZE_POST_DRAFT_API_URL", "https://example.coze.site/run")
+    monkeypatch.setattr("requests.post", lambda *_args, **_kwargs: Response())
+    monkeypatch.setattr(ai_tools, "_local_draft_made_progress", lambda *_args: False)
+
+    result = json.loads(
+        ai_tools.ai_post_draft.invoke(
+            {
+                "message": "找两个羽毛球搭子",
+                "draft": "",
+                "user_skills": "",
+                "kind": "casual_invitation",
+                "field_states": "{}",
+                "candidate_tags": "[]",
+                "topic_id": "",
+            }
+        )
+    )
+
+    assert result["degraded"] is True
+    assert set(result["draft"]) == {
+        "activity_name",
+        "target_members",
+        "needed_roles",
+        "weekly_hours",
+        "school_scope",
+        "deadline",
+        "description",
+    }
+    assert result["draft"]["activity_name"] == "羽毛球"
+    assert result["draft"]["target_members"] == 3
+
+
+def test_post_draft_rejects_logically_inconsistent_deployed_output(monkeypatch):
+    class Response:
+        @staticmethod
+        def json():
+            return {
+                "reply": "信息已齐全",
+                "draft": {
+                    "activity_name": "羽毛球",
+                    "target_members": 3,
+                    "needed_roles": [],
+                    "weekly_hours": "周末下午",
+                    "school_scope": "",
+                    "deadline": "",
+                    "description": "",
+                },
+                "is_complete": True,
+                "field_states": {
+                    "activity_name": {"value": "羽毛球", "status": "confirmed"},
+                    "target_members": {"value": 3, "status": "confirmed"},
+                    "weekly_hours": {"value": "周末下午", "status": "confirmed"},
+                    "school_scope": {"value": None, "status": "pending"},
+                    "needed_roles": {"value": None, "status": "none"},
+                    "description": {"value": None, "status": "none"},
+                },
+                "suggested_tag_ids": [],
+                "next_field": "",
+                "missing_fields": [],
+            }
+
+    _disable_coze(monkeypatch)
+    monkeypatch.setenv("COZE_DEPLOY_API_TOKEN", "deploy-token")
+    monkeypatch.setenv("COZE_POST_DRAFT_API_URL", "https://example.coze.site/run")
+    monkeypatch.setattr("requests.post", lambda *_args, **_kwargs: Response())
+    monkeypatch.setattr(ai_tools, "_local_draft_made_progress", lambda *_args: False)
+
+    result = json.loads(
+        ai_tools.ai_post_draft.invoke(
+            {
+                "message": "找两个羽毛球搭子，周末下午",
+                "draft": "",
+                "user_skills": "",
+                "kind": "casual_invitation",
+                "field_states": "{}",
+                "candidate_tags": "[]",
+                "topic_id": "",
+            }
+        )
+    )
+
+    assert result["degraded"] is True
+    assert result["is_complete"] is False
+    assert result["next_field"] == "school_scope"
+    assert result["missing_fields"] == ["school_scope", "needed_roles"]
+
+
+def test_classify_review_uses_legacy_workflow_when_deployed_api_returns_error_payload(monkeypatch):
+    class Response:
+        @staticmethod
+        def json():
+            return {
+                "main_category": "竞赛与项目",
+                "tag_ids": [{}],
+                "unknown_concepts": [],
+                "risk_level": "low",
+                "suggestions": [],
+            }
+
+    _disable_coze(monkeypatch)
+    monkeypatch.setenv("COZE_DEPLOY_API_TOKEN", "deploy-token")
+    monkeypatch.setenv("COZE_CLASSIFY_REVIEW_API_URL", "https://example.coze.site/run")
+    monkeypatch.setattr("requests.post", lambda *_args, **_kwargs: Response())
+    monkeypatch.setattr(
+        ai_tools,
+        "_try_coze_workflow",
+        lambda *_args, **_kwargs: {
+            "main_category": "竞赛与项目",
+            "tag_ids": [],
+            "unknown_concepts": [],
+            "risk_level": "low",
+            "suggestions": [],
+        },
+    )
+
+    result = json.loads(
+        ai_tools.ai_classify_review.invoke(
+            {"post_title": "美赛招募", "post_description": "需要建模队友"}
+        )
+    )
+
+    assert result["main_category"] == "竞赛与项目"
+
+
+def test_deployed_coze_api_rejects_non_coze_url_before_sending_token(monkeypatch):
+    _disable_coze(monkeypatch)
+    monkeypatch.setenv("COZE_DEPLOY_API_TOKEN", "deploy-token")
+    monkeypatch.setenv("COZE_CLASSIFY_REVIEW_API_URL", "https://attacker.example/run")
+    monkeypatch.setattr(
+        "requests.post",
+        lambda *_args, **_kwargs: pytest.fail("token must not be sent to a non-Coze host"),
+    )
+    monkeypatch.setattr(
+        ai_tools,
+        "_try_coze_workflow",
+        lambda *_args, **_kwargs: {
+            "main_category": "校园生活",
+            "tag_ids": [],
+            "unknown_concepts": [],
+            "risk_level": "low",
+            "suggestions": [],
+        },
+    )
+
+    result = json.loads(
+        ai_tools.ai_classify_review.invoke(
+            {"post_title": "学习搭子", "post_description": "一起复习"}
+        )
+    )
+
+    assert result["main_category"] == "校园生活"
+
+
+@pytest.mark.parametrize(
+    ("tool", "payload", "workflow_key", "coze_payload"),
+    [
+        (
+            ai_tools.ai_post_draft,
+            {"message": "想参加美赛", "draft": "", "user_skills": "Python"},
+            "COZE_WORKFLOW_POST_DRAFT",
+            {
+                "reply": "请补充截止日期",
+                "draft": {},
+                "is_complete": False,
+                "field_states": {},
+                "suggested_tag_ids": [],
+            },
+        ),
+        (
+            ai_tools.ai_classify_review,
+            {"post_title": "美赛招募", "post_description": "招募两名队友"},
+            "COZE_WORKFLOW_CLASSIFY_REVIEW",
+            {
+                "main_category": "竞赛与项目",
+                "tag_ids": [],
+                "unknown_concepts": [],
+                "risk_level": "low",
+                "suggestions": [],
+            },
+        ),
+    ],
+)
+def test_each_ai_tool_honors_its_canonical_coze_environment_key(
+    monkeypatch, tool, payload, workflow_key, coze_payload
+):
+    """Stateless workflows use a configured canonical key before local fallback.
+
+    Matching and team planning intentionally are covered separately because they
+    must load and validate a database-controlled context before calling Coze.
+    """
+
+    class Response:
+        @staticmethod
+        def json():
+            return {"code": 0, "data": json.dumps(coze_payload)}
+
+    _disable_coze(monkeypatch)
     monkeypatch.setenv("COZE_API_TOKEN", "test-token")
     monkeypatch.setenv(workflow_key, "workflow-123")
     monkeypatch.setattr("requests.post", lambda *args, **kwargs: Response())
     monkeypatch.setattr(ai_tools, "_call_llm", lambda *args, **kwargs: pytest.fail("unexpected LLM fallback"))
     monkeypatch.setattr(ai_tools, "get_session", lambda: pytest.fail("unexpected database fallback"))
 
-    assert json.loads(tool.invoke(payload)) == {"source": "coze"}
+    assert json.loads(tool.invoke(payload)) == coze_payload
+
+
+def test_classify_review_uses_local_fallback_when_legacy_result_is_invalid(monkeypatch):
+    _disable_coze(monkeypatch)
+    monkeypatch.setattr(
+        ai_tools,
+        "_try_coze_workflow",
+        lambda *_args, **_kwargs: {
+            "main_category": "无效分类",
+            "tag_ids": [],
+            "unknown_concepts": [],
+            "risk_level": "invalid",
+            "suggestions": [],
+        },
+    )
+    monkeypatch.setattr(
+        ai_tools,
+        "_call_llm",
+        lambda *_args, **_kwargs: json.dumps(
+            {
+                "main_category": "竞赛与项目",
+                "tags": ["数学建模"],
+                "risk_level": "low",
+                "suggestions": [],
+            },
+            ensure_ascii=False,
+        ),
+    )
+
+    result = json.loads(
+        ai_tools.ai_classify_review.invoke(
+            {"post_title": "美赛招募", "post_description": "需要建模队友"}
+        )
+    )
+
+    assert result["main_category"] == "竞赛与项目"
 
 
 def test_post_draft_falls_back_to_llm_without_coze_configuration(monkeypatch):
@@ -105,6 +568,43 @@ def test_classify_review_falls_back_to_llm_without_coze_configuration(monkeypatc
         "risk_level": "low",
         "suggestions": ["补充截止日期"],
     }
+
+
+def test_classify_review_filters_coze_tags_and_unknown_concepts_to_the_controlled_schema(monkeypatch):
+    _disable_coze(monkeypatch)
+    candidates = [
+        {"tag_id": "activity_running", "canonical_name": "跑步", "category": "activity"},
+        {"tag_id": "skill_python", "canonical_name": "Python", "category": "skill"},
+    ]
+    monkeypatch.setattr(
+        ai_tools,
+        "_try_coze_workflow",
+        lambda *_args, **_kwargs: {
+            "main_category": "体育与健身",
+            "tag_ids": ["activity_running"],
+            "unknown_concepts": [
+                {"name": "定向越野", "category": "activity", "reason": "库中无对应活动"},
+            ],
+            "risk_level": "low",
+            "suggestions": [],
+        },
+    )
+    monkeypatch.setattr(ai_tools, "_call_llm", lambda *_args, **_kwargs: pytest.fail("unexpected fallback"))
+
+    result = json.loads(
+        ai_tools.ai_classify_review.invoke(
+            {
+                "post_title": "定向越野招募",
+                "post_description": "周末活动",
+                "candidate_tags": json.dumps(candidates, ensure_ascii=False),
+            }
+        )
+    )
+
+    assert result["tag_ids"] == ["activity_running"]
+    assert result["unknown_concepts"] == [
+        {"name": "定向越野", "category": "activity", "reason": "库中无对应活动"}
+    ]
 
 
 @pytest.fixture

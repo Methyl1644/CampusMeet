@@ -10,11 +10,9 @@ export default function MainLayout() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* 桌面端顶部导航 */}
+    <div className="min-h-dvh bg-paper-warm text-ink">
       <Navbar />
-      {/* 页面内容 */}
-      <main className="mx-auto max-w-content px-4 py-4 pb-20 md:pb-4">
+      <main className="mx-auto w-full max-w-content px-4 pb-[calc(5.5rem+env(safe-area-inset-bottom))] pt-6 sm:px-6 md:pb-10 md:pt-8 lg:px-8">
         <Outlet />
       </main>
     </div>

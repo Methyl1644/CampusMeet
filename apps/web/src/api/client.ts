@@ -6,7 +6,7 @@ const baseURL = import.meta.env.VITE_API_BASE_URL || ''
 
 const client: AxiosInstance = axios.create({
   baseURL,
-  timeout: 30000,
+  timeout: 65000,
   headers: { 'Content-Type': 'application/json' },
 })
 
@@ -23,7 +23,9 @@ client.interceptors.request.use((config) => {
 client.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
+    const token = useAuthStore.getState().token
+    const isLocalDemo = import.meta.env.DEV && token === 'local-demo-token'
+    if (error.response?.status === 401 && !isLocalDemo) {
       useAuthStore.getState().logout()
       window.location.href = '/login'
     }

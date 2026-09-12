@@ -2,84 +2,13 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "campusmate/coze/schemas/team_plan.output.json",
   "title": "TeamPlanOutput",
-  "description": "工作流④ 成队规划的输出。所有内容仅为建议，不替用户做决定；可直接展示在成队成功页 / 团队详情页。",
   "type": "object",
-  "required": [
-    "role_assignments", "first_meeting_agenda", "first_week_tasks",
-    "milestones", "risk_reminders", "missing_roles", "next_actions"
-  ],
+  "required": ["division_of_labor", "meeting_agenda", "task_list", "risk_reminders"],
   "additionalProperties": false,
   "properties": {
-    "role_assignments": {
-      "type": "array",
-      "description": "建议分工，基于成员技能和时间",
-      "items": {
-        "type": "object",
-        "required": ["user_id", "suggested_role", "reason"],
-        "additionalProperties": false,
-        "properties": {
-          "user_id": { "type": "string" },
-          "nickname": { "type": ["string", "null"] },
-          "suggested_role": { "type": "string", "description": "建议角色，如 建模与代码 / 论文写作" },
-          "reason": { "type": "string", "description": "分工依据，引用该成员技能" }
-        }
-      }
-    },
-    "first_meeting_agenda": {
-      "type": "array",
-      "description": "第一次会议议程（按顺序）",
-      "items": {
-        "type": "object",
-        "required": ["topic"],
-        "additionalProperties": false,
-        "properties": {
-          "topic": { "type": "string", "description": "议题，如 确认比赛目标" },
-          "detail": { "type": ["string", "null"], "description": "议题说明" },
-          "duration_min": { "type": ["integer", "null"], "description": "建议时长（分钟）" }
-        }
-      }
-    },
-    "first_week_tasks": {
-      "type": "array",
-      "description": "第一周任务清单",
-      "items": {
-        "type": "object",
-        "required": ["task", "owner_id", "due"],
-        "additionalProperties": false,
-        "properties": {
-          "task": { "type": "string", "description": "任务标题，如 完成报名信息整理" },
-          "owner_id": { "type": "string", "description": "建议负责人 user_id" },
-          "due": { "type": "string", "description": "建议完成日期 YYYY-MM-DD" }
-        }
-      }
-    },
-    "milestones": {
-      "type": "array",
-      "description": "关键里程碑（从成队到活动结束）",
-      "items": {
-        "type": "object",
-        "required": ["name", "date"],
-        "additionalProperties": false,
-        "properties": {
-          "name": { "type": "string", "description": "里程碑，如 完成报名" },
-          "date": { "type": "string", "description": "目标日期 YYYY-MM-DD" }
-        }
-      }
-    },
-    "risk_reminders": {
-      "type": "array",
-      "items": { "type": "string" },
-      "description": "风险提醒，如 报名截止日期 08-15 需要再次确认"
-    },
-    "missing_roles": {
-      "type": "array",
-      "items": { "type": "string" },
-      "description": "团队仍缺少的关键角色/能力，如 [\"论文排版\"]，无则空数组"
-    },
-    "next_actions": {
-      "type": "array",
-      "items": { "type": "string" },
-      "description": "建议的下一步行动（按优先级），如 先召开第一次线上会议确认分工"
-    }
+    "division_of_labor": { "type": "array", "items": { "type": "object" } },
+    "meeting_agenda": { "type": "array", "items": { "type": "object" } },
+    "task_list": { "type": "array", "items": { "type": "object" } },
+    "risk_reminders": { "type": "array", "items": { "type": "string" } }
   }
 }

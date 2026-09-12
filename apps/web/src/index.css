@@ -3,70 +3,179 @@
 @tailwind utilities;
 
 @layer base {
+  :root {
+    color: #211D24;
+    background: #F7F5F1;
+    font-family: 'Noto Sans SC', 'Microsoft YaHei', sans-serif;
+    font-synthesis: none;
+    text-rendering: optimizeLegibility;
+  }
+
   html {
+    background: #F7F5F1;
     -webkit-tap-highlight-color: transparent;
   }
+
   body {
-    @apply bg-gray-50 text-gray-900 antialiased;
+    @apply min-h-screen bg-paper-warm font-sans text-ink antialiased;
+    font-variant-numeric: tabular-nums;
+  }
+
+  h1,
+  h2,
+  h3 {
+    @apply font-serif;
+  }
+
+  ::selection {
+    background: #E2D3EB;
+    color: #211D24;
+  }
+
+  input,
+  textarea,
+  [contenteditable='true'] {
+    caret-color: #5B2A86;
   }
 }
 
 @layer components {
   .btn-primary {
-    @apply inline-flex items-center justify-center gap-1.5 rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-50;
+    @apply inline-flex items-center justify-center gap-1.5 rounded-card bg-primary-600 px-4 py-2 text-sm font-semibold text-white transition duration-fast hover:bg-primary-700 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50;
   }
+
   .btn-secondary {
-    @apply inline-flex items-center justify-center gap-1.5 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50;
+    @apply inline-flex items-center justify-center gap-1.5 rounded-card border border-stone bg-paper px-4 py-2 text-sm font-semibold text-ink transition duration-fast hover:border-primary-300 hover:bg-primary-50 hover:text-primary-700 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50;
   }
+
   .btn-danger {
-    @apply inline-flex items-center justify-center gap-1.5 rounded-lg bg-red-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-red-600;
+    @apply inline-flex items-center justify-center gap-1.5 rounded-card bg-red-600 px-4 py-2 text-sm font-semibold text-white transition duration-fast hover:bg-red-700 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50;
   }
+
   .input-base {
-    @apply w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none transition-colors focus:border-primary-500 focus:ring-1 focus:ring-primary-500;
+    @apply w-full rounded-card border border-stone bg-paper px-3 py-2 text-sm text-ink outline-none transition duration-feedback placeholder:text-ink-muted focus-visible:border-primary-600 focus-visible:ring-2 focus-visible:ring-primary-100;
   }
+
+  .surface-panel,
   .card {
-    @apply rounded-xl border border-gray-200 bg-white p-4 shadow-sm;
+    @apply rounded-card border border-stone bg-paper p-4 shadow-panel;
   }
+
+  .section-label {
+    @apply border-l-2 border-campus-green pl-2 text-xs font-semibold uppercase text-ink-muted;
+  }
+
+  .tag-chip {
+    @apply inline-flex min-h-7 items-center gap-1 rounded-full border border-primary-200 bg-primary-50 px-2.5 py-1 text-xs font-medium text-primary-800;
+  }
+
+  .icon-button {
+    @apply inline-flex size-10 shrink-0 items-center justify-center rounded-card text-ink-muted transition duration-fast hover:bg-primary-100 hover:text-primary-700 active:scale-[0.96] disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
   .badge {
     @apply inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium;
   }
+
   .nav-link {
-    @apply flex items-center gap-1.5 text-sm font-medium text-gray-600 transition-colors hover:text-primary-600;
+    @apply flex items-center gap-1.5 border-b-2 border-transparent py-1 text-sm font-medium text-ink-muted transition duration-fast hover:text-primary-600;
   }
+
   .nav-link-active {
-    @apply text-primary-600;
+    @apply border-primary-600 text-primary-700;
   }
 }
 
-/* 滚动条美化 */
+* {
+  scrollbar-color: #B8AFBC transparent;
+  scrollbar-width: thin;
+}
+
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 8px;
+  height: 8px;
 }
+
 ::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
-  border-radius: 3px;
+  background: #B8AFBC;
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background-clip: padding-box;
 }
+
 ::-webkit-scrollbar-track {
   background: transparent;
 }
 
-/* 聊天消息动画 */
-@keyframes slideUp {
-  from { opacity: 0; transform: translateY(8px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-.animate-slide-up {
-  animation: slideUp 0.2s ease-out;
+:where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+  outline: 2px solid #5B2A86;
+  outline-offset: 3px;
 }
 
-/* AI 思考动画 */
-@keyframes pulse-dot {
-  0%, 80%, 100% { opacity: 0.3; }
-  40% { opacity: 1; }
+:where(button, input, select, textarea):disabled,
+[aria-disabled='true'] {
+  cursor: not-allowed;
+  opacity: 0.55;
 }
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-slide-up {
+  animation: slideUp 180ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes pulse-dot {
+  0%,
+  80%,
+  100% {
+    opacity: 0.3;
+  }
+  40% {
+    opacity: 1;
+  }
+}
+
 .thinking-dot {
   animation: pulse-dot 1.4s infinite ease-in-out;
 }
-.thinking-dot:nth-child(2) { animation-delay: 0.2s; }
-.thinking-dot:nth-child(3) { animation-delay: 0.4s; }
+
+.thinking-dot:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.thinking-dot:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+
+  :active {
+    transform: none !important;
+  }
+
+  .group:hover .group-hover\:scale-\[1\.02\],
+  .group:hover .group-hover\:translate-x-0\.5 {
+    transform: none !important;
+  }
+}

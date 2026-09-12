@@ -1,6 +1,7 @@
 import os
 import time
-from sqlalchemy import create_engine, text
+from pathlib import Path
+from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.exc import OperationalError
 import logging
@@ -17,8 +18,13 @@ except Exception:
 def get_db_url() -> str:
     """Build database URL from environment."""
     url = os.getenv("DATABASE_URL") or os.getenv("PGDATABASE_URL") or ""
-    if url is not None and url != "":
+    if url:
         return url
+
+    if not os.getenv("COZE_WORKLOAD_IDENTITY_CLIENT_ID"):
+        database_path = Path(__file__).resolve().parents[3] / "campusmate.db"
+        return f"sqlite:///{database_path.as_posix()}"
+
     from coze_workload_identity import Client
     try:
         client = Client()
@@ -38,23 +44,40 @@ def get_db_url() -> str:
 _engine = None
 _SessionLocal = None
 
+
+def _bounded_environment_int(
+    environment,
+    name: str,
+    default: int,
+    minimum: int,
+    maximum: int,
+) -> int:
+    try:
+        value = int(environment.get(name, str(default)))
+    except (TypeError, ValueError):
+        return default
+    return max(minimum, min(value, maximum))
+
+
+def get_postgres_pool_options(environment=None) -> dict[str, int | bool]:
+    """Keep each application instance within Neon connection limits."""
+    env = environment if environment is not None else os.environ
+    return {
+        "pool_size": _bounded_environment_int(env, "DB_POOL_SIZE", 5, 1, 20),
+        "max_overflow": _bounded_environment_int(
+            env, "DB_MAX_OVERFLOW", 5, 0, 20
+        ),
+        "pool_pre_ping": True,
+        "pool_recycle": 1800,
+        "pool_timeout": 30,
+    }
+
 def _create_engine_with_retry():
     url = get_db_url()
-    if url is None or url == "":
-        logger.error("PGDATABASE_URL is not set")
-        raise ValueError("PGDATABASE_URL is not set")
-    size = 100
-    overflow = 100
-    recycle = 1800
-    timeout = 30
-    engine = create_engine(
-        url,
-        pool_size=size,
-        max_overflow=overflow,
-        pool_pre_ping=True,
-        pool_recycle=recycle,
-        pool_timeout=timeout,
-    )
+    if url.startswith("sqlite:"):
+        engine = create_engine(url, connect_args={"check_same_thread": False})
+    else:
+        engine = create_engine(url, **get_postgres_pool_options())
     # 验证连接，带重试
     start_time = time.time()
     last_error = None
@@ -86,9 +109,58 @@ def get_sessionmaker():
 def get_session():
     return get_sessionmaker()()
 
+
+def ensure_compatibility_columns(engine) -> None:
+    """Apply the small additive migration needed by legacy local databases."""
+    inspector = inspect(engine)
+    table_names = set(inspector.get_table_names())
+    statements: list[str] = []
+    if "users" in table_names:
+        user_columns = {column["name"] for column in inspector.get_columns("users")}
+        if "site_role" not in user_columns:
+            statements.append("ALTER TABLE users ADD COLUMN site_role TEXT NOT NULL DEFAULT 'student'")
+        if "failed_login_attempts" not in user_columns:
+            statements.append(
+                "ALTER TABLE users ADD COLUMN failed_login_attempts INTEGER NOT NULL DEFAULT 0"
+            )
+        if "locked_until" not in user_columns:
+            statements.append("ALTER TABLE users ADD COLUMN locked_until TIMESTAMP")
+    if "posts" in table_names:
+        post_columns = {column["name"] for column in inspector.get_columns("posts")}
+        if "kind" not in post_columns:
+            statements.append("ALTER TABLE posts ADD COLUMN kind TEXT NOT NULL DEFAULT 'casual_invitation'")
+        if "topic_id" not in post_columns:
+            statements.append("ALTER TABLE posts ADD COLUMN topic_id BIGINT")
+    if "conversations" in table_names:
+        conversation_columns = {
+            column["name"] for column in inspector.get_columns("conversations")
+        }
+        if "author_confirmed" not in conversation_columns:
+            statements.append(
+                "ALTER TABLE conversations ADD COLUMN author_confirmed BOOLEAN NOT NULL DEFAULT FALSE"
+            )
+        if "applicant_confirmed" not in conversation_columns:
+            statements.append(
+                "ALTER TABLE conversations ADD COLUMN applicant_confirmed BOOLEAN NOT NULL DEFAULT FALSE"
+            )
+    if "verification_codes" in table_names:
+        verification_columns = {
+            column["name"] for column in inspector.get_columns("verification_codes")
+        }
+        if "attempts" not in verification_columns:
+            statements.append(
+                "ALTER TABLE verification_codes ADD COLUMN attempts INTEGER NOT NULL DEFAULT 0"
+            )
+    if statements:
+        with engine.begin() as connection:
+            for statement in statements:
+                connection.execute(text(statement))
+
 __all__ = [
     "get_db_url",
     "get_engine",
     "get_sessionmaker",
     "get_session",
+    "get_postgres_pool_options",
+    "ensure_compatibility_columns",
 ]

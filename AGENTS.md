@@ -6,7 +6,7 @@ CampusMate AI：面向高校学生的可信 AI 组队平台（不是普通论坛
 
 团队分工：A=产品文档（见 `docs/`）、B=前端（React+Vite，`apps/web` + `packages/shared`）、C=后端与安全（FastAPI + LangGraph + 安全规则引擎，`src/`）、D=智能体与算法（Coze 工作流/Prompt/Schema/评测集，`coze/`）。
 
-> **当前状态（2026-09-02）**：A/B/C 和 D 的基础资产已推送到 `main`。B 的 React 前端可完成生产构建，C 已在 `src/api/` 实现 `/api/*` REST 路由并通过后端测试；D 的四接口契约、Coze 配置统一和 fallback 自动化验证在 `feat/d-final-integration` 完成，待 PR。真正启用 `COZE_WORKFLOW_MATCH` 前仍需实现受控上下文查询；未启用时由 fallback 保证演示不受影响。
+> **当前状态（2026-09-11）**：Coze 的替代工程已完成安全审计，并按现有 React 18 + FastAPI + SQLAlchemy 架构移植。标准标签/别名、话题、组织权限、搜索建议、AI 字段状态与受控标签均已接入；Python 59 项、前端契约 24 项、类型检查、生产构建和 HTTP 联调通过。生产数据库、邮件发信域名、Coze 工作流凭据和运营审核资源仍由部署环境提供。
 
 ## 技术栈
 

@@ -1,0 +1,347 @@
+<div id="campusmate-sketch">
+  <style>
+    #campusmate-sketch { color: var(--foreground); }
+    #campusmate-sketch * { box-sizing: border-box; }
+    #campusmate-sketch .shell { overflow: hidden; border: 1px solid var(--border); border-radius: 8px; background: var(--background); }
+    #campusmate-sketch .topbar { display: grid; grid-template-columns: auto minmax(280px, 1fr) auto; gap: 20px; align-items: center; padding: 14px 18px; border-bottom: 1px solid var(--border); }
+    #campusmate-sketch .brand { display: flex; align-items: center; gap: 9px; white-space: nowrap; font-weight: 500; }
+    #campusmate-sketch .brand-mark { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 8px; color: var(--primary-foreground); background: var(--primary); }
+    #campusmate-sketch .global-search { display: flex; align-items: center; gap: 9px; min-height: 42px; padding: 0 12px; border: 1px solid var(--input); border-radius: 8px; background: var(--background); }
+    #campusmate-sketch .global-search input { width: 100%; min-width: 0; border: 0; outline: 0; color: var(--foreground); background: transparent; }
+    #campusmate-sketch .account { display: flex; align-items: center; gap: 13px; white-space: nowrap; }
+    #campusmate-sketch .mode-tabs { padding: 12px 18px 0; }
+    #campusmate-sketch .page { padding: 0 18px 22px; }
+    #campusmate-sketch .channel-nav { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border-bottom: 1px solid var(--border); }
+    #campusmate-sketch .channel { display: flex; align-items: center; justify-content: center; gap: 10px; min-height: 76px; padding: 12px; color: var(--muted-foreground); border: 0; border-bottom: 3px solid transparent; background: transparent; cursor: pointer; }
+    #campusmate-sketch .channel.active { color: var(--foreground); border-bottom-color: var(--primary); }
+    #campusmate-sketch .channel strong, #campusmate-sketch .channel small { display: block; text-align: left; }
+    #campusmate-sketch .channel small { color: var(--muted-foreground); }
+    #campusmate-sketch .category-row { display: flex; gap: 26px; align-items: start; padding: 15px 0; overflow-x: auto; border-bottom: 1px solid var(--border); }
+    #campusmate-sketch .category { display: grid; justify-items: center; gap: 6px; min-width: 86px; color: var(--muted-foreground); }
+    #campusmate-sketch .category.active { color: var(--foreground); font-weight: 500; }
+    #campusmate-sketch .category i { color: var(--primary); }
+    #campusmate-sketch .search-zone { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; padding: 16px 0 13px; }
+    #campusmate-sketch .smart-search { display: flex; align-items: center; gap: 9px; min-height: 44px; padding: 0 12px; border: 1px solid var(--input); border-radius: 8px; background: var(--background); }
+    #campusmate-sketch .smart-search input { width: 100%; min-width: 0; border: 0; outline: 0; color: var(--foreground); background: transparent; }
+    #campusmate-sketch .suggest-panel { grid-column: 1; display: grid; grid-template-columns: auto 1fr auto; gap: 12px; align-items: center; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--card); }
+    #campusmate-sketch .suggest-copy strong, #campusmate-sketch .suggest-copy small { display: block; }
+    #campusmate-sketch .suggest-copy small { color: var(--muted-foreground); }
+    #campusmate-sketch .workspace { display: grid; grid-template-columns: 212px minmax(0, 1fr); gap: 22px; }
+    #campusmate-sketch .sidebar { padding-right: 18px; border-right: 1px solid var(--border); }
+    #campusmate-sketch .filter-group { padding: 13px 0; border-bottom: 1px solid var(--border); }
+    #campusmate-sketch .filter-group:first-child { padding-top: 0; }
+    #campusmate-sketch .filter-title { display: flex; align-items: center; justify-content: space-between; margin-bottom: 9px; font-weight: 500; }
+    #campusmate-sketch .filter-options { display: grid; gap: 8px; }
+    #campusmate-sketch .filter-options label { display: flex; align-items: center; gap: 8px; color: var(--muted-foreground); cursor: pointer; }
+    #campusmate-sketch .results-head { display: flex; justify-content: space-between; align-items: end; gap: 12px; margin-bottom: 12px; }
+    #campusmate-sketch .results-head h3, #campusmate-sketch .results-head p { margin: 0; }
+    #campusmate-sketch .event-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+    #campusmate-sketch .event-card { overflow: hidden; border: 1px solid var(--border); border-radius: 8px; background: var(--card); }
+    #campusmate-sketch .cover-wrap { position: relative; }
+    #campusmate-sketch .event-card img { display: block; width: 100%; aspect-ratio: 16 / 7; object-fit: cover; background: var(--muted); }
+    #campusmate-sketch .cover-placeholder { display: grid; place-items: center; align-content: center; gap: 7px; width: 100%; aspect-ratio: 16 / 7; color: var(--muted-foreground); background: var(--muted); }
+    #campusmate-sketch .cover-status { position: absolute; left: 10px; top: 10px; padding: 4px 8px; border-radius: 999px; color: var(--green); background: var(--background); font-weight: 500; }
+    #campusmate-sketch .event-body { padding: 13px; }
+    #campusmate-sketch .event-body h3 { margin: 8px 0 5px; }
+    #campusmate-sketch .event-body p { margin: 0; color: var(--muted-foreground); }
+    #campusmate-sketch .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+    #campusmate-sketch .chip { display: inline-flex; align-items: center; min-height: 25px; padding: 2px 8px; border-radius: 999px; font-weight: 500; }
+    #campusmate-sketch .level { color: var(--blue); background: color-mix(in srgb, var(--blue) 12%, var(--background)); }
+    #campusmate-sketch .organizer { color: var(--green); background: color-mix(in srgb, var(--green) 12%, var(--background)); }
+    #campusmate-sketch .topic { color: var(--orange); background: color-mix(in srgb, var(--orange) 12%, var(--background)); }
+    #campusmate-sketch .format { color: var(--purple); background: color-mix(in srgb, var(--purple) 12%, var(--background)); }
+    #campusmate-sketch .meta { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 10px; color: var(--muted-foreground); }
+    #campusmate-sketch .meta span { display: inline-flex; align-items: center; gap: 5px; }
+    #campusmate-sketch .event-actions { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 12px; padding-top: 11px; border-top: 1px solid var(--border); }
+    #campusmate-sketch .publish-layout { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(300px, .85fr); gap: 26px; padding-top: 18px; }
+    #campusmate-sketch .publish-form { display: grid; gap: 14px; }
+    #campusmate-sketch .field { display: grid; gap: 6px; }
+    #campusmate-sketch .field textarea { min-height: 150px; resize: vertical; }
+    #campusmate-sketch .ai-panel { padding-left: 22px; border-left: 1px solid var(--border); }
+    #campusmate-sketch .ai-head { display: flex; align-items: center; gap: 8px; }
+    #campusmate-sketch .tag-review { display: grid; gap: 10px; margin: 15px 0; }
+    #campusmate-sketch .tag-review-row { display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: center; padding-bottom: 10px; border-bottom: 1px solid var(--border); }
+    #campusmate-sketch .tag-review-row small { color: var(--muted-foreground); }
+    #campusmate-sketch .rule-note { padding: 11px; color: var(--foreground); background: var(--accent); border-radius: 7px; }
+    #campusmate-sketch .topic-search { display: flex; align-items: center; gap: 7px; min-height: 38px; margin-bottom: 9px; padding: 0 9px; border: 1px solid var(--input); border-radius: 7px; background: var(--background); }
+    #campusmate-sketch .topic-search input { width: 100%; min-width: 0; border: 0; outline: 0; color: var(--foreground); background: transparent; }
+    #campusmate-sketch .topic-suggestion { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; padding: 8px; color: var(--foreground); border: 1px solid var(--border); border-radius: 7px; background: var(--card); }
+    #campusmate-sketch .topic-suggestions { display: grid; gap: 6px; margin-bottom: 10px; }
+    #campusmate-sketch .topic-option { display: flex; justify-content: space-between; align-items: center; gap: 8px; width: 100%; padding: 8px; text-align: left; color: var(--foreground); border: 1px solid var(--border); border-radius: 7px; background: var(--card); cursor: pointer; }
+    #campusmate-sketch .selected-tags { display: flex; flex-wrap: wrap; gap: 6px; min-height: 32px; margin-bottom: 11px; }
+    #campusmate-sketch .selected-chip { display: inline-flex; align-items: center; gap: 5px; min-height: 28px; padding: 3px 6px 3px 9px; border-radius: 999px; font-weight: 500; }
+    #campusmate-sketch .selected-chip button { display: grid; place-items: center; width: 22px; height: 22px; padding: 0; color: inherit; border: 0; border-radius: 50%; background: transparent; cursor: pointer; }
+    #campusmate-sketch .selected-empty { color: var(--muted-foreground); }
+    #campusmate-sketch .detail-head { display: grid; grid-template-columns: minmax(280px, 1fr) minmax(320px, 1.25fr); gap: 22px; padding: 18px 0; }
+    #campusmate-sketch .detail-cover { width: 100%; aspect-ratio: 16 / 8; object-fit: cover; border-radius: 8px; background: var(--muted); }
+    #campusmate-sketch .detail-summary { display: flex; flex-direction: column; justify-content: center; }
+    #campusmate-sketch .detail-summary h2 { margin: 9px 0 7px; }
+    #campusmate-sketch .detail-summary p { margin: 0; color: var(--muted-foreground); }
+    #campusmate-sketch .detail-actions { display: flex; flex-wrap: wrap; gap: 9px; margin-top: 16px; }
+    #campusmate-sketch .detail-tabs { border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+    #campusmate-sketch .detail-tabs-inner { display: flex; gap: 24px; }
+    #campusmate-sketch .detail-tab { padding: 13px 2px 10px; color: var(--muted-foreground); border: 0; border-bottom: 3px solid transparent; background: transparent; cursor: pointer; }
+    #campusmate-sketch .detail-tab.active { color: var(--foreground); border-bottom-color: var(--primary); font-weight: 500; }
+    #campusmate-sketch .team-toolbar { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 18px 0 12px; }
+    #campusmate-sketch .team-toolbar h3, #campusmate-sketch .team-toolbar p { margin: 0; }
+    #campusmate-sketch .team-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 13px; }
+    #campusmate-sketch .team-card { padding: 14px; border: 1px solid var(--border); border-radius: 8px; background: var(--card); }
+    #campusmate-sketch .team-card h3, #campusmate-sketch .team-card p { margin: 0; }
+    #campusmate-sketch .team-card p { margin-top: 7px; color: var(--muted-foreground); }
+    #campusmate-sketch .team-card-footer { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 12px; padding-top: 11px; border-top: 1px solid var(--border); }
+    #campusmate-sketch .compose { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 26px; padding: 20px 0; }
+    #campusmate-sketch .compose-fields { display: grid; gap: 14px; }
+    #campusmate-sketch .compose-side { padding-left: 20px; border-left: 1px solid var(--border); }
+    #campusmate-sketch .compose-side h3 { margin-top: 0; }
+    @media (max-width: 760px) {
+      #campusmate-sketch .topbar { grid-template-columns: 1fr auto; }
+      #campusmate-sketch .global-search { grid-column: 1 / -1; grid-row: 2; }
+      #campusmate-sketch .channel-nav { grid-template-columns: 1fr; }
+      #campusmate-sketch .channel { justify-content: flex-start; min-height: 58px; }
+      #campusmate-sketch .workspace, #campusmate-sketch .publish-layout { grid-template-columns: 1fr; }
+      #campusmate-sketch .sidebar { display: flex; gap: 16px; overflow-x: auto; padding: 0 0 12px; border-right: 0; border-bottom: 1px solid var(--border); }
+      #campusmate-sketch .filter-group { min-width: 170px; padding: 0; border: 0; }
+      #campusmate-sketch .event-grid { grid-template-columns: 1fr; }
+      #campusmate-sketch .ai-panel { padding: 18px 0 0; border-left: 0; border-top: 1px solid var(--border); }
+      #campusmate-sketch .suggest-panel { grid-template-columns: 1fr; }
+      #campusmate-sketch .detail-head, #campusmate-sketch .team-grid, #campusmate-sketch .compose { grid-template-columns: 1fr; }
+      #campusmate-sketch .compose-side { padding: 18px 0 0; border-left: 0; border-top: 1px solid var(--border); }
+    }
+  </style>
+
+  <div class="shell">
+    <header class="topbar">
+      <div class="brand"><span class="brand-mark">C</span><span>CampusMate</span></div>
+      <label class="global-search"><i data-lucide="search" aria-hidden="true"></i><input aria-label="全站搜索" placeholder="搜索赛事、组织或活动"></label>
+      <div class="account"><button class="btn btn-primary" id="quick-compose" type="button"><i data-lucide="send" aria-hidden="true"></i>发布帖子</button><i data-lucide="bell" aria-hidden="true"></i><span>前端演示用户</span></div>
+    </header>
+
+    <div class="mode-tabs">
+      <div class="nav nav-pills" role="tablist" aria-label="草图场景">
+        <button class="nav-link active" id="browse-tab" role="tab" aria-controls="browse-panel" aria-selected="true" type="button">话题发现</button>
+        <button class="nav-link" id="publish-tab" role="tab" aria-controls="publish-panel" aria-selected="false" type="button">话题详情与组队</button>
+      </div>
+    </div>
+
+    <section id="browse-panel" role="tabpanel" aria-labelledby="browse-tab">
+      <div class="page">
+        <nav class="channel-nav" aria-label="信息来源频道">
+          <button class="channel active" type="button" data-channel="official"><i data-lucide="landmark" aria-hidden="true"></i><span><strong>官方赛事与项目</strong><small>先看赛事，再查看关联招募</small></span></button>
+          <button class="channel" type="button" data-channel="organization"><i data-lucide="badge-check" aria-hidden="true"></i><span><strong>认证组织活动</strong><small>社团、学院与负责人发布</small></span></button>
+          <button class="channel" type="button" data-channel="community"><i data-lucide="users" aria-hidden="true"></i><span><strong>校园自发组队</strong><small>体育、出游、学习与拼团</small></span></button>
+        </nav>
+
+        <div class="category-row" aria-label="活动主题分类">
+          <div class="category active"><i data-lucide="layout-grid" aria-hidden="true"></i>全部</div>
+          <div class="category"><i data-lucide="trophy" aria-hidden="true"></i>竞赛项目</div>
+          <div class="category"><i data-lucide="book-open" aria-hidden="true"></i>学习科研</div>
+          <div class="category"><i data-lucide="dumbbell" aria-hidden="true"></i>体育健身</div>
+          <div class="category"><i data-lucide="palette" aria-hidden="true"></i>文化艺术</div>
+          <div class="category"><i data-lucide="map" aria-hidden="true"></i>旅行户外</div>
+        </div>
+
+        <div class="workspace">
+          <aside class="sidebar" aria-label="标准标签筛选">
+            <div class="filter-group"><div class="filter-title"><span>赛事级别</span><i data-lucide="chevron-up" aria-hidden="true"></i></div><div class="filter-options"><label><input type="checkbox" data-tag-id="level-world">世界级</label><label><input type="checkbox" data-tag-id="level-national">国家级</label><label><input type="checkbox" data-tag-id="level-province">省市级</label><label><input type="checkbox" data-tag-id="level-school">校级</label><label><input type="checkbox" data-tag-id="level-college">院系 / 书院级</label></div></div>
+            <div class="filter-group">
+              <div class="filter-title"><span>活动主题</span><i data-lucide="chevron-up" aria-hidden="true"></i></div>
+              <label class="topic-search"><i data-lucide="search" aria-hidden="true"></i><input id="topic-query" placeholder="搜索Tag或比赛名称" aria-label="搜索活动主题或比赛名称" autocomplete="off"></label>
+              <div class="topic-suggestions" id="topic-suggestions" aria-live="polite"></div>
+              <div class="selected-tags" id="selected-tags"><span class="selected-empty">尚未选择Tag</span></div>
+            </div>
+          </aside>
+
+          <main>
+            <div class="results-head"><div><h3 id="result-title">官方赛事与项目</h3><p id="result-subtitle">共12个话题，按综合相关度排序</p></div><select class="form-select" aria-label="排序"><option>综合排序</option><option>截止时间</option><option>关注最多</option></select></div>
+            <div class="event-grid">
+              <article class="event-card">
+                <div class="cover-wrap"><div class="cover-placeholder"><i data-lucide="image" aria-hidden="true"></i><span>话题封面</span></div><span class="cover-status">报名中</span></div>
+                <div class="event-body"><div class="chips"><span class="chip level">国家级</span><span class="chip organizer">高校体协</span><span class="chip topic">羽毛球</span></div><h3>全国高校羽毛球挑战赛</h3><p>面向高校学生的团体竞技项目，支持校内选拔和跨院系组队。</p><div class="meta"><span><i data-lucide="calendar-days" aria-hidden="true"></i>9月18日截止</span><span><i data-lucide="heart" aria-hidden="true"></i>326人关注</span></div><div class="event-actions"><a href="#">查看赛事详情</a><button class="btn btn-primary" type="button">4支队伍招募</button></div></div>
+              </article>
+              <article class="event-card">
+                <div class="cover-wrap"><div class="cover-placeholder"><i data-lucide="image" aria-hidden="true"></i><span>话题封面</span></div><span class="cover-status">招募中</span></div>
+                <div class="event-body"><div class="chips"><span class="chip level">校级</span><span class="chip organizer">体育部</span><span class="chip topic">羽毛球</span></div><h3>南京大学校园羽毛球公开赛</h3><p>面向全校学生的双打与团体赛，欢迎跨专业寻找搭档。</p><div class="meta"><span><i data-lucide="calendar-days" aria-hidden="true"></i>9月26日截止</span><span><i data-lucide="heart" aria-hidden="true"></i>188人关注</span></div><div class="event-actions"><a href="#">查看赛事详情</a><button class="btn btn-primary" type="button">7支队伍招募</button></div></div>
+              </article>
+            </div>
+          </main>
+        </div>
+      </div>
+    </section>
+
+    <section id="publish-panel" role="tabpanel" aria-labelledby="publish-tab" hidden>
+      <div class="page">
+        <div class="detail-head">
+          <div class="detail-cover cover-placeholder"><i data-lucide="image" aria-hidden="true"></i><span>话题封面</span></div>
+          <div class="detail-summary">
+            <div class="chips"><span class="chip level">国家级</span><span class="chip organizer">高校体协</span><span class="chip topic">羽毛球</span></div>
+            <h2>全国高校羽毛球挑战赛</h2>
+            <p>面向高校学生的团体竞技项目。这里汇总官方介绍、报名材料、时间节点，以及围绕该赛事发布的全部组队需求。</p>
+            <div class="meta"><span><i data-lucide="calendar-days" aria-hidden="true"></i>9月18日截止</span><span><i data-lucide="map-pin" aria-hidden="true"></i>南京大学仙林校区</span><span><i data-lucide="heart" aria-hidden="true"></i>326人关注</span></div>
+            <div class="detail-actions"><button class="btn btn-primary" type="button"><i data-lucide="bell-plus" aria-hidden="true"></i>关注话题</button><a class="btn" href="#">查看官方公告</a></div>
+          </div>
+        </div>
+
+        <div class="detail-tabs">
+          <div class="detail-tabs-inner"><button class="detail-tab" type="button">活动介绍</button><button class="detail-tab" type="button">相关资料</button><button class="detail-tab active" type="button">组队广场</button></div>
+        </div>
+
+        <div class="team-toolbar"><div><h3>围绕该话题的组队帖</h3><p class="text-muted">9支队伍正在招募，按匹配度排序</p></div><button class="btn btn-primary" type="button" data-open-compose><i data-lucide="plus" aria-hidden="true"></i>发布组队帖</button></div>
+        <div class="team-grid">
+          <article class="team-card"><div class="chips"><span class="chip topic">缺双打队友</span><span class="chip format">本科生</span></div><h3>寻找一名有比赛经验的双打队友</h3><p>目前已有2人，希望找到时间稳定、可以每周训练两次的队友。</p><div class="meta"><span><i data-lucide="users" aria-hidden="true"></i>2/3人</span><span><i data-lucide="clock" aria-hidden="true"></i>每周4小时</span></div><div class="team-card-footer"><strong>匹配度 91%</strong><button class="btn" type="button">查看并申请</button></div></article>
+          <article class="team-card"><div class="chips"><span class="chip topic">混合团体</span><span class="chip format">跨专业</span></div><h3>软件学院队伍补招混双成员</h3><p>以参赛体验和稳定训练为主，欢迎有基础的同学加入。</p><div class="meta"><span><i data-lucide="users" aria-hidden="true"></i>4/5人</span><span><i data-lucide="clock" aria-hidden="true"></i>周末训练</span></div><div class="team-card-footer"><strong>匹配度 86%</strong><button class="btn" type="button">查看并申请</button></div></article>
+        </div>
+      </div>
+    </section>
+
+    <section id="compose-panel" hidden>
+      <div class="page">
+        <div class="team-toolbar"><div><h2>发布组队帖</h2><p class="text-muted">可以关联已有话题，也可以发布普通校园组队需求。</p></div><button class="btn" id="compose-back" type="button"><i data-lucide="arrow-left" aria-hidden="true"></i>返回话题</button></div>
+        <div class="compose">
+          <div class="compose-fields">
+            <label class="field"><span>关联话题</span><input class="form-control" id="related-topic" placeholder="搜索并选择已有话题，也可以不关联" aria-label="关联话题"></label>
+            <label class="field"><span>组队帖标题</span><input class="form-control" placeholder="简要说明你要寻找什么队友"></label>
+            <label class="field"><span>组队说明</span><textarea class="form-control" placeholder="介绍当前队伍、需要的成员、时间安排和目标"></textarea></label>
+            <div class="chips"><span class="chip level">国家级</span><span class="chip topic">羽毛球</span><span class="chip format">关联话题自动带入</span></div>
+            <div class="viz-row"><button class="btn btn-primary" type="button"><i data-lucide="send" aria-hidden="true"></i>继续完善并发布</button><button class="btn" type="button">保存草稿</button></div>
+          </div>
+          <aside class="compose-side"><h3>快速发布规则</h3><p>从话题详情进入时自动关联当前话题；从顶部入口进入时，先搜索并选择一个话题，也可以选择“无关联话题”。</p><div class="rule-note"><strong>普通用户发布的是组队帖。</strong><br>官方话题只能由官方信息源创建，认证组织话题只能由认证组织创建。</div></aside>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    (() => {
+      const root = document.getElementById('campusmate-sketch');
+      const tabs = Array.from(root.querySelectorAll('[role="tab"]'));
+      const panels = ['browse-panel', 'publish-panel', 'compose-panel'].map(id => root.querySelector('#' + id));
+      const topicQuery = root.querySelector('#topic-query');
+      const suggestionBox = root.querySelector('#topic-suggestions');
+      const selectedBox = root.querySelector('#selected-tags');
+      const eventGrid = root.querySelector('.event-grid');
+      const selectedTags = new Map();
+      let returnPanel = 'browse-panel';
+
+      const tags = [
+        { id: 'level-world', name: '世界级', cls: 'level', aliases: ['世界级', '国际级', '全球'] },
+        { id: 'level-national', name: '国家级', cls: 'level', aliases: ['国家级', '国赛', '全国级'] },
+        { id: 'level-province', name: '省市级', cls: 'level', aliases: ['省赛', '市赛', '省市级'] },
+        { id: 'level-school', name: '校级', cls: 'level', aliases: ['校赛', '校级'] },
+        { id: 'level-college', name: '院系 / 书院级', cls: 'level', aliases: ['院级', '学院级', '书院级'] },
+        { id: 'topic-badminton', name: '羽毛球', cls: 'topic', aliases: ['羽球', '羽毛球', 'badminton'] },
+        { id: 'topic-modeling', name: '数学建模', cls: 'topic', aliases: ['数模', '建模赛', '数学建模'] },
+        { id: 'topic-programming', name: '程序设计', cls: 'topic', aliases: ['编程赛', '程序设计', '算法竞赛'] },
+        { id: 'topic-innovation', name: '创新创业', cls: 'topic', aliases: ['大创', '双创', '创新创业'] }
+      ];
+      const topics = [
+        { id: 'event-badminton', name: '全国高校羽毛球挑战赛', aliases: ['全国高校羽毛球', '羽毛球挑战赛'] },
+        { id: 'event-modeling', name: '全国大学生数学建模竞赛', aliases: ['数学建模竞赛', '国赛数模'] },
+        { id: 'event-challenge', name: '南京大学挑战杯校内选拔', aliases: ['挑战杯', '南大挑战杯'] }
+      ];
+      const channelData = {
+        official: {
+          title: '官方赛事与项目',
+          subtitle: '共12个话题，按综合相关度排序',
+          cards: [
+            ['国家级', '高校体协', '羽毛球', '全国高校羽毛球挑战赛', '面向高校学生的团体竞技项目，支持校内选拔和跨院系组队。', '326人关注', '4支队伍招募'],
+            ['校级', '体育部', '羽毛球', '南京大学校园羽毛球公开赛', '面向全校学生的双打与团体赛，欢迎跨专业寻找搭档。', '188人关注', '7支队伍招募']
+          ]
+        },
+        organization: {
+          title: '认证组织活动',
+          subtitle: '共28个话题，发布组织均已完成认证',
+          cards: [
+            ['院系级', '软件学院', '人工智能', '软件学院AI创新训练营', '由学院认证负责人发布，面向全校招募项目成员。', '214人关注', '6支队伍招募'],
+            ['社团级', '羽毛球协会', '羽毛球', '羽协周末双打交流赛', '校内羽毛球协会组织的周末交流活动。', '96人关注', '3支队伍招募']
+          ]
+        },
+        community: {
+          title: '校园自发组队',
+          subtitle: '共76个活跃话题，支持直接发布组队帖',
+          cards: [
+            ['个人发起', '校内用户', '羽毛球', '周末羽毛球双打搭子', '寻找固定运动伙伴，地点和时间由参与者共同确认。', '42人关注', '8个组队帖'],
+            ['个人发起', '校内用户', '户外徒步', '紫金山周末徒步', '轻量徒步活动，首次见面建议在校内公共区域集合。', '67人关注', '5个组队帖']
+          ]
+        }
+      };
+
+      function showPanel(id) {
+        panels.forEach(panel => { panel.hidden = panel.id !== id; });
+        tabs.forEach(tab => {
+          const selected = tab.getAttribute('aria-controls') === id;
+          tab.classList.toggle('active', selected);
+          tab.setAttribute('aria-selected', String(selected));
+        });
+      }
+
+      function renderSelected() {
+        selectedBox.innerHTML = selectedTags.size
+          ? Array.from(selectedTags.values()).map(tag => '<span class="selected-chip ' + tag.cls + '">' + tag.name + '<button type="button" data-remove-tag="' + tag.id + '" aria-label="移除' + tag.name + '"><i data-lucide="x" aria-hidden="true"></i></button></span>').join('')
+          : '<span class="selected-empty">尚未选择Tag</span>';
+        selectedBox.querySelectorAll('[data-remove-tag]').forEach(button => button.addEventListener('click', () => {
+          const id = button.getAttribute('data-remove-tag');
+          selectedTags.delete(id);
+          const checkbox = root.querySelector('[data-tag-id="' + id + '"]');
+          if (checkbox) checkbox.checked = false;
+          renderSelected();
+        }));
+        if (window.lucide) window.lucide.createIcons({ attrs: { width: 16, height: 16 } });
+      }
+
+      function renderSuggestions() {
+        const query = topicQuery.value.trim().toLowerCase();
+        if (!query) {
+          suggestionBox.innerHTML = '';
+          return;
+        }
+        const tagHits = tags.filter(tag => tag.aliases.some(alias => alias.toLowerCase().includes(query) || query.includes(alias.toLowerCase()))).slice(0, 3);
+        const topicHits = topics.filter(topic => topic.name.toLowerCase().includes(query) || topic.aliases.some(alias => alias.toLowerCase().includes(query) || query.includes(alias.toLowerCase()))).slice(0, 2);
+        const tagMarkup = tagHits.map(tag => '<button class="topic-option" type="button" data-add-tag="' + tag.id + '"><span><strong>' + tag.name + '</strong><br><small class="text-muted">标准Tag</small></span><span>选择</span></button>').join('');
+        const topicMarkup = topicHits.map(topic => '<button class="topic-option" type="button" data-open-topic="' + topic.id + '"><span><strong>' + topic.name + '</strong><br><small class="text-muted">活动话题</small></span><span>进入话题</span></button>').join('');
+        suggestionBox.innerHTML = tagMarkup + topicMarkup || '<div class="topic-option"><span><strong>未找到标准Tag或话题</strong><br><small class="text-muted">按普通关键词继续搜索，不创建新Tag</small></span></div>';
+        suggestionBox.querySelectorAll('[data-add-tag]').forEach(button => button.addEventListener('click', () => {
+          const tag = tags.find(item => item.id === button.getAttribute('data-add-tag'));
+          if (tag) selectedTags.set(tag.id, tag);
+          topicQuery.value = '';
+          suggestionBox.innerHTML = '';
+          renderSelected();
+        }));
+        suggestionBox.querySelectorAll('[data-open-topic]').forEach(button => button.addEventListener('click', () => showPanel('publish-panel')));
+      }
+
+      function renderCards(channel) {
+        const data = channelData[channel];
+        root.querySelector('#result-title').textContent = data.title;
+        root.querySelector('#result-subtitle').textContent = data.subtitle;
+        eventGrid.innerHTML = data.cards.map(card => '<article class="event-card"><div class="cover-wrap"><div class="cover-placeholder"><i data-lucide="image" aria-hidden="true"></i><span>话题封面</span></div><span class="cover-status">招募中</span></div><div class="event-body"><div class="chips"><span class="chip level">' + card[0] + '</span><span class="chip organizer">' + card[1] + '</span><span class="chip topic">' + card[2] + '</span></div><h3>' + card[3] + '</h3><p>' + card[4] + '</p><div class="meta"><span><i data-lucide="heart" aria-hidden="true"></i>' + card[5] + '</span></div><div class="event-actions"><button class="btn" type="button" data-open-detail>查看话题</button><button class="btn btn-primary" type="button" data-open-detail>' + card[6] + '</button></div></div></article>').join('');
+        eventGrid.querySelectorAll('[data-open-detail]').forEach(button => button.addEventListener('click', () => showPanel('publish-panel')));
+        if (window.lucide) window.lucide.createIcons({ attrs: { width: 16, height: 16 } });
+      }
+
+      tabs.forEach(tab => tab.addEventListener('click', () => showPanel(tab.getAttribute('aria-controls'))));
+      root.querySelectorAll('[data-channel]').forEach(button => button.addEventListener('click', () => {
+        root.querySelectorAll('[data-channel]').forEach(item => item.classList.toggle('active', item === button));
+        renderCards(button.getAttribute('data-channel'));
+      }));
+      root.querySelectorAll('[data-tag-id]').forEach(checkbox => checkbox.addEventListener('change', () => {
+        const tag = tags.find(item => item.id === checkbox.getAttribute('data-tag-id'));
+        if (checkbox.checked && tag) selectedTags.set(tag.id, tag);
+        else selectedTags.delete(checkbox.getAttribute('data-tag-id'));
+        renderSelected();
+      }));
+      topicQuery.addEventListener('input', renderSuggestions);
+      root.querySelector('#quick-compose').addEventListener('click', () => {
+        returnPanel = panels.find(panel => !panel.hidden && panel.id !== 'compose-panel')?.id || 'browse-panel';
+        root.querySelector('#related-topic').value = '';
+        showPanel('compose-panel');
+      });
+      root.querySelectorAll('[data-open-compose]').forEach(button => button.addEventListener('click', () => {
+        returnPanel = 'publish-panel';
+        root.querySelector('#related-topic').value = '全国高校羽毛球挑战赛';
+        showPanel('compose-panel');
+      }));
+      root.querySelector('#compose-back').addEventListener('click', () => showPanel(returnPanel));
+      renderSelected();
+    })();
+  </script>
+</div>

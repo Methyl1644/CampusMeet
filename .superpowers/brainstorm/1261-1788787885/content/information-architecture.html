@@ -1,0 +1,238 @@
+<div id="campus-ia">
+  <style>
+    #campus-ia { color: var(--foreground); }
+    #campus-ia * { box-sizing: border-box; }
+    #campus-ia .app-shell { border: 1px solid var(--border); border-radius: 8px; overflow: hidden; background: var(--background); }
+    #campus-ia .topbar { display: grid; grid-template-columns: auto minmax(260px, 1fr) auto; align-items: center; gap: 18px; padding: 14px 18px; border-bottom: 1px solid var(--border); }
+    #campus-ia .brand { display: flex; align-items: center; gap: 9px; font-weight: 500; white-space: nowrap; }
+    #campus-ia .brand-mark { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 8px; color: var(--primary-foreground); background: var(--primary); }
+    #campus-ia .searchbar { display: flex; align-items: center; gap: 10px; min-height: 40px; padding: 0 12px; border: 1px solid var(--input); border-radius: 8px; background: var(--background); }
+    #campus-ia .searchbar input { min-width: 0; width: 100%; border: 0; outline: 0; color: var(--foreground); background: transparent; }
+    #campus-ia .top-actions { display: flex; align-items: center; gap: 10px; white-space: nowrap; }
+    #campus-ia .view { padding: 18px; }
+    #campus-ia .channel-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 16px 0 20px; }
+    #campus-ia .channel { min-height: 110px; padding: 16px; text-align: left; border: 1px solid var(--border); border-radius: 8px; color: var(--foreground); background: var(--card); cursor: pointer; }
+    #campus-ia .channel.is-active { border-color: var(--primary); box-shadow: inset 0 -3px 0 var(--primary); }
+    #campus-ia .channel-title { display: flex; align-items: center; gap: 8px; margin-bottom: 7px; font-weight: 500; }
+    #campus-ia .channel p { margin: 0; color: var(--muted-foreground); }
+    #campus-ia .category-strip { display: flex; gap: 24px; padding: 12px 4px 15px; overflow-x: auto; border-bottom: 1px solid var(--border); }
+    #campus-ia .category-item { display: grid; justify-items: center; gap: 6px; min-width: 86px; color: var(--muted-foreground); }
+    #campus-ia .category-item.is-current { color: var(--foreground); font-weight: 500; }
+    #campus-ia .category-icon { display: grid; place-items: center; width: 34px; height: 34px; color: var(--primary); background: var(--accent); border-radius: 8px; }
+    #campus-ia .content-layout { display: grid; grid-template-columns: 210px minmax(0, 1fr); gap: 22px; margin-top: 18px; }
+    #campus-ia .filters { padding-right: 18px; border-right: 1px solid var(--border); }
+    #campus-ia .filter-group { margin-bottom: 18px; }
+    #campus-ia .filter-group h4 { margin: 0 0 8px; font-weight: 500; }
+    #campus-ia .filter-list { display: grid; gap: 8px; }
+    #campus-ia .filter-list label { display: flex; align-items: center; gap: 8px; color: var(--muted-foreground); cursor: pointer; }
+    #campus-ia .results-head { display: flex; align-items: end; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+    #campus-ia .results-head h3, #campus-ia .results-head p { margin: 0; }
+    #campus-ia .event-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+    #campus-ia .event-card { overflow: hidden; border: 1px solid var(--border); border-radius: 8px; background: var(--card); }
+    #campus-ia .event-card img { display: block; width: 100%; aspect-ratio: 16 / 7; object-fit: cover; background: var(--muted); }
+    #campus-ia .event-body { padding: 13px; }
+    #campus-ia .event-body h4 { margin: 9px 0 6px; font-weight: 500; }
+    #campus-ia .event-body p { margin: 0; color: var(--muted-foreground); }
+    #campus-ia .tag-row { display: flex; flex-wrap: wrap; gap: 6px; }
+    #campus-ia .tag { display: inline-flex; align-items: center; min-height: 24px; padding: 2px 8px; border-radius: 999px; color: var(--foreground); background: var(--accent); }
+    #campus-ia .event-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-top: 11px; color: var(--muted-foreground); }
+    #campus-ia .event-meta span { display: inline-flex; align-items: center; gap: 5px; }
+    #campus-ia .event-actions { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 12px; padding-top: 11px; border-top: 1px solid var(--border); }
+    #campus-ia .tag-demo { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(280px, .9fr); gap: 28px; align-items: start; padding: 18px 0 4px; }
+    #campus-ia .suggest-box { margin-top: 8px; padding: 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--card); }
+    #campus-ia .suggestion { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px; border: 0; border-radius: 6px; color: var(--foreground); background: var(--accent); cursor: pointer; text-align: left; }
+    #campus-ia .flow { display: grid; gap: 8px; }
+    #campus-ia .flow-step { display: grid; grid-template-columns: 30px minmax(0, 1fr); gap: 10px; align-items: start; }
+    #campus-ia .step-no { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; color: var(--primary-foreground); background: var(--primary); }
+    #campus-ia .flow-step strong, #campus-ia .flow-step p { display: block; margin: 0; }
+    #campus-ia .flow-step p { color: var(--muted-foreground); }
+    #campus-ia .model-line { display: grid; grid-template-columns: 1fr auto 1fr auto 1fr; gap: 8px; align-items: center; margin-top: 20px; padding: 14px; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+    #campus-ia .model-node { padding: 10px; text-align: center; background: var(--accent); border-radius: 6px; }
+    #campus-ia .mobile-note { display: none; }
+    @media (max-width: 760px) {
+      #campus-ia .topbar { grid-template-columns: 1fr auto; }
+      #campus-ia .searchbar { grid-column: 1 / -1; grid-row: 2; }
+      #campus-ia .channel-row { grid-template-columns: 1fr; }
+      #campus-ia .content-layout { grid-template-columns: 1fr; }
+      #campus-ia .filters { display: flex; gap: 8px; overflow-x: auto; padding: 0 0 12px; border-right: 0; border-bottom: 1px solid var(--border); }
+      #campus-ia .filter-group { min-width: 170px; margin: 0; }
+      #campus-ia .event-grid, #campus-ia .tag-demo { grid-template-columns: 1fr; }
+      #campus-ia .model-line { grid-template-columns: 1fr; }
+      #campus-ia .model-arrow { transform: rotate(90deg); justify-self: center; }
+      #campus-ia .mobile-note { display: block; color: var(--muted-foreground); }
+    }
+  </style>
+
+  <div class="app-shell">
+    <div class="topbar">
+      <div class="brand"><span class="brand-mark">C</span> CampusMate</div>
+      <label class="searchbar">
+        <i data-lucide="search" aria-hidden="true"></i>
+        <input id="global-query" value="羽球" aria-label="全站搜索" placeholder="搜索赛事、组织、活动或标签">
+      </label>
+      <div class="top-actions"><button class="btn btn-primary" type="button">发布需求</button><i data-lucide="bell" aria-hidden="true"></i></div>
+    </div>
+
+    <div class="view">
+      <div class="nav nav-pills nav-justified" role="tablist" aria-label="草图视图">
+        <button class="nav-link active" id="entry-tab" role="tab" aria-controls="entry-panel" aria-selected="true" type="button">三级入口</button>
+        <button class="nav-link" id="official-tab" role="tab" aria-controls="official-panel" aria-selected="false" type="button">官方赛事页</button>
+        <button class="nav-link" id="tags-tab" role="tab" aria-controls="tags-panel" aria-selected="false" type="button">标签联想</button>
+      </div>
+
+      <section id="entry-panel" role="tabpanel" aria-labelledby="entry-tab">
+        <div class="channel-row">
+          <button class="channel is-active" type="button">
+            <span class="channel-title"><i data-lucide="landmark" aria-hidden="true"></i>官方赛事与项目</span>
+            <p>学校、学院、竞赛主办方等权威来源；先看赛事，再看该赛事下的招募队伍。</p>
+          </button>
+          <button class="channel" type="button">
+            <span class="channel-title"><i data-lucide="badge-check" aria-hidden="true"></i>认证组织活动</span>
+            <p>社团、学生组织、负责人发布；突出组织身份、活动安排和招募状态。</p>
+          </button>
+          <button class="channel" type="button">
+            <span class="channel-title"><i data-lucide="users" aria-hidden="true"></i>校园自发组队</span>
+            <p>体育、出游、学习和拼团等同学需求；直接浏览组队帖并申请加入。</p>
+          </button>
+        </div>
+
+        <div class="category-strip" aria-label="内容分类">
+          <div class="category-item is-current"><span class="category-icon"><i data-lucide="layout-grid" aria-hidden="true"></i></span>全部</div>
+          <div class="category-item"><span class="category-icon"><i data-lucide="trophy" aria-hidden="true"></i></span>竞赛项目</div>
+          <div class="category-item"><span class="category-icon"><i data-lucide="book-open" aria-hidden="true"></i></span>学习科研</div>
+          <div class="category-item"><span class="category-icon"><i data-lucide="dumbbell" aria-hidden="true"></i></span>体育健身</div>
+          <div class="category-item"><span class="category-icon"><i data-lucide="map" aria-hidden="true"></i></span>旅行户外</div>
+          <div class="category-item"><span class="category-icon"><i data-lucide="shopping-bag" aria-hidden="true"></i></span>拼团与AA</div>
+        </div>
+
+        <div class="model-line" aria-label="两层内容模型">
+          <div class="model-node"><strong>来源频道</strong><br><span class="text-muted">官方 / 组织 / 个人</span></div>
+          <span class="model-arrow">→</span>
+          <div class="model-node"><strong>活动或赛事实体</strong><br><span class="text-muted">介绍、时间、链接、关注</span></div>
+          <span class="model-arrow">→</span>
+          <div class="model-node"><strong>该项目下的招募帖</strong><br><span class="text-muted">队伍、角色、人数、申请</span></div>
+        </div>
+      </section>
+
+      <section id="official-panel" role="tabpanel" aria-labelledby="official-tab" hidden>
+        <div class="category-strip" aria-label="官方赛事分类">
+          <div class="category-item is-current"><span class="category-icon"><i data-lucide="sparkles" aria-hidden="true"></i></span>近期推荐</div>
+          <div class="category-item"><span class="category-icon"><i data-lucide="calculator" aria-hidden="true"></i></span>数学建模</div>
+          <div class="category-item"><span class="category-icon"><i data-lucide="cpu" aria-hidden="true"></i></span>科技创新</div>
+          <div class="category-item"><span class="category-icon"><i data-lucide="pen-tool" aria-hidden="true"></i></span>人文社科</div>
+          <div class="category-item"><span class="category-icon"><i data-lucide="briefcase-business" aria-hidden="true"></i></span>创新创业</div>
+        </div>
+        <div class="content-layout">
+          <aside class="filters" aria-label="赛事筛选">
+            <div class="filter-group">
+              <h4>赛事级别</h4>
+              <div class="filter-list">
+                <label><input type="checkbox"> 国家级</label>
+                <label><input type="checkbox"> 省市级</label>
+                <label><input type="checkbox"> 校级</label>
+                <label><input type="checkbox"> 院系 / 书院级</label>
+              </div>
+            </div>
+            <div class="filter-group">
+              <h4>当前状态</h4>
+              <div class="filter-list">
+                <label><input type="checkbox"> 报名中</label>
+                <label><input type="checkbox"> 队伍招募中</label>
+                <label><input type="checkbox"> 即将截止</label>
+              </div>
+            </div>
+            <div class="filter-group">
+              <h4>面向范围</h4>
+              <div class="filter-list">
+                <label><input type="checkbox"> 全校</label>
+                <label><input type="checkbox"> 指定院系</label>
+                <label><input type="checkbox"> 跨校</label>
+              </div>
+            </div>
+          </aside>
+          <main>
+            <div class="results-head">
+              <div><h3>官方赛事</h3><p class="text-muted">权威信息与真实组队需求分层展示</p></div>
+              <select class="form-select" aria-label="赛事排序"><option>综合排序</option><option>截止时间</option><option>关注最多</option></select>
+            </div>
+            <div class="event-grid">
+              <article class="event-card">
+                <img src="/files/official-card-ref.png" alt="赛事宣传图示例">
+                <div class="event-body">
+                  <div class="tag-row"><span class="tag">国家级赛事</span><span class="tag">数学建模</span><span class="tag">报名中</span></div>
+                  <h4>全国大学生数学建模竞赛</h4>
+                  <p>面向高校学生的综合建模赛事，支持校内跨专业组队。</p>
+                  <div class="event-meta"><span><i data-lucide="calendar-days" aria-hidden="true"></i>9月18日截止</span><span><i data-lucide="heart" aria-hidden="true"></i>326 人关注</span></div>
+                  <div class="event-actions"><a href="#">查看赛事详情</a><button class="btn btn-primary" type="button">4 支队伍招募</button></div>
+                </div>
+              </article>
+              <article class="event-card">
+                <img src="/files/category-ref.png" alt="赛事分类视觉参考">
+                <div class="event-body">
+                  <div class="tag-row"><span class="tag">校级赛事</span><span class="tag">创新创业</span><span class="tag">即将截止</span></div>
+                  <h4>南京大学“挑战杯”校内选拔</h4>
+                  <p>聚焦科技创新与社会调研，支持跨院系组建参赛团队。</p>
+                  <div class="event-meta"><span><i data-lucide="calendar-days" aria-hidden="true"></i>9月23日截止</span><span><i data-lucide="heart" aria-hidden="true"></i>188 人关注</span></div>
+                  <div class="event-actions"><a href="#">查看赛事详情</a><button class="btn btn-primary" type="button">7 支队伍招募</button></div>
+                </div>
+              </article>
+            </div>
+          </main>
+        </div>
+        <p class="mobile-note">手机端将左侧筛选改为顶部“筛选”抽屉，避免压缩内容卡片。</p>
+      </section>
+
+      <section id="tags-panel" role="tabpanel" aria-labelledby="tags-tab" hidden>
+        <div class="tag-demo">
+          <div>
+            <h3>搜索标准标签</h3>
+            <label class="form-label" for="tag-query">试着输入“羽球”“建模赛”或“南大杯”</label>
+            <input class="form-control" id="tag-query" value="羽球" autocomplete="off">
+            <div class="suggest-box" aria-live="polite">
+              <div class="text-small text-muted">建议使用平台标准标签</div>
+              <button class="suggestion" id="tag-suggestion" type="button">
+                <span><strong>羽毛球</strong><br><span class="text-small text-muted">体育与健身 · 标准标签</span></span>
+                <span>使用此标签</span>
+              </button>
+              <div class="tag-row" style="margin-top:10px"><span class="tag">羽球</span><span>→</span><span class="tag">羽毛球</span></div>
+            </div>
+          </div>
+          <div class="flow" aria-label="标签规范化流程">
+            <div class="flow-step"><span class="step-no">1</span><div><strong>精确别名词典</strong><p>“羽球”“badminton”直接映射到“羽毛球”。</p></div></div>
+            <div class="flow-step"><span class="step-no">2</span><div><strong>拼音与模糊匹配</strong><p>处理错别字、简称、拼音和相近写法。</p></div></div>
+            <div class="flow-step"><span class="step-no">3</span><div><strong>语义召回</strong><p>对词典未覆盖的表达，用向量检索寻找近义标准标签。</p></div></div>
+            <div class="flow-step"><span class="step-no">4</span><div><strong>用户确认</strong><p>展示标准标签及所属分类，用户点选后才用于筛选。</p></div></div>
+            <div class="flow-step"><span class="step-no">5</span><div><strong>低置信度兜底</strong><p>仍不确定时保留关键词搜索，不自动创建脏标签。</p></div></div>
+          </div>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <script>
+    (() => {
+      const input = document.getElementById('tag-query');
+      const suggestion = document.getElementById('tag-suggestion');
+      const aliases = {
+        '羽球': ['羽毛球', '体育与健身'],
+        '羽毛': ['羽毛球', '体育与健身'],
+        'badminton': ['羽毛球', '体育与健身'],
+        '建模赛': ['数学建模', '竞赛与项目'],
+        '数学模型': ['数学建模', '竞赛与项目'],
+        '南大杯': ['南京大学校级赛事', '校级赛事']
+      };
+      function updateSuggestion() {
+        const key = input.value.trim().toLowerCase();
+        const hit = aliases[key] || (key.includes('羽') ? aliases['羽球'] : null);
+        suggestion.innerHTML = hit
+          ? `<span><strong>${hit[0]}</strong><br><span class="text-small text-muted">${hit[1]} · 标准标签</span></span><span>使用此标签</span>`
+          : `<span><strong>未找到确定的标准标签</strong><br><span class="text-small text-muted">将按关键词继续搜索</span></span><span>搜索</span>`;
+      }
+      input.addEventListener('input', updateSuggestion);
+      suggestion.addEventListener('click', () => {
+        const strong = suggestion.querySelector('strong');
+        if (strong && !strong.textContent.includes('未找到')) input.value = strong.textContent;
+      });
+    })();
+  </script>
+</div>

@@ -1,9 +1,16 @@
-import { Loader2 } from 'lucide-react'
+import { Clock3, Sparkles } from 'lucide-react'
 
 export default function Loading({ text = '加载中...' }: { text?: string }) {
   return (
-    <div className="flex items-center justify-center gap-2 py-8 text-gray-500">
-      <Loader2 size={18} className="animate-spin" />
+    <div
+      role="status"
+      aria-live="polite"
+      className="animate-slide-up flex min-h-24 items-center justify-center gap-2 py-8 text-ink-muted"
+    >
+      <Clock3
+        aria-hidden="true"
+        className="size-[18px] shrink-0 text-primary-600"
+      />
       <span className="text-sm">{text}</span>
     </div>
   )
@@ -11,13 +18,16 @@ export default function Loading({ text = '加载中...' }: { text?: string }) {
 
 export function AIThinking() {
   return (
-    <div className="flex items-center gap-2 py-2 text-gray-500">
+    <div
+      role="status"
+      aria-live="polite"
+      className="animate-slide-up flex min-h-9 items-center gap-2 py-2 text-ink-muted"
+    >
+      <Sparkles
+        aria-hidden="true"
+        className="size-4 shrink-0 text-primary-600"
+      />
       <span className="text-sm">AI 正在思考</span>
-      <span className="flex gap-1">
-        <span className="thinking-dot text-primary-500">●</span>
-        <span className="thinking-dot text-primary-500">●</span>
-        <span className="thinking-dot text-primary-500">●</span>
-      </span>
     </div>
   )
 }

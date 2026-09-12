@@ -1,13 +1,15 @@
 import { NavLink, useNavigate } from 'react-router-dom'
-import { Home, Compass, Plus, MessageCircle, User, LogOut } from 'lucide-react'
+import { Home, Compass, Plus, MessageCircle, BookOpen, User, LogOut } from 'lucide-react'
+import CampusMark from '@/components/CampusMark'
 import { useAuthStore } from '@/store/authStore'
 
 const navItems = [
-  { to: '/home', label: '首页', icon: Home },
-  { to: '/discover', label: '发现', icon: Compass },
-  { to: '/publish', label: '发布', icon: Plus, isPublish: true },
-  { to: '/messages', label: '消息', icon: MessageCircle },
-  { to: '/profile', label: '我的', icon: User },
+  { to: '/home', label: '首页', icon: Home, isPublish: false, desktopOnly: false },
+  { to: '/discover', label: '发现', icon: Compass, isPublish: false, desktopOnly: false },
+  { to: '/publish', label: '发布', icon: Plus, isPublish: true, desktopOnly: false },
+  { to: '/messages', label: '消息', icon: MessageCircle, isPublish: false, desktopOnly: false },
+  { to: '/tutorial', label: '教程', icon: BookOpen, isPublish: false, desktopOnly: true },
+  { to: '/profile', label: '我的', icon: User, isPublish: false, desktopOnly: false },
 ]
 
 export default function Navbar() {
@@ -21,74 +23,94 @@ export default function Navbar() {
 
   return (
     <>
-      {/* 桌面端：顶部导航 */}
-      <header className="sticky top-0 z-40 hidden border-b border-gray-200 bg-white md:block">
-        <div className="mx-auto flex max-w-content items-center justify-between px-4 py-3">
-          <div className="flex items-center gap-8">
-            <NavLink to="/home" className="flex items-center gap-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary-600 text-white font-bold">
-                C
-              </div>
-              <span className="text-lg font-bold text-gray-900">CampusMate</span>
+      <header className="sticky top-0 z-40 hidden h-[72px] border-b border-stone bg-paper/95 md:block">
+        <div className="mx-auto flex h-[72px] max-w-content items-center gap-3 px-4 lg:gap-8 lg:px-8">
+          <div className="flex min-w-0 flex-1 items-center gap-3 lg:gap-8">
+            <NavLink
+              to="/home"
+              aria-label="CampusMate 首页"
+              className="flex shrink-0 items-center"
+            >
+              <span className="lg:hidden">
+                <CampusMark compact />
+              </span>
+              <span className="hidden lg:inline-flex">
+                <CampusMark />
+              </span>
             </NavLink>
-            <nav className="flex items-center gap-6">
-              {navItems.map(({ to, label, icon: Icon, isPublish }) => (
+            <nav
+              aria-label="主导航"
+              className="flex h-[72px] min-w-0 items-stretch gap-3 lg:gap-6"
+            >
+              {navItems.map(({ to, label, icon: Icon }) => (
                 <NavLink
                   key={to}
                   to={to}
                   className={({ isActive }) =>
-                    `nav-link ${isActive ? 'nav-link-active' : ''} ${
-                      isPublish ? 'text-primary-600 font-semibold' : ''
-                    }`
+                    `nav-link h-[72px] whitespace-nowrap pt-0 ${isActive ? 'nav-link-active' : ''}`
                   }
                 >
-                  <Icon size={18} />
+                  <Icon aria-hidden="true" className="size-[18px] shrink-0" />
                   {label}
                 </NavLink>
               ))}
             </nav>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex shrink-0 items-center gap-2 border-l border-stone pl-3 lg:gap-3 lg:pl-5">
             {user && (
-              <span className="text-sm text-gray-600">{user.nickname}</span>
+              <span className="hidden max-w-32 truncate text-sm text-ink-muted lg:block">
+                {user.nickname}
+              </span>
             )}
             <button
+              type="button"
+              aria-label="退出登录"
+              title="退出登录"
               onClick={handleLogout}
-              className="flex items-center gap-1 text-sm text-gray-500 hover:text-red-500"
+              className="icon-button size-9 hover:bg-red-50 hover:text-red-700"
             >
-              <LogOut size={16} />
-              退出
+              <LogOut aria-hidden="true" className="size-[18px]" />
             </button>
           </div>
         </div>
       </header>
 
-      {/* 手机端：底部导航 */}
-      <nav className="fixed bottom-0 left-0 right-0 z-40 flex border-t border-gray-200 bg-white md:hidden">
-        {navItems.map(({ to, label, icon: Icon, isPublish }) => (
+      <nav
+        aria-label="移动端主导航"
+        className="fixed inset-x-0 bottom-0 z-40 border-t border-stone bg-paper/95 md:hidden"
+        style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
+      >
+        <div className="grid h-16 grid-cols-5">
+        {navItems.filter((item) => !item.desktopOnly).map(({ to, label, icon: Icon, isPublish }) => (
           <NavLink
             key={to}
             to={to}
             className={({ isActive }) =>
-              `flex flex-1 flex-col items-center gap-0.5 py-2 text-xs transition-colors ${
+              `flex min-w-0 flex-col items-center justify-center gap-0.5 text-[11px] font-medium transition-colors duration-fast ${
                 isActive
-                  ? 'text-primary-600'
+                  ? 'text-primary-700'
                   : isPublish
                     ? 'text-primary-600'
-                    : 'text-gray-500'
+                    : 'text-ink-muted'
               }`
             }
           >
-            <div
-              className={`flex h-7 w-7 items-center justify-center rounded-full ${
-                isPublish ? 'bg-primary-600 text-white' : ''
+            <span
+              className={`flex shrink-0 items-center justify-center ${
+                isPublish
+                  ? 'size-9 rounded-card bg-primary-600 text-white shadow-panel'
+                  : 'size-7'
               }`}
             >
-              <Icon size={isPublish ? 20 : 20} />
-            </div>
-            {label}
+              <Icon
+                aria-hidden="true"
+                className="size-5"
+              />
+            </span>
+            <span className="w-full truncate px-1 text-center">{label}</span>
           </NavLink>
         ))}
+        </div>
       </nav>
     </>
   )

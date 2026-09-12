@@ -1,12 +1,23 @@
 import argparse
 import asyncio
 import json
+import os
+import sys
 import threading
 import traceback
 import logging
 import uuid
 from contextlib import asynccontextmanager
+from pathlib import Path
 from typing import Any, Dict, Iterable, AsyncIterable, AsyncGenerator, Optional
+
+if os.name == "nt":
+    _windows_log_dir = Path(__file__).resolve().parents[1] / ".runtime" / "logs"
+    os.environ["COZE_LOG_DIR"] = str(_windows_log_dir)
+    _loaded_log_config = sys.modules.get("coze_coding_utils.log.config")
+    if _loaded_log_config is not None:
+        _loaded_log_config.LOG_DIR = _windows_log_dir
+
 import cozeloop
 import uvicorn
 import time
@@ -23,9 +34,16 @@ from coze_coding_utils.log.write_log import setup_logging, request_context
 from coze_coding_utils.log.config import LOG_LEVEL
 from coze_coding_utils.error.classifier import ErrorClassifier, classify_error
 from coze_coding_utils.helper.stream_runner import AgentStreamRunner, WorkflowStreamRunner,agent_stream_handler,workflow_stream_handler, RunOpt
-from storage.database.db import get_session, get_engine
+from storage.database.db import ensure_compatibility_columns, get_session, get_engine
 from storage.memory.memory_saver import get_memory_saver
 from storage.database.shared.model import Base
+from utils.runtime import (
+    agent_runtime_access_allowed,
+    assert_production_config,
+    get_allowed_origins,
+    production_config_errors,
+    should_start_agent_runtime,
+)
 from coze_coding_utils.async_tasks import (
     AsyncTaskRuntime,
     AsyncTaskStorageError,
@@ -35,13 +53,23 @@ from coze_coding_utils.async_tasks import (
 from coze_coding_utils.async_tasks import config as async_task_config
 from coze_coding_utils.async_tasks.headers import HEADER_X_RUN_ID as _ASYNC_HEADER_X_RUN_ID
 from coze_coding_utils.runtime_ctx.context import new_context as _new_async_ctx
-from sqlalchemy import event
+from sqlalchemy import event, text
 from api.agent import router as agent_router
 from api.applications import router as applications_router
 from api.auth import router as auth_router
 from api.messages import router as messages_router
 from api.posts import router as posts_router
 from api.teams import router as teams_router
+from api.content import router as content_router
+from api.permissions import router as permissions_router
+from api.identity import router as identity_router
+from api.operators import router as operators_router
+from api.moderation import router as moderation_router
+from api.uploads import router as uploads_router
+from api.notifications import router as notifications_router
+from api.operations import router as operations_router
+from services.content import bootstrap_operator, seed_content_catalog
+from services.observability import install_observability
 
 setup_logging(
     log_file=LOG_FILE,
@@ -268,34 +296,73 @@ async_graph: Optional[CompiledStateGraph] = None
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    assert_production_config()
     engine = get_engine()
-    @event.listens_for(engine, "connect")
-    def _set_utc(dbapi_conn, _):
-        with dbapi_conn.cursor() as cur:
-            cur.execute("SET TIME ZONE 'UTC'")
-    Base.metadata.create_all(engine)
-    checkpointer = get_memory_saver()
-    if graph_helper.is_agent_proj():
-        base = graph_helper.get_agent_instance("agents.agent", None)
-        sync_graph = base.builder.compile(checkpointer=checkpointer)
-    else:
-        base = graph_helper.get_graph_instance("graphs.graph")
-        sync_graph = base.builder.compile()
+    if engine.dialect.name == "postgresql":
+        @event.listens_for(engine, "connect")
+        def _set_utc(dbapi_conn, _):
+            with dbapi_conn.cursor() as cur:
+                cur.execute("SET TIME ZONE 'UTC'")
+    if os.getenv("APP_ENV", "development").strip().lower() != "production":
+        Base.metadata.create_all(engine)
+        ensure_compatibility_columns(engine)
+    catalog_session = get_session()
+    try:
+        seed_content_catalog(catalog_session)
+        bootstrap_operator(catalog_session, os.getenv("BOOTSTRAP_OPERATOR_EMAIL", ""))
+        catalog_session.commit()
+    finally:
+        catalog_session.close()
     global async_graph, async_runtime
-    async_graph = base.builder.compile(checkpointer=checkpointer)
-    service.set_graph(sync_graph)
-    async_runtime = AsyncTaskRuntime(
-        session_factory=get_session, engine=engine,
-        graph=async_graph, checkpointer=checkpointer,
-    )
+    if should_start_agent_runtime():
+        checkpointer = get_memory_saver()
+        if graph_helper.is_agent_proj():
+            base = graph_helper.get_agent_instance("agents.agent", None)
+            sync_graph = base.builder.compile(checkpointer=checkpointer)
+        else:
+            base = graph_helper.get_graph_instance("graphs.graph")
+            sync_graph = base.builder.compile()
+        async_graph = base.builder.compile(checkpointer=checkpointer)
+        service.set_graph(sync_graph)
+        async_runtime = AsyncTaskRuntime(
+            session_factory=get_session, engine=engine,
+            graph=async_graph, checkpointer=checkpointer,
+        )
+    else:
+        logger.info("Agent runtime disabled; REST API is available in local mode")
     yield
     if async_runtime is not None:
         await async_runtime.shutdown()
 
 app = FastAPI(lifespan=lifespan)
+install_observability(app)
+
+_AGENT_RUNTIME_PATHS = {
+    "/async_run",
+    "/run",
+    "/stream_run",
+    "/v1/chat/completions",
+    "/graph_parameter",
+}
+
+
+@app.middleware("http")
+async def protect_agent_runtime_routes(request: Request, call_next):
+    path = request.url.path
+    is_runtime_path = (
+        path in _AGENT_RUNTIME_PATHS
+        or path.startswith("/task/")
+        or path.startswith("/cancel/")
+        or path.startswith("/node_run/")
+    )
+    if is_runtime_path and not agent_runtime_access_allowed(
+        None, request.headers.get("x-agent-runtime-token")
+    ):
+        return JSONResponse(status_code=404, content={"detail": "Not found"})
+    return await call_next(request)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
+    allow_origins=get_allowed_origins(),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -306,6 +373,14 @@ app.include_router(agent_router, prefix="/api")
 app.include_router(applications_router, prefix="/api")
 app.include_router(messages_router, prefix="/api")
 app.include_router(teams_router, prefix="/api")
+app.include_router(content_router, prefix="/api")
+app.include_router(permissions_router, prefix="/api")
+app.include_router(identity_router, prefix="/api")
+app.include_router(operators_router, prefix="/api")
+app.include_router(moderation_router, prefix="/api")
+app.include_router(uploads_router, prefix="/api")
+app.include_router(notifications_router, prefix="/api")
+app.include_router(operations_router, prefix="/api")
 
 # OpenAI 兼容接口处理器
 openai_handler = OpenAIChatHandler(service)
@@ -618,6 +693,26 @@ async def health_check():
         }
     except Exception as e:
         raise HTTPException(status_code=503, detail=str(e))
+
+
+@app.get("/ready")
+async def readiness_check():
+    config_errors = production_config_errors()
+    checks = {
+        "configuration": "failed" if config_errors else "ok",
+        "database": "skipped" if config_errors else "pending",
+    }
+    if config_errors:
+        raise HTTPException(status_code=503, detail={"status": "not_ready", "checks": checks})
+    try:
+        with get_engine().connect() as connection:
+            connection.execute(text("SELECT 1"))
+        checks["database"] = "ok"
+    except Exception:
+        logger.exception("Readiness database check failed")
+        checks["database"] = "failed"
+        raise HTTPException(status_code=503, detail={"status": "not_ready", "checks": checks})
+    return {"status": "ready", "checks": checks}
 
 
 @app.get(path="/graph_parameter")

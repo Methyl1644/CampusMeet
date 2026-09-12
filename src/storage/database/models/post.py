@@ -1,16 +1,23 @@
 import datetime
-from sqlalchemy import BigInteger, DateTime, Integer, JSON, Text, func
+from sqlalchemy import BigInteger, DateTime, ForeignKey, Index, Integer, JSON, Text, func
 from sqlalchemy.orm import Mapped, mapped_column
 from storage.database.shared.model import Base
+from storage.database.shared.types import BIGINT_PRIMARY_KEY
 
 
 class Post(Base):
     __tablename__ = "posts"
+    __table_args__ = (
+        Index("ix_posts_author_created", "author_id", "created_at"),
+        Index("ix_posts_topic_status", "topic_id", "status"),
+    )
 
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(BIGINT_PRIMARY_KEY, primary_key=True, autoincrement=True)
     title: Mapped[str] = mapped_column(Text, nullable=False)
     description: Mapped[str | None] = mapped_column(Text)
     source_type: Mapped[str] = mapped_column(Text, nullable=False, default="user")
+    kind: Mapped[str] = mapped_column(Text, nullable=False, default="casual_invitation")
+    topic_id: Mapped[int | None] = mapped_column(BigInteger, ForeignKey("topics.id", ondelete="SET NULL"))
     main_category: Mapped[str] = mapped_column(Text, nullable=False)
     tags: Mapped[list] = mapped_column(JSON, default=list)
     activity_name: Mapped[str] = mapped_column(Text, nullable=False)
@@ -22,6 +29,9 @@ class Post(Base):
     deadline: Mapped[str | None] = mapped_column(Text)
     risk_level: Mapped[str] = mapped_column(Text, nullable=False, default="low")
     status: Mapped[str] = mapped_column(Text, nullable=False, default="recruiting")
-    author_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    author_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("users.id"), nullable=False)
+    closed_at: Mapped[datetime.datetime | None] = mapped_column(DateTime(timezone=True))
+    archived_at: Mapped[datetime.datetime | None] = mapped_column(DateTime(timezone=True))
+    deleted_at: Mapped[datetime.datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())

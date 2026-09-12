@@ -10,8 +10,8 @@
 
 | # | 工作流 | Coze 后台名称 | 用途 | 优先级 |
 |---|--------|--------------|------|--------|
-| ① | post-draft | `campusmate_post_draft` | 自然语言 → 结构化组队帖草稿 + 缺失字段追问 | P0 |
-| ② | classify-review | `campusmate_classify_review` | 自动分类、打标签、风险评估、脱敏与审核建议 | P0 |
+| ① | post-draft | `campusmate_post_draft` | 需求拆解、逐项追问、标准标签推荐 | P0 |
+| ② | classify-review | `campusmate_classify_review` | 标准标签推荐、库外概念提案、风险初筛 | P0 |
 | ③ | match-teammates | `campusmate_match_teammates` | 候选队友匹配分数 + 可解释推荐理由 | P1 |
 | ④ | team-plan | `campusmate_team_plan` | 成队后分工、首次会议议程、任务清单、风险提醒 | P0 |
 | ⑤ | official-activity-extract | `campusmate_official_activity_extract` | 官方页面文本 → 标准活动卡（运营辅助） | P1 可选 |
@@ -27,7 +27,7 @@
 | ③ match-teammates | `ai_match_teammates` | `schemas/match_teammates.input.json` | `schemas/match_teammates.output.json` |
 | ④ team-plan | `ai_team_plan` | `schemas/team_plan.input.json` | `schemas/team_plan.output.json` |
 
-当前后端直接透传的 Coze 入参为：post-draft 的 `message/draft/user_skills`、classify-review 的 `title/description`、match-teammates 的 `post_id`、team-plan 的 `team_id`。工作流如需丰富上下文，必须在受控入口内查询并脱敏。
+当前后端直接透传的 Coze 入参为：post-draft 的 `message/draft/user_skills/kind/field_states/candidate_tags/topic_id`，classify-review 的 `title/description/candidate_tags`，match-teammates 的 `post_id`，team-plan 的 `team_id`。前两项的权威契约是对应 `schemas/*.json`，不得继续使用旧字段 `user_text/post_draft/raw_text/dynamic_tags`。
 
 前端触点：
 
@@ -40,37 +40,33 @@
 
 ## 3. 环境变量配置
 
-`.env` 中需要以下变量（`.env.example` 已有占位）：
+`.env` 中推荐配置部署 API（`.env.example` 已有占位）：
 
 ```bash
-# Coze 平台凭证（只放后端，前端不持有任何 Token —— PRD §7）
-COZE_API_TOKEN=<在 Coze 后台创建的个人访问令牌>
-COZE_API_BASE_URL=https://api.coze.cn
-
-# 4 个工作流 ID（在 Coze 后台发布工作流后获得；留空即走 fallback）
-COZE_WORKFLOW_POST_DRAFT=
-COZE_WORKFLOW_CLASSIFY_REVIEW=
-COZE_WORKFLOW_MATCH=
-COZE_WORKFLOW_TEAM_PLAN=
-
-# 可选（P1）
-COZE_WORKFLOW_OFFICIAL_ACTIVITY_EXTRACT=
+# Token 只放后端，前端不持有任何 Token（PRD §7）
+COZE_DEPLOY_API_TOKEN=<部署页生成的 API Token>
+COZE_POST_DRAFT_API_URL=https://<deployment>.coze.site/run
+COZE_CLASSIFY_REVIEW_API_URL=
 ```
 
 配置步骤：
 
-1. 在 Coze 平台按 `workflows/0X_*.md` 的画布设计搭建工作流；
+1. 前两个工作流先按 `DELIVERY_CHECKLIST.md` 和 `workflows/01_*.md`、`02_*.md` 搭建；
 2. LLM 节点的 System Prompt = `prompts/system_rules.md` + `prompts/safety_rules.md` + 对应任务 Prompt（三段拼接）；
-3. 发布工作流，拿到 workflow ID 填入 `.env`；
-4. 重启后端，`ai_tools.py` 自动切换到 Coze 工作流调用。
+3. 发布工作流，复制 `/run` API 地址并生成 API Token；
+4. 把 Token 和地址填入 Render 后重启后端，`ai_tools.py` 自动切换到 Coze 部署 API。
 
-## 4. 未配置工作流 ID 时的 LLM fallback
+旧版 `COZE_API_TOKEN`、`COZE_API_BASE_URL` 和 `COZE_WORKFLOW_*` 仍可作为后备配置。
+
+## 4. Coze 不可用时的 LLM fallback
 
 后端 `ai_tools.py` 的每个 AI 工具是**双层架构**：
 
 ```
-if 对应 COZE_WORKFLOW_* 已配置:
-    调用 Coze 工作流（超时/异常 → 记录日志并降级）
+if 对应 COZE_*_API_URL 和 COZE_DEPLOY_API_TOKEN 已配置:
+    调用 Coze 部署 API（超时/异常 → 尝试旧版工作流）
+elif 对应 COZE_WORKFLOW_* 已配置:
+    调用旧版 Coze 工作流
 else:
     调用 LLM fallback（同一套 Prompt + 同一个输出 Schema 直接问 LLM）
 ```
@@ -118,7 +114,7 @@ else:
 | 5 | 风险等级 | 应用层统一 `low/medium/high`；最终发布/拦截由 C 的规则引擎决定 | ✅ C/D |
 | 6 | 敏感信息 | C 在 classify-review 路由中先脱敏，D/Coze 不接收未脱敏联系方式 | ✅ C/D |
 | 7 | 匹配入参/响应 | 入参固定 `post_id`；C 返回 `data.matches`；B 使用 `MatchResponse` 和 `user_id/score/reason` | ✅ B/C/D |
-| 8 | 环境变量 | 统一为不带 `_ID` 的四个 `COZE_WORKFLOW_*`；真实 Token/ID 只放本地 `.env` | ✅ C/D |
+| 8 | 环境变量 | 优先使用 `COZE_DEPLOY_API_TOKEN + COZE_*_API_URL`；旧版 `COZE_WORKFLOW_*` 保留后备；真实 Token 只放后端环境 | ✅ C/D |
 | 9 | team-plan 响应 | C 解包 `team_plan`；B 使用 `DivisionItem[]/AgendaItem[]/TaskItem[]` | ✅ B/C/D |
 | 10 | fallback 行为 | 未配置 Coze 时：发帖/审核走 LLM，匹配/规划走数据库 + LLM，规划结果会入库 | ✅ D 自动化实测 |
 

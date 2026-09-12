@@ -1,13 +1,14 @@
 import datetime
-from sqlalchemy import BigInteger, DateTime, Integer, JSON, Text, func
+from sqlalchemy import DateTime, Integer, JSON, Text, func
 from sqlalchemy.orm import Mapped, mapped_column
 from storage.database.shared.model import Base
+from storage.database.shared.types import BIGINT_PRIMARY_KEY
 
 
 class User(Base):
     __tablename__ = "users"
 
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(BIGINT_PRIMARY_KEY, primary_key=True, autoincrement=True)
     email: Mapped[str | None] = mapped_column(Text, unique=True)
     phone: Mapped[str | None] = mapped_column(Text, unique=True)
     wechat: Mapped[str | None] = mapped_column(Text)
@@ -18,8 +19,13 @@ class User(Base):
     grade: Mapped[str | None] = mapped_column(Text)
     skills: Mapped[list] = mapped_column(JSON, default=list)
     auth_status: Mapped[str] = mapped_column(Text, nullable=False, default="unverified")
-    verified_email: Mapped[str | None] = mapped_column(Text)
+    site_role: Mapped[str] = mapped_column(Text, nullable=False, default="student")
+    account_status: Mapped[str] = mapped_column(Text, nullable=False, default="active")
+    deactivated_at: Mapped[datetime.datetime | None] = mapped_column(DateTime(timezone=True))
+    verified_email: Mapped[str | None] = mapped_column(Text, unique=True)
     post_count: Mapped[int] = mapped_column(Integer, default=0)
     team_count: Mapped[int] = mapped_column(Integer, default=0)
+    failed_login_attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    locked_until: Mapped[datetime.datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())

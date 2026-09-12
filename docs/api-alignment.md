@@ -130,3 +130,56 @@
 | 对象 → JSON 字符串 | 11(draft) | `json.dumps(obj)` |
 | 字段名映射 | 12(title→post_title, description→post_description) | 手动取值 |
 | tool 返回的 JSON 字符串 → dict | 全部 | `json.loads(tool_result)` 后包进 `{code,message,data}` |
+
+---
+
+## 7. 标准标签与候选审核
+
+所有接口都要求登录，候选审核接口仅允许 `site_role=operator` 的运营账号调用。
+
+| 接口 | 方法 | 用途 |
+|------|------|------|
+| `/api/tags` | GET | 获取当前启用的标准标签与别名 |
+| `/api/tags/suggestions?q=` | GET | 用标准名称或已审核别名搜索标签 |
+| `/api/tags/proposals` | POST | 提交库外可复用概念，参数为 `name/category/source_text/suggested_tag_id?` |
+| `/api/tags/proposals?status=pending` | GET | 运营人员查看候选标签 |
+| `/api/tags/proposals/:id/review` | POST | 运营人员执行 `approve/merge/reject` |
+
+`/api/agent/classify-review` 会把帖子标题和描述传给 AI，并提供当前标准标签候选。AI 返回的 `tag_ids` 必须来自候选集合；可选的 `unknown_concepts` 结构如下：
+
+```json
+{
+  "unknown_concepts": [
+    {"name": "定向越野", "category": "activity", "reason": "当前标准库中没有对应活动"}
+  ]
+}
+```
+
+后端只接受 `activity/skill/role/level/audience` 分类、2 至 30 字符的名称，最多处理 5 个候选。合法候选进入 `pending` 队列，不会自动成为标准标签。
+
+---
+
+## 8. 话题与帖子定向授权
+
+授权采用“邀请 -> 用户接受 -> 生效”的流程，支持到期和撤销。平台运营可以管理全部话题与帖子；认证组织负责人可以管理本组织话题；普通发布者只自动管理自己创建的内容。
+
+| 对象 | 角色 | 能力 |
+|------|------|------|
+| 话题 | `coordinator` | 管理该话题下的组队帖 |
+| 话题 | `editor` | 管理组队帖、编辑话题资料 |
+| 话题 | `manager` | 管理组队帖、编辑话题资料、管理协作者 |
+| 帖子 | `application_manager` | 查看和处理申请、更新招募状态、运行队友匹配 |
+| 帖子 | `editor` | 申请管理能力及帖子内容编辑 |
+
+| 接口 | 方法 | 用途 |
+|------|------|------|
+| `/api/topics/:id/collaborators` | GET / POST | 查看或邀请话题协作者 |
+| `/api/topics/:id/collaborators/accept` | POST | 受邀用户接受话题授权 |
+| `/api/topics/:id/collaborators/:userId` | DELETE | 撤销话题授权 |
+| `/api/posts/:id/collaborators` | GET / POST | 查看或邀请帖子协作者 |
+| `/api/posts/:id/collaborators/accept` | POST | 受邀用户接受帖子授权 |
+| `/api/posts/:id/collaborators/:userId` | DELETE | 撤销帖子授权 |
+| `/api/posts/:id` | PATCH | 按角色能力编辑帖子或更新招募状态 |
+| `/api/topics/:topicId/posts/:postId/moderation` | PATCH | 管理话题下的组队帖状态 |
+
+授权邀请、接受、撤销，以及话题/帖子编辑、申请接受或拒绝、话题内帖子管理都会写入审计日志。
