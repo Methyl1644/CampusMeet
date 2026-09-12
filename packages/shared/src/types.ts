@@ -119,6 +119,12 @@ export interface LoginRequest {
   password?: string;
 }
 
+export interface PasswordResetRequest {
+  account: string;
+  code: string;
+  new_password: string;
+}
+
 export interface RegisterRequest {
   account: string;
   code: string;
