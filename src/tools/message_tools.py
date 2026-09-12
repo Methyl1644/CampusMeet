@@ -22,6 +22,7 @@ from services.moderation_cases import (
     users_are_blocked,
 )
 from services.notifications import notify
+from services.participation import ParticipationError, validate_application_join
 from tools.auth_tools import _user_brief
 
 logger = logging.getLogger(__name__)
@@ -371,6 +372,14 @@ def confirm_team(user_id: str, conversation_id: str) -> str:
             applicant = session.execute(select(User).where(User.id == conv.applicant_id)).scalar_one_or_none()
             if not author or not applicant:
                 return json.dumps({"success": False, "message": "用户信息不完整"}, ensure_ascii=False)
+            try:
+                validate_application_join(session, post, applicant)
+            except ParticipationError as exc:
+                session.rollback()
+                return json.dumps(
+                    {"success": False, "error_code": exc.code, "message": exc.message},
+                    ensure_ascii=False,
+                )
 
             # 同一帖子只建立一个团队，后续双方确认的申请者加入已有团队。
             existing_team = session.execute(

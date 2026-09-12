@@ -13,6 +13,7 @@ from services.content import validate_tag_ids
 from services.abuse_monitoring import check_and_record
 from services.collaboration_lifecycle import PUBLIC_POST_STATUSES
 from services.moderation_cases import has_active_restriction
+from services.participation import ParticipationError, validate_post_participation
 from utils.security import screen_post_content
 from tools.auth_tools import _user_brief
 
@@ -25,8 +26,11 @@ def _post_to_dict(post: Post, author: User | None = None, session=None) -> dict:
         "id": str(post.id),
         "title": post.title,
         "description": post.description,
+        "cover_url": post.cover_url,
         "source_type": post.source_type,
         "kind": post.kind,
+        "purpose": post.purpose,
+        "join_mode": post.join_mode,
         "topic_id": str(post.topic_id) if post.topic_id is not None else None,
         "main_category": post.main_category,
         "tags": post.tags or [],
@@ -68,6 +72,9 @@ def create_post(
     tag_ids: str = "",
     suggested_tag_ids: str = "",
     review_risk_level: str = "low",
+    cover_url: str = "",
+    purpose: str = "team_recruitment",
+    join_mode: str = "application",
 ) -> str:
     """创建组队帖。user_id 为用户ID，title 为标题，description 为描述，main_category 为主分类，activity_name 为活动名称，target_members 为目标人数，needed_roles 为所需角色(逗号分隔)，weekly_hours 为每周时长，school_scope 为学校范围，deadline 为截止日期。"""
     ctx = request_context.get() or new_context(method="create_post")
@@ -126,6 +133,22 @@ def create_post(
             elif resolved_topic_id is not None:
                 return json.dumps({"success": False, "message": "日常邀约不能关联正式话题"}, ensure_ascii=False)
 
+            try:
+                participation = validate_post_participation(
+                    session,
+                    user,
+                    {
+                        "topic_id": resolved_topic_id,
+                        "purpose": purpose,
+                        "join_mode": join_mode,
+                    },
+                )
+            except ParticipationError as exc:
+                return json.dumps(
+                    {"success": False, "error_code": exc.code, "message": exc.message},
+                    ensure_ascii=False,
+                )
+
             user_tag_ids = list(dict.fromkeys(item.strip() for item in tag_ids.split(",") if item.strip()))[:8]
             user_tag_id_set = set(user_tag_ids)
             ai_tag_ids = list(
@@ -158,8 +181,11 @@ def create_post(
             post = Post(
                 title=title,
                 description=description,
+                cover_url=cover_url.strip()[:500] or None,
                 source_type="user",
                 kind=kind,
+                purpose=participation.purpose,
+                join_mode=participation.join_mode,
                 topic_id=resolved_topic_id,
                 main_category=main_category,
                 activity_name=activity_name,

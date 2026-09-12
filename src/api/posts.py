@@ -12,6 +12,7 @@ from services.content_moderation import ModerationContext, moderate_content
 from services.moderation_cases import has_active_restriction
 from services.collaboration_lifecycle import transition_post
 from services.permissions import can_manage_post
+from services.participation import ParticipationError, validate_post_participation
 from storage.database.db import get_session
 from storage.database.models import AuditLog, Post, PostTag, User
 from tools.post_tools import _post_to_dict, create_post, get_my_posts, get_post_detail, list_posts
@@ -226,6 +227,12 @@ def update(post_id: int, body: PostUpdateRequest, user_id: str = Depends(current
             raise HTTPException(status_code=403, detail="你没有编辑该帖子的权限")
         if not requested_content:
             raise HTTPException(status_code=400, detail="没有需要更新的内容")
+
+        try:
+            participation = validate_post_participation(session, user, body, existing=post)
+        except ParticipationError as exc:
+            status_code = 403 if exc.code == "participation.official_signup_forbidden" else 409
+            raise HTTPException(status_code=status_code, detail=exc.message) from exc
 
         changed: dict[str, Any] = {}
         text_limits = {
