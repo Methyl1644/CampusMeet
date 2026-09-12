@@ -425,8 +425,11 @@ describe('Home', () => {
     renderHome()
 
     const loading = screen.getByRole('status', { name: '正在加载首页' })
+    expect(loading.className).toContain('lg:gap-10')
     expect(within(loading).getByTestId('home-skeleton-sidebar').className).toContain('min-h')
-    expect(within(loading).getAllByTestId('home-skeleton-event')[0].className).toContain('w-')
+    const eventSkeleton = within(loading).getAllByTestId('home-skeleton-event')[0]
+    expect(eventSkeleton.className).toContain('w-[272px]')
+    expect(eventSkeleton.className).toContain('h-[392px]')
     expect(within(loading).getByTestId('home-skeleton-timeline').className).toContain('min-h')
   })
 

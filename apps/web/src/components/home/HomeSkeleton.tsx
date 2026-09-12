@@ -7,7 +7,7 @@ export default function HomeSkeleton() {
     <div
       role="status"
       aria-label="正在加载首页"
-      className="grid min-w-0 animate-pulse grid-cols-1 gap-8 lg:grid-cols-[minmax(0,280px)_minmax(0,1fr)]"
+      className="grid min-w-0 animate-pulse grid-cols-1 gap-8 lg:grid-cols-[minmax(0,280px)_minmax(0,1fr)] lg:gap-10"
     >
       <span className="sr-only">正在加载首页</span>
       <aside data-testid="home-skeleton-sidebar" className="min-h-[32rem] min-w-0 space-y-5">
@@ -37,10 +37,10 @@ export default function HomeSkeleton() {
             <div
               key={item}
               data-testid="home-skeleton-event"
-              className="w-[272px] shrink-0 overflow-hidden rounded-card border border-stone bg-paper"
+              className="h-[392px] w-[272px] shrink-0 overflow-hidden rounded-card border border-stone bg-paper"
             >
               <span className="block aspect-[16/9] w-full bg-[#E3E5EA]" />
-              <div className="min-h-[190px] space-y-3 p-4">
+              <div className="h-[238px] space-y-3 p-4">
                 <SkeletonLine className="h-5 w-full" />
                 <SkeletonLine className="h-5 w-4/5" />
                 <SkeletonLine className="h-3 w-2/3" />

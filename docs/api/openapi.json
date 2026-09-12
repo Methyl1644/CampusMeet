@@ -312,6 +312,734 @@
         "title": "HTTPValidationError",
         "type": "object"
       },
+      "HomeDeadlineReminder": {
+        "additionalProperties": false,
+        "properties": {
+          "activity_end_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Activity End At"
+          },
+          "activity_start_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Activity Start At"
+          },
+          "channel": {
+            "enum": [
+              "official",
+              "organization"
+            ],
+            "title": "Channel",
+            "type": "string"
+          },
+          "content": {
+            "title": "Content",
+            "type": "string"
+          },
+          "cover_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cover Url"
+          },
+          "days_remaining": {
+            "title": "Days Remaining",
+            "type": "integer"
+          },
+          "edition": {
+            "title": "Edition",
+            "type": "string"
+          },
+          "followed": {
+            "title": "Followed",
+            "type": "boolean"
+          },
+          "follower_count": {
+            "title": "Follower Count",
+            "type": "integer"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "organizer": {
+            "title": "Organizer",
+            "type": "string"
+          },
+          "registration_deadline": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Registration Deadline"
+          },
+          "responsible_people": {
+            "items": {
+              "$ref": "#/components/schemas/HomeResponsiblePerson"
+            },
+            "title": "Responsible People",
+            "type": "array"
+          },
+          "short_title": {
+            "title": "Short Title",
+            "type": "string"
+          },
+          "source_status": {
+            "title": "Source Status",
+            "type": "string"
+          },
+          "source_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Url"
+          },
+          "status": {
+            "const": "active",
+            "title": "Status",
+            "type": "string"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          },
+          "tags": {
+            "items": {
+              "$ref": "#/components/schemas/HomeTag"
+            },
+            "title": "Tags",
+            "type": "array"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "trust_badges": {
+            "items": {
+              "discriminator": {
+                "mapping": {
+                  "platform_official": "#/components/schemas/HomeOfficialTrustBadge",
+                  "verified_organization": "#/components/schemas/HomeVerifiedOrganizationTrustBadge"
+                },
+                "propertyName": "kind"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/HomeOfficialTrustBadge"
+                },
+                {
+                  "$ref": "#/components/schemas/HomeVerifiedOrganizationTrustBadge"
+                }
+              ]
+            },
+            "title": "Trust Badges",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "channel",
+          "title",
+          "short_title",
+          "organizer",
+          "edition",
+          "summary",
+          "content",
+          "source_url",
+          "source_status",
+          "cover_url",
+          "follower_count",
+          "followed",
+          "tags",
+          "status",
+          "trust_badges",
+          "responsible_people",
+          "registration_deadline",
+          "activity_start_at",
+          "activity_end_at",
+          "days_remaining"
+        ],
+        "title": "HomeDeadlineReminder",
+        "type": "object"
+      },
+      "HomeFeed": {
+        "additionalProperties": false,
+        "properties": {
+          "deadline_reminder": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/HomeDeadlineReminder"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "followed_topics": {
+            "items": {
+              "$ref": "#/components/schemas/HomeTopic"
+            },
+            "title": "Followed Topics",
+            "type": "array"
+          },
+          "group_timeline": {
+            "items": {
+              "$ref": "#/components/schemas/HomeTimelineItem"
+            },
+            "title": "Group Timeline",
+            "type": "array"
+          },
+          "joined_groups": {
+            "items": {
+              "$ref": "#/components/schemas/HomeJoinedGroup"
+            },
+            "title": "Joined Groups",
+            "type": "array"
+          },
+          "profile": {
+            "$ref": "#/components/schemas/HomeProfile"
+          },
+          "recommended_topics": {
+            "items": {
+              "$ref": "#/components/schemas/RecommendedHomeTopic"
+            },
+            "title": "Recommended Topics",
+            "type": "array"
+          },
+          "unread": {
+            "$ref": "#/components/schemas/HomeUnread"
+          },
+          "warnings": {
+            "items": {
+              "enum": [
+                "deadline_reminder",
+                "recommended_topics",
+                "followed_topics",
+                "joined_groups",
+                "group_timeline",
+                "unread"
+              ],
+              "type": "string"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "profile",
+          "deadline_reminder",
+          "recommended_topics",
+          "followed_topics",
+          "joined_groups",
+          "group_timeline",
+          "unread",
+          "warnings"
+        ],
+        "title": "HomeFeed",
+        "type": "object"
+      },
+      "HomeFeedResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "const": 0,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "$ref": "#/components/schemas/HomeFeed"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "message",
+          "data"
+        ],
+        "title": "HomeFeedResponse",
+        "type": "object"
+      },
+      "HomeJoinedGroup": {
+        "additionalProperties": false,
+        "properties": {
+          "activity_name": {
+            "title": "Activity Name",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "current_members": {
+            "title": "Current Members",
+            "type": "integer"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "member_role": {
+            "enum": [
+              "owner",
+              "member"
+            ],
+            "title": "Member Role",
+            "type": "string"
+          },
+          "post_id": {
+            "title": "Post Id",
+            "type": "string"
+          },
+          "target_members": {
+            "title": "Target Members",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "post_id",
+          "activity_name",
+          "member_role",
+          "created_at",
+          "current_members",
+          "target_members"
+        ],
+        "title": "HomeJoinedGroup",
+        "type": "object"
+      },
+      "HomeOfficialTrustBadge": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "const": "platform_official",
+            "title": "Kind",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "label"
+        ],
+        "title": "HomeOfficialTrustBadge",
+        "type": "object"
+      },
+      "HomeProfile": {
+        "additionalProperties": false,
+        "properties": {
+          "avatar": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Avatar"
+          },
+          "grade": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Grade"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "major": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Major"
+          },
+          "nickname": {
+            "title": "Nickname",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "nickname",
+          "avatar",
+          "major",
+          "grade"
+        ],
+        "title": "HomeProfile",
+        "type": "object"
+      },
+      "HomeResponsiblePerson": {
+        "additionalProperties": false,
+        "properties": {
+          "badge": {
+            "title": "Badge",
+            "type": "string"
+          },
+          "nickname": {
+            "title": "Nickname",
+            "type": "string"
+          },
+          "role": {
+            "title": "Role",
+            "type": "string"
+          },
+          "user_id": {
+            "title": "User Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "user_id",
+          "nickname",
+          "role",
+          "badge"
+        ],
+        "title": "HomeResponsiblePerson",
+        "type": "object"
+      },
+      "HomeTag": {
+        "additionalProperties": false,
+        "properties": {
+          "canonical_name": {
+            "title": "Canonical Name",
+            "type": "string"
+          },
+          "category": {
+            "title": "Category",
+            "type": "string"
+          },
+          "display_color": {
+            "title": "Display Color",
+            "type": "string"
+          },
+          "tag_id": {
+            "title": "Tag Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "tag_id",
+          "canonical_name",
+          "category",
+          "display_color"
+        ],
+        "title": "HomeTag",
+        "type": "object"
+      },
+      "HomeTimelineItem": {
+        "additionalProperties": false,
+        "properties": {
+          "done": {
+            "title": "Done",
+            "type": "boolean"
+          },
+          "due_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Due At"
+          },
+          "task_id": {
+            "title": "Task Id",
+            "type": "string"
+          },
+          "team_id": {
+            "title": "Team Id",
+            "type": "string"
+          },
+          "team_name": {
+            "title": "Team Name",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "team_id",
+          "team_name",
+          "task_id",
+          "title",
+          "due_at",
+          "done"
+        ],
+        "title": "HomeTimelineItem",
+        "type": "object"
+      },
+      "HomeTopic": {
+        "additionalProperties": false,
+        "properties": {
+          "activity_end_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Activity End At"
+          },
+          "activity_start_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Activity Start At"
+          },
+          "channel": {
+            "enum": [
+              "official",
+              "organization"
+            ],
+            "title": "Channel",
+            "type": "string"
+          },
+          "content": {
+            "title": "Content",
+            "type": "string"
+          },
+          "cover_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cover Url"
+          },
+          "edition": {
+            "title": "Edition",
+            "type": "string"
+          },
+          "followed": {
+            "title": "Followed",
+            "type": "boolean"
+          },
+          "follower_count": {
+            "title": "Follower Count",
+            "type": "integer"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "organizer": {
+            "title": "Organizer",
+            "type": "string"
+          },
+          "registration_deadline": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Registration Deadline"
+          },
+          "responsible_people": {
+            "items": {
+              "$ref": "#/components/schemas/HomeResponsiblePerson"
+            },
+            "title": "Responsible People",
+            "type": "array"
+          },
+          "short_title": {
+            "title": "Short Title",
+            "type": "string"
+          },
+          "source_status": {
+            "title": "Source Status",
+            "type": "string"
+          },
+          "source_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Url"
+          },
+          "status": {
+            "const": "active",
+            "title": "Status",
+            "type": "string"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          },
+          "tags": {
+            "items": {
+              "$ref": "#/components/schemas/HomeTag"
+            },
+            "title": "Tags",
+            "type": "array"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "trust_badges": {
+            "items": {
+              "discriminator": {
+                "mapping": {
+                  "platform_official": "#/components/schemas/HomeOfficialTrustBadge",
+                  "verified_organization": "#/components/schemas/HomeVerifiedOrganizationTrustBadge"
+                },
+                "propertyName": "kind"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/HomeOfficialTrustBadge"
+                },
+                {
+                  "$ref": "#/components/schemas/HomeVerifiedOrganizationTrustBadge"
+                }
+              ]
+            },
+            "title": "Trust Badges",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "channel",
+          "title",
+          "short_title",
+          "organizer",
+          "edition",
+          "summary",
+          "content",
+          "source_url",
+          "source_status",
+          "cover_url",
+          "follower_count",
+          "followed",
+          "tags",
+          "status",
+          "trust_badges",
+          "responsible_people",
+          "registration_deadline",
+          "activity_start_at",
+          "activity_end_at"
+        ],
+        "title": "HomeTopic",
+        "type": "object"
+      },
+      "HomeUnread": {
+        "additionalProperties": false,
+        "properties": {
+          "messages": {
+            "title": "Messages",
+            "type": "integer"
+          },
+          "notifications": {
+            "title": "Notifications",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "messages",
+          "notifications"
+        ],
+        "title": "HomeUnread",
+        "type": "object"
+      },
+      "HomeVerifiedOrganizationTrustBadge": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "const": "verified_organization",
+            "title": "Kind",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "organization_name": {
+            "title": "Organization Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "label",
+          "organization_name"
+        ],
+        "title": "HomeVerifiedOrganizationTrustBadge",
+        "type": "object"
+      },
       "LoginRequest": {
         "properties": {
           "account": {
@@ -1318,6 +2046,186 @@
           }
         },
         "title": "ProfileVisibilityRequest",
+        "type": "object"
+      },
+      "RecommendedHomeTopic": {
+        "additionalProperties": false,
+        "properties": {
+          "activity_end_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Activity End At"
+          },
+          "activity_start_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Activity Start At"
+          },
+          "channel": {
+            "enum": [
+              "official",
+              "organization"
+            ],
+            "title": "Channel",
+            "type": "string"
+          },
+          "content": {
+            "title": "Content",
+            "type": "string"
+          },
+          "cover_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cover Url"
+          },
+          "edition": {
+            "title": "Edition",
+            "type": "string"
+          },
+          "followed": {
+            "title": "Followed",
+            "type": "boolean"
+          },
+          "follower_count": {
+            "title": "Follower Count",
+            "type": "integer"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "organizer": {
+            "title": "Organizer",
+            "type": "string"
+          },
+          "recommendation_reason": {
+            "title": "Recommendation Reason",
+            "type": "string"
+          },
+          "registration_deadline": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Registration Deadline"
+          },
+          "responsible_people": {
+            "items": {
+              "$ref": "#/components/schemas/HomeResponsiblePerson"
+            },
+            "title": "Responsible People",
+            "type": "array"
+          },
+          "short_title": {
+            "title": "Short Title",
+            "type": "string"
+          },
+          "source_status": {
+            "title": "Source Status",
+            "type": "string"
+          },
+          "source_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Url"
+          },
+          "status": {
+            "const": "active",
+            "title": "Status",
+            "type": "string"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          },
+          "tags": {
+            "items": {
+              "$ref": "#/components/schemas/HomeTag"
+            },
+            "title": "Tags",
+            "type": "array"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "trust_badges": {
+            "items": {
+              "discriminator": {
+                "mapping": {
+                  "platform_official": "#/components/schemas/HomeOfficialTrustBadge",
+                  "verified_organization": "#/components/schemas/HomeVerifiedOrganizationTrustBadge"
+                },
+                "propertyName": "kind"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/HomeOfficialTrustBadge"
+                },
+                {
+                  "$ref": "#/components/schemas/HomeVerifiedOrganizationTrustBadge"
+                }
+              ]
+            },
+            "title": "Trust Badges",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "channel",
+          "title",
+          "short_title",
+          "organizer",
+          "edition",
+          "summary",
+          "content",
+          "source_url",
+          "source_status",
+          "cover_url",
+          "follower_count",
+          "followed",
+          "tags",
+          "status",
+          "trust_badges",
+          "responsible_people",
+          "registration_deadline",
+          "activity_start_at",
+          "activity_end_at",
+          "recommendation_reason"
+        ],
+        "title": "RecommendedHomeTopic",
         "type": "object"
       },
       "RegisterRequest": {
@@ -3457,6 +4365,55 @@
         "summary": "Verify Email",
         "tags": [
           "auth"
+        ]
+      }
+    },
+    "/api/home": {
+      "get": {
+        "operationId": "home_feed_api_home_get",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HomeFeedResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Home Feed",
+        "tags": [
+          "home"
         ]
       }
     },
