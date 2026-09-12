@@ -7,41 +7,12 @@ import { getApiErrorMessage, getCodeSentMessage } from '@/api/auth-feedback'
 import CampusMark from '@/components/CampusMark'
 import { useToast } from '@/components/Toast'
 import { useAuthStore } from '@/store/authStore'
-import { COMMON_SKILLS } from '@shared/constants'
-import type { User } from '@shared/types'
+import { destinationAfterAuth } from './authFlow'
 
-type Step = 'login' | 'register' | 'profile' | 'reset'
-
-const STEP_INDEX: Record<Step, number> = {
-  login: 0,
-  register: 0,
-  profile: 1,
-  reset: 0,
-}
-
-const REGISTRATION_STEPS = ['校园账户', '完善资料']
+type Step = 'login' | 'register' | 'reset'
 
 const isNjuCampusEmail = (value: string) =>
   /^[^\s@]+@(?:smail\.)?nju\.edu\.cn$/i.test(value.trim())
-
-const DEMO_USER: User = {
-  id: 'local-demo-user',
-  nickname: '前端演示用户',
-  email: 'demo@nju.edu.cn',
-  auth_status: 'verified',
-  verified_email: 'demo@nju.edu.cn',
-  major: '计算机科学与技术',
-  grade: '大三',
-  skills: ['产品设计', 'React', 'Python'],
-  onboarding_step: 1,
-  onboarding_completed: true,
-  interests: [],
-  looking_for: [],
-  availability: {},
-  profile_visibility: {},
-  post_count: 0,
-  team_count: 0,
-}
 
 const stageVariants = {
   enter: (direction: number) => ({ opacity: 0, x: direction * 14 }),
@@ -65,14 +36,8 @@ export default function Login() {
   const [codeCooldown, setCodeCooldown] = useState(0)
   const [sendingCode, setSendingCode] = useState(false)
   const [submitting, setSubmitting] = useState(false)
-  const primaryCodeRequestGeneration = useRef(0)
-  const primaryAuthPurpose = useRef<'login' | 'register'>('login')
+  const registrationCodeRequestGeneration = useRef(0)
   const resetCodeRequestGeneration = useRef(0)
-
-  const [nickname, setNickname] = useState('')
-  const [major, setMajor] = useState('')
-  const [grade, setGrade] = useState('')
-  const [skills, setSkills] = useState<string[]>([])
 
   useEffect(() => {
     if (codeCooldown <= 0) return
@@ -83,21 +48,11 @@ export default function Login() {
   }, [codeCooldown])
 
   const goToStep = (nextStep: Step) => {
-    const nextIndex = STEP_INDEX[nextStep]
-    const currentIndex = STEP_INDEX[step]
-    const switchingAuthPurpose =
-      (step === 'login' && nextStep === 'register') ||
-      (step === 'register' && nextStep === 'login')
-    const leavingPrimaryAuth =
-      (step === 'login' || step === 'register') && nextStep === 'reset'
+    const leavingRegistration = step === 'register' && nextStep !== 'register'
     const leavingReset = step === 'reset' && nextStep !== 'reset'
 
-    if (nextStep === 'login' || nextStep === 'register') {
-      primaryAuthPurpose.current = nextStep
-    }
-
-    if (switchingAuthPurpose || leavingPrimaryAuth) {
-      primaryCodeRequestGeneration.current += 1
+    if (leavingRegistration) {
+      registrationCodeRequestGeneration.current += 1
       setCode('')
       setCodeCooldown(0)
       setSendingCode(false)
@@ -112,15 +67,7 @@ export default function Login() {
       setConfirmPassword('')
     }
 
-    setStageDirection(
-      nextIndex === currentIndex
-        ? nextStep === 'login'
-          ? -1
-          : 1
-        : nextIndex > currentIndex
-          ? 1
-          : -1,
-    )
+    setStageDirection(nextStep === 'login' ? -1 : 1)
     setStep(nextStep)
   }
 
@@ -145,16 +92,13 @@ export default function Login() {
       showToast('请输入南京大学学生或教职工邮箱', 'error')
       return
     }
-    const requestPurpose = 'register'
-    const requestGeneration = ++primaryCodeRequestGeneration.current
-    primaryAuthPurpose.current = requestPurpose
+    const requestGeneration = ++registrationCodeRequestGeneration.current
     const requestIsCurrent = () =>
-      primaryCodeRequestGeneration.current === requestGeneration &&
-      primaryAuthPurpose.current === requestPurpose
+      registrationCodeRequestGeneration.current === requestGeneration
 
     setSendingCode(true)
     try {
-      const result = await sendCode(account, requestPurpose)
+      const result = await sendCode(account, 'register')
       if (!requestIsCurrent()) return
       setCodeCooldown(result.retry_after_seconds ?? 60)
       showToast(getCodeSentMessage(result), 'success')
@@ -180,7 +124,7 @@ export default function Login() {
       const res = await login({ account, password })
       setAuth(res.token, res.user)
       showToast('登录成功', 'success')
-      navigate('/home')
+      navigate(destinationAfterAuth(res.user))
     } catch (error) {
       showToast(getApiErrorMessage(error, '登录失败，请检查账号和密码'), 'error')
     } finally {
@@ -246,26 +190,13 @@ export default function Login() {
       const res = await register({ account, code, password })
       setAuth(res.token, res.user)
       showToast('注册成功', 'success')
-      navigate('/home')
+      navigate(destinationAfterAuth(res.user))
     } catch (error) {
       showToast(getApiErrorMessage(error, '注册失败，请稍后重试'), 'error')
     } finally {
       setSubmitting(false)
     }
   }
-
-  const handleDemoEnter = () => {
-    setAuth('local-demo-token', DEMO_USER)
-    navigate('/home')
-  }
-
-  const toggleSkill = (skill: string) => {
-    setSkills((prev) =>
-      prev.includes(skill) ? prev.filter((item) => item !== skill) : [...prev, skill],
-    )
-  }
-
-  const registrationStage = STEP_INDEX[step]
 
   return (
     <main className="min-h-dvh bg-paper-warm lg:grid lg:grid-cols-[minmax(20rem,0.9fr)_minmax(32rem,1.1fr)]">
@@ -295,16 +226,11 @@ export default function Login() {
 
           <div className="mb-7 border-b border-stone pb-5">
             <p className="section-label mb-3">
-              {step === 'reset'
-                ? '找回账号'
-                : step === 'login'
-                  ? '校园账户'
-                  : `注册进度 ${registrationStage + 1} / ${REGISTRATION_STEPS.length}`}
+              {step === 'reset' ? '找回账号' : '校园账户'}
             </p>
             <h2 className="text-2xl font-semibold text-ink sm:text-3xl">
               {step === 'login' && '欢迎回来'}
               {step === 'register' && '创建账号'}
-              {step === 'profile' && '完善个人资料'}
               {step === 'reset' && '重置密码'}
             </h2>
           </div>
@@ -433,25 +359,13 @@ export default function Login() {
 
                   <button
                     type="button"
-                    onClick={
-                      step === 'login'
-                        ? handleLogin
-                        : () => validateRegistrationAccount() && goToStep('profile')
-                    }
+                    onClick={step === 'login' ? handleLogin : handleRegister}
                     disabled={submitting}
                     className="btn-primary min-h-11 w-full"
                   >
-                    {submitting ? '处理中...' : step === 'login' ? '登录' : '继续完善资料'}
+                    {submitting ? '处理中...' : step === 'login' ? '登录' : '注册并继续'}
                     <ArrowRight size={16} />
                   </button>
-
-                  {import.meta.env.DEV && step === 'login' && (
-                    <div className="border-t border-stone pt-4">
-                      <button type="button" onClick={handleDemoEnter} className="btn-secondary w-full">
-                        进入前端演示
-                      </button>
-                    </div>
-                  )}
                 </div>
               )}
 
@@ -557,130 +471,6 @@ export default function Login() {
                 </div>
               )}
 
-              {step === 'profile' && (
-                <div className="space-y-4">
-                  <div>
-                    <label htmlFor="nickname" className="mb-1.5 block text-sm font-medium text-ink">
-                      昵称
-                    </label>
-                    <input
-                      id="nickname"
-                      type="text"
-                      value={nickname}
-                      onChange={(event) => setNickname(event.target.value)}
-                      autoComplete="nickname"
-                      className="input-base"
-                    />
-                  </div>
-                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                    <div>
-                      <label htmlFor="major" className="mb-1.5 block text-sm font-medium text-ink">
-                        专业
-                      </label>
-                      <input
-                        id="major"
-                        type="text"
-                        value={major}
-                        onChange={(event) => setMajor(event.target.value)}
-                        autoComplete="off"
-                        className="input-base"
-                      />
-                    </div>
-                    <div>
-                      <label htmlFor="grade" className="mb-1.5 block text-sm font-medium text-ink">
-                        年级
-                      </label>
-                      <select
-                        id="grade"
-                        value={grade}
-                        onChange={(event) => setGrade(event.target.value)}
-                        className="input-base"
-                      >
-                        <option value="">选择年级</option>
-                        <option value="大一">大一</option>
-                        <option value="大二">大二</option>
-                        <option value="大三">大三</option>
-                        <option value="大四">大四</option>
-                        <option value="研一">研一</option>
-                        <option value="研二">研二</option>
-                        <option value="博士">博士</option>
-                      </select>
-                    </div>
-                  </div>
-                  <fieldset>
-                    <legend className="mb-2 text-sm font-medium text-ink">技能标签</legend>
-                    <div className="flex flex-wrap gap-2">
-                      {COMMON_SKILLS.map((skill) => (
-                        <button
-                          key={skill}
-                          type="button"
-                          aria-pressed={skills.includes(skill)}
-                          onClick={() => toggleSkill(skill)}
-                          className={`rounded-full border px-3 py-1.5 text-xs transition-colors ${
-                            skills.includes(skill)
-                              ? 'border-primary-500 bg-primary-50 text-primary-700'
-                              : 'border-stone bg-paper text-ink-muted'
-                          }`}
-                        >
-                          {skill}
-                        </button>
-                      ))}
-                    </div>
-                  </fieldset>
-                  <div className="grid grid-cols-2 gap-3 pt-1">
-                    <button
-                      type="button"
-                      onClick={() => goToStep('register')}
-                      className="btn-secondary min-h-11"
-                    >
-                      <ArrowLeft size={16} />
-                      上一步
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleRegister}
-                      disabled={submitting}
-                      className="btn-primary min-h-11"
-                    >
-                      {submitting ? '处理中...' : '注册'}
-                      <ArrowRight size={16} />
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {(step === 'register' || step === 'profile') && (
-                <nav className="mt-8 border-t border-stone pt-5" aria-label="注册进度">
-                  <ol className="grid grid-cols-2">
-                    {REGISTRATION_STEPS.map((label, index) => {
-                      const reached = index <= registrationStage
-                      return (
-                        <li key={label} className="relative min-w-0 pt-4 text-center">
-                          <span
-                            className={`absolute left-0 right-0 top-1.5 h-0.5 ${
-                              index <= registrationStage ? 'bg-primary-600' : 'bg-stone'
-                            } ${index === 0 ? 'left-1/2' : ''} ${
-                              index === REGISTRATION_STEPS.length - 1 ? 'right-1/2' : ''
-                            }`}
-                          />
-                          <span
-                            className={`absolute left-1/2 top-0 size-3 -translate-x-1/2 rounded-full border-2 ${
-                              reached ? 'border-primary-600 bg-primary-600' : 'border-stone bg-paper'
-                            }`}
-                          />
-                          <span
-                            className={`block truncate px-1 text-[11px] ${
-                              reached ? 'font-semibold text-primary-700' : 'text-ink-muted'
-                            }`}
-                          >
-                            {label}
-                          </span>
-                        </li>
-                      )
-                    })}
-                  </ol>
-                </nav>
-              )}
             </motion.section>
           </AnimatePresence>
 
