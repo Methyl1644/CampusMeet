@@ -1,11 +1,13 @@
 import type { User } from '@shared/types'
 
 export function requiredRoute(user: User, requestedPath: string): string | null {
-  if (!user.onboarding_completed && requestedPath !== '/onboarding') {
+  const isOnboardingRoute = requestedPath.replace(/\/+$/, '').toLowerCase() === '/onboarding'
+
+  if (!user.onboarding_completed && !isOnboardingRoute) {
     return '/onboarding'
   }
 
-  if (user.onboarding_completed && requestedPath === '/onboarding') {
+  if (user.onboarding_completed && isOnboardingRoute) {
     return '/home'
   }
 

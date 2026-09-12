@@ -164,6 +164,20 @@ describe('application route guards', () => {
     await waitFor(() => expect(history.pathname()).toBe('/history-marker'))
   })
 
+  it.each(['/onboarding/', '/OnBoArDiNg'])(
+    'redirects completed users from equivalent onboarding path %s without loading a draft',
+    async (path) => {
+      useAuthStore.setState({ token: 'token', user: completeUser, isAuthenticated: true })
+      const history = renderRoute(['/history-marker', path])
+
+      await waitFor(() => expect(history.pathname()).toBe('/home'))
+      expect(screen.queryByRole('progressbar')).toBeNull()
+      expect(getOnboarding).not.toHaveBeenCalled()
+      await history.back()
+      await waitFor(() => expect(history.pathname()).toBe('/history-marker'))
+    },
+  )
+
   it('keeps an authenticated complete user out of login history', async () => {
     useAuthStore.setState({ token: 'token', user: completeUser, isAuthenticated: true })
     const history = renderRoute(['/history-marker', '/login'])
