@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
+import pytest
 from alembic import command
 from alembic.config import Config
 from sqlalchemy import create_engine, inspect, text
+from sqlalchemy.exc import IntegrityError
 
 from storage.database.models import *  # noqa: F403 - imports register every model
 from storage.database.shared.model import Base
@@ -209,6 +212,47 @@ def test_home_feed_migration_noops_and_downgrades_when_follow_table_is_absent(tm
         revision = connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
     assert revision == "20260912_10"
     assert "topic_follows" not in inspect(engine).get_table_names()
+
+
+def test_team_task_bound_migration_trims_legacy_json_and_enforces_the_cap(tmp_path):
+    database_url = f"sqlite:///{tmp_path / 'bounded-team-tasks.db'}"
+    engine = create_engine(database_url)
+    legacy_tasks = [
+        {"id": f"task-{index}", "title": f"历史任务 {index}"}
+        for index in range(80)
+    ]
+    with engine.begin() as connection:
+        connection.execute(
+            text(
+                "CREATE TABLE teams ("
+                "id INTEGER PRIMARY KEY, task_list JSON NOT NULL DEFAULT '[]')"
+            )
+        )
+        connection.execute(
+            text("INSERT INTO teams (id, task_list) VALUES (1, :task_list)"),
+            {"task_list": json.dumps(legacy_tasks)},
+        )
+    config = _alembic_config(database_url)
+    command.stamp(config, "20260912_11")
+
+    command.upgrade(config, "head")
+    command.upgrade(config, "head")
+
+    with engine.connect() as connection:
+        persisted = json.loads(
+            connection.execute(text("SELECT task_list FROM teams WHERE id = 1")).scalar_one()
+        )
+    assert len(persisted) == 12
+    assert persisted[-1]["id"] == "task-11"
+    constraints = {item["name"] for item in inspect(engine).get_check_constraints("teams")}
+    assert "ck_teams_task_list_bounded" in constraints
+
+    with pytest.raises(IntegrityError):
+        with engine.begin() as connection:
+            connection.execute(
+                text("INSERT INTO teams (id, task_list) VALUES (2, :task_list)"),
+                {"task_list": json.dumps(legacy_tasks[:13])},
+            )
 
 
 def test_identity_migration_preserves_legacy_organization_application_rows(tmp_path):

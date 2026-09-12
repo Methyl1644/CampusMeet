@@ -121,6 +121,29 @@ def test_team_members_can_create_complete_and_delete_tasks(monkeypatch):
     assert deleted["team"]["task_list"] == []
 
 
+def test_team_task_creation_refuses_to_grow_persisted_json_past_the_limit(monkeypatch):
+    factory = _factory()
+    monkeypatch.setattr(team_tools, "get_session", factory)
+    with factory() as session:
+        team = session.get(Team, 1)
+        team.task_list = [
+            {"id": f"task-{index}", "title": f"任务 {index}", "done": False}
+            for index in range(12)
+        ]
+        session.commit()
+
+    result = json.loads(
+        team_tools.create_team_task.invoke(
+            {"user_id": "1", "team_id": "1", "title": "不应写入的第十三个任务"}
+        )
+    )
+
+    assert result["success"] is False
+    assert "上限" in result["message"]
+    with factory() as session:
+        assert len(session.get(Team, 1).task_list) == 12
+
+
 def test_owner_transfer_then_member_leave_updates_capacity(monkeypatch):
     factory = _factory()
     monkeypatch.setattr(team_tools, "get_session", factory)

@@ -609,6 +609,7 @@ def test_timeline_query_caps_rows_and_selects_only_computation_columns(session, 
 
     assert len(rows) == home.TIMELINE_TEAM_LIMIT
     assert all(len(row) == 3 for row in rows)
+    assert all(len(row.task_list) == home.TIMELINE_TASKS_PER_TEAM for row in rows)
     assert len(_build_home_feed(session, user)["group_timeline"]) == home.TIMELINE_ITEM_LIMIT
 
 

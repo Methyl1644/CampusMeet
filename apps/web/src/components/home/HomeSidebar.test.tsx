@@ -143,6 +143,42 @@ describe('MyEventsSummary', () => {
       '/discover?view=events',
     )
   })
+
+  it('keeps the saved tab accessible when only attending events are degraded', () => {
+    renderWithRouter(
+      <MyEventsSummary attending={[]} saved={saved} attendingDegraded savedDegraded={false} />,
+    )
+
+    const attendingTab = screen.getByRole('tab', { name: '参加中' })
+    const savedTab = screen.getByRole('tab', { name: '已收藏' })
+    expect(attendingTab.getAttribute('aria-selected')).toBe('true')
+    expect(screen.getByRole('status').textContent).toBe('参加中的活动暂时无法加载')
+
+    fireEvent.click(savedTab)
+
+    expect(savedTab.getAttribute('aria-selected')).toBe('true')
+    expect(screen.getByRole('tabpanel').getAttribute('aria-labelledby')).toBe(savedTab.id)
+    expect(screen.getByText(saved[0].title)).toBeTruthy()
+    expect(screen.queryByText(attending[0].title)).toBeNull()
+  })
+
+  it('keeps the attending tab visible when only saved events are degraded', () => {
+    renderWithRouter(
+      <MyEventsSummary attending={attending} saved={[]} attendingDegraded={false} savedDegraded />,
+    )
+
+    const attendingTab = screen.getByRole('tab', { name: '参加中' })
+    const savedTab = screen.getByRole('tab', { name: '已收藏' })
+    expect(screen.getByText(attending[0].title)).toBeTruthy()
+
+    fireEvent.click(savedTab)
+
+    expect(savedTab.getAttribute('aria-selected')).toBe('true')
+    expect(screen.getByRole('tabpanel').getAttribute('aria-labelledby')).toBe(savedTab.id)
+    expect(screen.getByRole('status').textContent).toBe('已收藏的活动暂时无法加载')
+    expect(screen.queryByText(attending[0].title)).toBeNull()
+    expect(attendingTab.getAttribute('aria-controls')).not.toBe(screen.getByRole('tabpanel').id)
+  })
 })
 
 describe('MyGroupsSummary', () => {

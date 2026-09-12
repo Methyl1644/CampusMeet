@@ -406,6 +406,34 @@ describe('Home', () => {
     expect(screen.queryByText('小组有新任务时，会在这里按日期出现。')).toBeNull()
   })
 
+  it('keeps saved events selectable when attending events are degraded', async () => {
+    vi.mocked(getHomeFeed).mockResolvedValue({
+      ...feedFixture,
+      attending_topics: [],
+      warnings: ['attending_topics'],
+    })
+
+    renderHome()
+
+    expect(await screen.findByText('参加中的活动暂时无法加载')).toBeTruthy()
+    fireEvent.click(screen.getByRole('tab', { name: '已收藏' }))
+    expect(within(screen.getByRole('tabpanel')).getByText(recommendedTopic.title)).toBeTruthy()
+  })
+
+  it('keeps attending events visible when saved events are degraded', async () => {
+    vi.mocked(getHomeFeed).mockResolvedValue({
+      ...feedFixture,
+      followed_topics: [],
+      warnings: ['followed_topics'],
+    })
+
+    renderHome()
+
+    expect(await screen.findByText(attendingTopic.title)).toBeTruthy()
+    fireEvent.click(screen.getByRole('tab', { name: '已收藏' }))
+    expect(screen.getByText('已收藏的活动暂时无法加载')).toBeTruthy()
+  })
+
   it('distinguishes an unavailable deadline reminder from a healthy empty result', async () => {
     vi.mocked(getHomeFeed).mockResolvedValue({
       ...feedFixture,

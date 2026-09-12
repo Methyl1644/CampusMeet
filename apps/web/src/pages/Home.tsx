@@ -44,11 +44,12 @@ export default function Home() {
       <div className="grid min-w-0 grid-cols-1 gap-8 lg:grid-cols-[minmax(0,280px)_minmax(0,1fr)] lg:gap-10">
         <aside aria-label="我的首页摘要" className="min-w-0 space-y-5">
           <ProfileSummary profile={feed.profile} />
-          {followedDegraded || attendingDegraded ? (
-            <UnavailableSummary title="我的活动" message="活动摘要暂时无法加载" />
-          ) : (
-            <MyEventsSummary attending={feed.attending_topics} saved={feed.followed_topics} />
-          )}
+          <MyEventsSummary
+            attending={feed.attending_topics}
+            saved={feed.followed_topics}
+            attendingDegraded={attendingDegraded}
+            savedDegraded={followedDegraded}
+          />
           {groupsDegraded ? (
             <UnavailableSummary title="我的小组" message="小组摘要暂时无法加载" />
           ) : (

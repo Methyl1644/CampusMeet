@@ -16,7 +16,7 @@ from langchain_core.messages import SystemMessage, HumanMessage
 from storage.database.db import get_session
 from storage.database.models.user import User
 from storage.database.models.post import Post
-from storage.database.models.team import Team, TeamMember
+from storage.database.models.team import TEAM_TASK_LIMIT, Team, TeamMember
 from services.observability import record_metric
 from tools.auth_tools import _user_brief, _user_to_dict
 from services.content import OPTIONAL_POST_FIELDS, POST_FIELDS, build_post_draft
@@ -379,7 +379,7 @@ def _validated_team_plan(
 
     tasks = []
     task_ids = set()
-    for item in result["task_list"][:50]:
+    for item in result["task_list"][:TEAM_TASK_LIMIT]:
         if not isinstance(item, dict):
             continue
         item_id = str(item.get("id") or "").strip()[:64]

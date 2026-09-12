@@ -25,6 +25,7 @@ from storage.database.models import (
     TopicTag,
     User,
 )
+from storage.database.models.team import TEAM_TASK_LIMIT
 
 
 logger = logging.getLogger(__name__)
@@ -44,7 +45,7 @@ RECOMMENDATION_MAJOR_WEIGHT = 40
 RECOMMENDATION_PARTICIPATION_WEIGHT = 30
 RECOMMENDATION_FOLLOW_WEIGHT = 20
 TIMELINE_TEAM_LIMIT = 12
-TIMELINE_TASKS_PER_TEAM = 12
+TIMELINE_TASKS_PER_TEAM = TEAM_TASK_LIMIT
 TIMELINE_ITEM_LIMIT = 12
 
 
@@ -470,7 +471,7 @@ def _joined_groups(session: Session, user: User, _current: datetime.datetime) ->
 def _group_timeline(session: Session, user: User, _current: datetime.datetime) -> list[dict[str, Any]]:
     items: list[tuple[datetime.datetime | None, dict[str, Any]]] = []
     for team_id, team_name, task_list in _timeline_team_rows(session, user.id):
-        for task in (task_list or [])[:TIMELINE_TASKS_PER_TEAM]:
+        for task in task_list or []:
             if not isinstance(task, dict):
                 continue
             due_at = _parse_datetime(task.get("due_at")) or _parse_datetime(

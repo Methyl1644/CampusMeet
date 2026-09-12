@@ -8,7 +8,7 @@ from coze_coding_utils.log.write_log import request_context
 from coze_coding_utils.runtime_ctx.context import new_context
 from storage.database.db import get_session
 from storage.database.models.user import User
-from storage.database.models.team import Team, TeamMember
+from storage.database.models.team import TEAM_TASK_LIMIT, Team, TeamMember
 from storage.database.models.post import Post
 from storage.database.models.content import AuditLog
 from services.collaboration_lifecycle import deadline_has_passed
@@ -232,6 +232,11 @@ def create_team_task(
             return json.dumps({"success": False, "message": "团队已归档，不能再创建任务"}, ensure_ascii=False)
         if not _member(session, tid, uid):
             return json.dumps({"success": False, "message": "无权操作此团队"}, ensure_ascii=False)
+        if len(team.task_list or []) >= TEAM_TASK_LIMIT:
+            return json.dumps(
+                {"success": False, "message": f"任务数量已达上限（{TEAM_TASK_LIMIT} 个）"},
+                ensure_ascii=False,
+            )
         normalized_title = title.strip()[:120]
         if not normalized_title:
             return json.dumps({"success": False, "message": "请填写任务名称"}, ensure_ascii=False)

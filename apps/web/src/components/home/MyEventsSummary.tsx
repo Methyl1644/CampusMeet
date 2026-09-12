@@ -8,6 +8,8 @@ type EventTab = 'attending' | 'saved'
 interface MyEventsSummaryProps {
   attending: HomeTopic[]
   saved: HomeTopic[]
+  attendingDegraded?: boolean
+  savedDegraded?: boolean
 }
 
 const tabOrder: EventTab[] = ['attending', 'saved']
@@ -26,11 +28,20 @@ function eventDate(topic: HomeTopic) {
   }).format(new Date(topic.activity_start_at))
 }
 
-export default function MyEventsSummary({ attending, saved }: MyEventsSummaryProps) {
+export default function MyEventsSummary({
+  attending,
+  saved,
+  attendingDegraded = false,
+  savedDegraded = false,
+}: MyEventsSummaryProps) {
   const [activeTab, setActiveTab] = useState<EventTab>('attending')
   const id = useId()
   const tabRefs = useRef<Partial<Record<EventTab, HTMLButtonElement>>>({})
   const eventsByTab: Record<EventTab, HomeTopic[]> = { attending, saved }
+  const degradedByTab: Record<EventTab, boolean> = {
+    attending: attendingDegraded,
+    saved: savedDegraded,
+  }
 
   const selectFromKeyboard = (event: KeyboardEvent<HTMLButtonElement>, current: EventTab) => {
     const currentIndex = tabOrder.indexOf(current)
@@ -97,6 +108,9 @@ export default function MyEventsSummary({ attending, saved }: MyEventsSummaryPro
           id={`${id}-${tab}-panel`}
           labelledBy={`${id}-${tab}-tab`}
           topic={eventsByTab[tab][0]}
+          degradedMessage={
+            degradedByTab[tab] ? `${tabLabels[tab]}的活动暂时无法加载` : undefined
+          }
           emptyMessage={tab === 'attending' ? '还没有参加的活动' : '还没有收藏的活动'}
           hidden={activeTab !== tab}
         />
@@ -109,12 +123,14 @@ function EventTabPanel({
   id,
   labelledBy,
   topic,
+  degradedMessage,
   emptyMessage,
   hidden,
 }: {
   id: string
   labelledBy: string
   topic: HomeTopic | undefined
+  degradedMessage: string | undefined
   emptyMessage: string
   hidden: boolean
 }) {
@@ -128,7 +144,11 @@ function EventTabPanel({
       style={{ minHeight: '8.5rem' }}
       className="items-center px-4 py-3 [&:not([hidden])]:flex"
     >
-      {!hidden && topic ? (
+      {!hidden && degradedMessage ? (
+        <p role="status" className="text-sm text-ink-muted">
+          {degradedMessage}
+        </p>
+      ) : !hidden && topic ? (
         <Link to={`/topics/${topic.id}`} className="group flex min-w-0 flex-1 items-center gap-3">
           {topic.cover_url ? (
             <img
