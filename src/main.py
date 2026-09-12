@@ -2,6 +2,7 @@ import argparse
 import asyncio
 import json
 import os
+import sys
 import threading
 import traceback
 import logging
@@ -11,7 +12,11 @@ from pathlib import Path
 from typing import Any, Dict, Iterable, AsyncIterable, AsyncGenerator, Optional
 
 if os.name == "nt":
-    os.environ.setdefault("COZE_LOG_DIR", str(Path(__file__).resolve().parents[1] / ".runtime" / "logs"))
+    _windows_log_dir = Path(__file__).resolve().parents[1] / ".runtime" / "logs"
+    os.environ["COZE_LOG_DIR"] = str(_windows_log_dir)
+    _loaded_log_config = sys.modules.get("coze_coding_utils.log.config")
+    if _loaded_log_config is not None:
+        _loaded_log_config.LOG_DIR = _windows_log_dir
 
 import cozeloop
 import uvicorn
@@ -32,7 +37,13 @@ from coze_coding_utils.helper.stream_runner import AgentStreamRunner, WorkflowSt
 from storage.database.db import ensure_compatibility_columns, get_session, get_engine
 from storage.memory.memory_saver import get_memory_saver
 from storage.database.shared.model import Base
-from utils.runtime import agent_runtime_access_allowed, get_allowed_origins, should_start_agent_runtime
+from utils.runtime import (
+    agent_runtime_access_allowed,
+    assert_production_config,
+    get_allowed_origins,
+    production_config_errors,
+    should_start_agent_runtime,
+)
 from coze_coding_utils.async_tasks import (
     AsyncTaskRuntime,
     AsyncTaskStorageError,
@@ -42,7 +53,7 @@ from coze_coding_utils.async_tasks import (
 from coze_coding_utils.async_tasks import config as async_task_config
 from coze_coding_utils.async_tasks.headers import HEADER_X_RUN_ID as _ASYNC_HEADER_X_RUN_ID
 from coze_coding_utils.runtime_ctx.context import new_context as _new_async_ctx
-from sqlalchemy import event
+from sqlalchemy import event, text
 from api.agent import router as agent_router
 from api.applications import router as applications_router
 from api.auth import router as auth_router
@@ -51,7 +62,14 @@ from api.posts import router as posts_router
 from api.teams import router as teams_router
 from api.content import router as content_router
 from api.permissions import router as permissions_router
+from api.identity import router as identity_router
+from api.operators import router as operators_router
+from api.moderation import router as moderation_router
+from api.uploads import router as uploads_router
+from api.notifications import router as notifications_router
+from api.operations import router as operations_router
 from services.content import bootstrap_operator, seed_content_catalog
+from services.observability import install_observability
 
 setup_logging(
     log_file=LOG_FILE,
@@ -278,14 +296,16 @@ async_graph: Optional[CompiledStateGraph] = None
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    assert_production_config()
     engine = get_engine()
     if engine.dialect.name == "postgresql":
         @event.listens_for(engine, "connect")
         def _set_utc(dbapi_conn, _):
             with dbapi_conn.cursor() as cur:
                 cur.execute("SET TIME ZONE 'UTC'")
-    Base.metadata.create_all(engine)
-    ensure_compatibility_columns(engine)
+    if os.getenv("APP_ENV", "development").strip().lower() != "production":
+        Base.metadata.create_all(engine)
+        ensure_compatibility_columns(engine)
     catalog_session = get_session()
     try:
         seed_content_catalog(catalog_session)
@@ -315,6 +335,7 @@ async def lifespan(app: FastAPI):
         await async_runtime.shutdown()
 
 app = FastAPI(lifespan=lifespan)
+install_observability(app)
 
 _AGENT_RUNTIME_PATHS = {
     "/async_run",
@@ -354,6 +375,12 @@ app.include_router(messages_router, prefix="/api")
 app.include_router(teams_router, prefix="/api")
 app.include_router(content_router, prefix="/api")
 app.include_router(permissions_router, prefix="/api")
+app.include_router(identity_router, prefix="/api")
+app.include_router(operators_router, prefix="/api")
+app.include_router(moderation_router, prefix="/api")
+app.include_router(uploads_router, prefix="/api")
+app.include_router(notifications_router, prefix="/api")
+app.include_router(operations_router, prefix="/api")
 
 # OpenAI 兼容接口处理器
 openai_handler = OpenAIChatHandler(service)
@@ -666,6 +693,26 @@ async def health_check():
         }
     except Exception as e:
         raise HTTPException(status_code=503, detail=str(e))
+
+
+@app.get("/ready")
+async def readiness_check():
+    config_errors = production_config_errors()
+    checks = {
+        "configuration": "failed" if config_errors else "ok",
+        "database": "skipped" if config_errors else "pending",
+    }
+    if config_errors:
+        raise HTTPException(status_code=503, detail={"status": "not_ready", "checks": checks})
+    try:
+        with get_engine().connect() as connection:
+            connection.execute(text("SELECT 1"))
+        checks["database"] = "ok"
+    except Exception:
+        logger.exception("Readiness database check failed")
+        checks["database"] = "failed"
+        raise HTTPException(status_code=503, detail={"status": "not_ready", "checks": checks})
+    return {"status": "ready", "checks": checks}
 
 
 @app.get(path="/graph_parameter")

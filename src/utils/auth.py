@@ -52,14 +52,19 @@ def verify_password(password: str, stored_hash: str) -> bool:
         return False
 
 
-def generate_token(user_id: int, expire_seconds: int = 86400 * 7) -> str:
-    """生成 JWT token（7天有效期）"""
+def generate_token(
+    user_id: int,
+    expire_seconds: int = 86400,
+    token_id: str | None = None,
+) -> str:
+    """生成带唯一会话标识的短期 JWT token。"""
     import hmac
     header = {"alg": "HS256", "typ": "JWT"}
     payload = {
         "user_id": user_id,
         "iat": int(time.time()),
         "exp": int(time.time()) + expire_seconds,
+        "jti": token_id or secrets.token_urlsafe(24),
     }
     header_b64 = _b64encode(json.dumps(header, separators=(",", ":")).encode("utf-8"))
     payload_b64 = _b64encode(json.dumps(payload, separators=(",", ":")).encode("utf-8"))

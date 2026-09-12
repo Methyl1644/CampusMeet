@@ -2,11 +2,15 @@ import json
 import logging
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 
 from api.agent import classify_review, store_tag_proposals
 from api.common import api_ok, current_user_id, invoke_tool, parse_tool_result
+from api.schemas.collaboration import PostCreateRequest, PostUpdateRequest
 from services.content import validate_tag_ids
+from services.content_moderation import ModerationContext, moderate_content
+from services.moderation_cases import has_active_restriction
+from services.collaboration_lifecycle import transition_post
 from services.permissions import can_manage_post
 from storage.database.db import get_session
 from storage.database.models import AuditLog, Post, PostTag, User
@@ -46,6 +50,35 @@ def _classification_review(title: str, description: str, user_id: str) -> dict[s
     return review
 
 
+def _moderate_post(body: dict[str, Any], user_id: str, *, title: str, description: str) -> None:
+    decision = moderate_content(
+        title,
+        ModerationContext(
+            surface="post",
+            user_id=user_id,
+            structured_fields={
+                "description": description,
+                "activity_name": body.get("activity_name"),
+                "needed_roles": body.get("needed_roles"),
+                "weekly_hours": body.get("weekly_hours"),
+                "school_scope": body.get("school_scope"),
+                "deadline": body.get("deadline"),
+            },
+        ),
+    )
+    if decision.action != "allow":
+        logger.info(
+            "Post moderation rejected user=%s action=%s rules=%s",
+            user_id,
+            decision.action,
+            decision.rule_ids,
+        )
+        detail = f"内容存在风险，{decision.user_message}"
+        if decision.suggestions:
+            detail = f"{detail}：{'；'.join(decision.suggestions)}"
+        raise HTTPException(status_code=400, detail=detail)
+
+
 @router.get("")
 def posts(
     tab: str = "recommend",
@@ -78,10 +111,17 @@ def posts(
 
 
 @router.get("/my")
-def my_posts(user_id: str = Depends(current_user_id)) -> dict[str, Any]:
-    result = parse_tool_result(invoke_tool(get_my_posts, {"user_id": user_id}))
-    result["data"] = result["data"]["list"]
-    return result
+def my_posts(
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=20, ge=1, le=100),
+    user_id: str = Depends(current_user_id),
+) -> dict[str, Any]:
+    return parse_tool_result(
+        invoke_tool(
+            get_my_posts,
+            {"user_id": user_id, "page": page, "page_size": page_size},
+        )
+    )
 
 
 @router.get("/{post_id}")
@@ -90,9 +130,12 @@ def post_detail(post_id: str, user_id: str = Depends(current_user_id)) -> dict[s
 
 
 @router.post("")
-def create(body: dict[str, Any], user_id: str = Depends(current_user_id)) -> dict[str, Any]:
+def create(body: PostCreateRequest, user_id: str = Depends(current_user_id)) -> dict[str, Any]:
+    if isinstance(body, PostCreateRequest):
+        body = body.model_dump(exclude_none=True)
     title = body.get("title") or body.get("activity_name") or "Team post"
     description = body.get("description", "")
+    _moderate_post(body, user_id, title=title, description=description)
     local_screen = screen_post_content(title, description)
     if local_screen.has_violations:
         raise HTTPException(status_code=400, detail="内容审核未通过")
@@ -152,12 +195,16 @@ def create(body: dict[str, Any], user_id: str = Depends(current_user_id)) -> dic
 
 
 @router.patch("/{post_id}")
-def update(post_id: int, body: dict[str, Any], user_id: str = Depends(current_user_id)) -> dict[str, Any]:
+def update(post_id: int, body: PostUpdateRequest, user_id: str = Depends(current_user_id)) -> dict[str, Any]:
+    if isinstance(body, PostUpdateRequest):
+        body = body.model_dump(exclude_unset=True)
     session = get_session()
     try:
         user = session.get(User, int(user_id))
         if not user:
             raise HTTPException(status_code=401, detail="登录状态已失效")
+        if has_active_restriction(session, user.id, "posting"):
+            raise HTTPException(status_code=403, detail="当前账号处于发布限制期")
         post = session.get(Post, post_id)
         if not post:
             raise HTTPException(status_code=404, detail="帖子不存在")
@@ -177,9 +224,7 @@ def update(post_id: int, body: dict[str, Any], user_id: str = Depends(current_us
         requested_content = content_fields.intersection(body)
         if requested_content and not can_manage_post(session, user, post, "edit_post"):
             raise HTTPException(status_code=403, detail="你没有编辑该帖子的权限")
-        if "status" in body and not can_manage_post(session, user, post, "update_status"):
-            raise HTTPException(status_code=403, detail="你没有更新该帖子状态的权限")
-        if not requested_content and "status" not in body:
+        if not requested_content:
             raise HTTPException(status_code=400, detail="没有需要更新的内容")
 
         changed: dict[str, Any] = {}
@@ -227,13 +272,18 @@ def update(post_id: int, body: dict[str, Any], user_id: str = Depends(current_us
             session.add_all(PostTag(post_id=post.id, tag_id=tag_id, source="user") for tag_id in tag_ids)
             post.tags = tag_ids
             changed["tag_ids"] = tag_ids
-        if "status" in body:
-            status = str(body.get("status") or "")
-            if status not in {"recruiting", "closed", "full"}:
-                raise HTTPException(status_code=400, detail="帖子状态不正确")
-            post.status = status
-            changed["status"] = status
-
+        _moderate_post(
+            {
+                "activity_name": post.activity_name,
+                "needed_roles": post.needed_roles,
+                "weekly_hours": post.weekly_hours,
+                "school_scope": post.school_scope,
+                "deadline": post.deadline,
+            },
+            user_id,
+            title=post.title,
+            description=post.description or "",
+        )
         screen = screen_post_content(post.title, post.description or "")
         if screen.has_violations:
             raise HTTPException(status_code=400, detail="内容审核未通过")
@@ -261,6 +311,50 @@ def update(post_id: int, body: dict[str, Any], user_id: str = Depends(current_us
         )
         session.commit()
         author = session.get(User, post.author_id)
-        return api_ok(_post_to_dict(post, author), "帖子已更新")
+        return api_ok(_post_to_dict(post, author, session), "帖子已更新")
     finally:
         session.close()
+
+
+def _transition(post_id: int, user_id: str, action: str) -> dict[str, Any]:
+    session = get_session()
+    try:
+        actor = session.get(User, int(user_id))
+        post = session.get(Post, post_id)
+        if not actor:
+            raise HTTPException(status_code=401, detail="登录状态已失效")
+        if not post:
+            raise HTTPException(status_code=404, detail="帖子不存在")
+        try:
+            transition_post(session, actor, post, action)
+            session.commit()
+        except PermissionError as exc:
+            session.rollback()
+            raise HTTPException(status_code=403, detail=str(exc)) from exc
+        except ValueError as exc:
+            session.rollback()
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+        author = session.get(User, post.author_id)
+        return api_ok(_post_to_dict(post, author, session), "帖子状态已更新")
+    finally:
+        session.close()
+
+
+@router.post("/{post_id}/close")
+def close_post(post_id: int, user_id: str = Depends(current_user_id)) -> dict[str, Any]:
+    return _transition(post_id, user_id, "close")
+
+
+@router.post("/{post_id}/reopen")
+def reopen_post(post_id: int, user_id: str = Depends(current_user_id)) -> dict[str, Any]:
+    return _transition(post_id, user_id, "reopen")
+
+
+@router.post("/{post_id}/archive")
+def archive_post(post_id: int, user_id: str = Depends(current_user_id)) -> dict[str, Any]:
+    return _transition(post_id, user_id, "archive")
+
+
+@router.delete("/{post_id}")
+def delete_post(post_id: int, user_id: str = Depends(current_user_id)) -> dict[str, Any]:
+    return _transition(post_id, user_id, "delete")

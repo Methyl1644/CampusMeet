@@ -288,6 +288,58 @@ class S3SyncStorage:
         except Exception as e:
             raise RuntimeError(f"生成签名URL失败: {e}")
 
+    def create_presigned_put(
+        self,
+        *,
+        key: str,
+        content_type: str,
+        expire_time: int = 600,
+        bucket: Optional[str] = None,
+    ) -> str:
+        self._validate_file_name(key)
+        client = self._get_client()
+        return client.generate_presigned_url(
+            "put_object",
+            Params={
+                "Bucket": self._resolve_bucket(bucket),
+                "Key": key,
+                "ContentType": content_type,
+            },
+            ExpiresIn=expire_time,
+        )
+
+    def create_presigned_get(
+        self,
+        *,
+        key: str,
+        expire_time: int = 300,
+        bucket: Optional[str] = None,
+    ) -> str:
+        self._validate_file_name(key)
+        client = self._get_client()
+        return client.generate_presigned_url(
+            "get_object",
+            Params={"Bucket": self._resolve_bucket(bucket), "Key": key},
+            ExpiresIn=expire_time,
+        )
+
+    def head_metadata(self, *, key: str, bucket: Optional[str] = None) -> dict[str, Any] | None:
+        self._validate_file_name(key)
+        try:
+            response = self._get_client().head_object(
+                Bucket=self._resolve_bucket(bucket),
+                Key=key,
+            )
+        except ClientError as exc:
+            code = (exc.response or {}).get("Error", {}).get("Code", "")
+            if code in {"404", "NoSuchKey", "NotFound"}:
+                return None
+            raise
+        return {
+            "size": int(response.get("ContentLength") or 0),
+            "content_type": str(response.get("ContentType") or "").split(";", 1)[0].lower(),
+        }
+
     def stream_upload_file(
             self,
             *,

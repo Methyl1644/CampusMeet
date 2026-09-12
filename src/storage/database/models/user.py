@@ -20,6 +20,8 @@ class User(Base):
     skills: Mapped[list] = mapped_column(JSON, default=list)
     auth_status: Mapped[str] = mapped_column(Text, nullable=False, default="unverified")
     site_role: Mapped[str] = mapped_column(Text, nullable=False, default="student")
+    account_status: Mapped[str] = mapped_column(Text, nullable=False, default="active")
+    deactivated_at: Mapped[datetime.datetime | None] = mapped_column(DateTime(timezone=True))
     verified_email: Mapped[str | None] = mapped_column(Text, unique=True)
     post_count: Mapped[int] = mapped_column(Integer, default=0)
     team_count: Mapped[int] = mapped_column(Integer, default=0)

@@ -25,7 +25,13 @@ def test_tool_result_unwraps_list_payload():
     assert parse_tool_result(raw, "list") == {
         "code": 0,
         "message": "ok",
-        "data": {"list": [{"id": "1"}], "total": 1, "page": 1, "page_size": 10},
+        "data": {
+            "list": [{"id": "1"}],
+            "total": 1,
+            "page": 1,
+            "page_size": 10,
+            "pages": 1,
+        },
     }
 
 

@@ -370,6 +370,7 @@ function ApplicationStatus({ status }: { status: Application['status'] }) {
     pending: { icon: Clock, label: '待处理', color: 'text-campus-gold' },
     accepted: { icon: CheckCircle, label: '已接受', color: 'text-campus-green' },
     rejected: { icon: AlertCircle, label: '已拒绝', color: 'text-red-700' },
+    withdrawn: { icon: AlertCircle, label: '已撤回', color: 'text-ink-muted' },
   }[status]
   const Icon = config.icon
   return (

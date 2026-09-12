@@ -3,8 +3,10 @@ import datetime
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from services.operators import has_platform_role
 from storage.database.models import (
     OrganizationMember,
+    Organization,
     Post,
     PostCollaborator,
     Topic,
@@ -39,6 +41,11 @@ def _active_organization_membership(
     user_id: int,
     organization_id: int,
 ) -> OrganizationMember | None:
+    organization = session.get(Organization, organization_id)
+    if not organization or organization.verification_status != "approved":
+        return None
+    if organization.expires_at and _aware(organization.expires_at) <= datetime.datetime.now(datetime.timezone.utc):
+        return None
     member = session.execute(
         select(OrganizationMember).where(
             OrganizationMember.organization_id == organization_id,
@@ -51,7 +58,7 @@ def _active_organization_membership(
 def can_manage_topic(session: Session, user: User, topic: Topic, capability: str) -> bool:
     if capability not in {"moderate_posts", "edit_topic", "manage_collaborators"}:
         return False
-    if user.site_role == "operator":
+    if has_platform_role(session, user):
         return True
     if topic.organization_id is not None:
         member = _active_organization_membership(session, user.id, topic.organization_id)
@@ -75,7 +82,7 @@ def can_manage_topic(session: Session, user: User, topic: Topic, capability: str
 def can_manage_post(session: Session, user: User, post: Post, capability: str) -> bool:
     if capability not in {"manage_applications", "update_status", "edit_post"}:
         return False
-    if user.site_role == "operator" or post.author_id == user.id:
+    if has_platform_role(session, user) or post.author_id == user.id:
         return True
     grant = session.execute(
         select(PostCollaborator).where(

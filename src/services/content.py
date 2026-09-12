@@ -331,17 +331,10 @@ def seed_content_catalog(session: Session) -> None:
 
 
 def bootstrap_operator(session: Session, email: str) -> bool:
-    """Promote one explicitly configured, already registered account."""
-    normalized = email.strip().lower()
-    if not normalized:
-        return False
-    user = session.execute(
-        select(User).where(or_(User.email == normalized, User.verified_email == normalized))
-    ).scalar_one_or_none()
-    if not user:
-        return False
-    user.site_role = "operator"
-    return True
+    """Materialize the first configured senior operator grant."""
+    from services.operators import bootstrap_platform_operator
+
+    return bootstrap_platform_operator(session, email)
 
 
 def _active_tag_rows(session: Session) -> list[tuple[Tag, list[str]]]:
@@ -438,6 +431,8 @@ def _is_active_membership(member: OrganizationMember) -> bool:
 
 
 def user_permissions(session: Session, user: User) -> dict[str, Any]:
+    from services.operators import has_platform_role
+
     memberships = session.execute(
         select(OrganizationMember).where(OrganizationMember.user_id == user.id)
     ).scalars().all()
@@ -447,7 +442,7 @@ def user_permissions(session: Session, user: User) -> dict[str, Any]:
         "campus_verified": campus_verified,
         "site_role": user.site_role,
         "can_publish_post": campus_verified,
-        "can_publish_official_topic": user.site_role == "operator",
+        "can_publish_official_topic": has_platform_role(session, user),
         "publisher_organization_ids": publisher_org_ids,
     }
 
@@ -467,17 +462,20 @@ def _event_key(payload: dict[str, Any]) -> str:
 
 
 def create_topic(session: Session, user: User, payload: dict[str, Any]) -> Topic:
+    from services.operators import has_platform_role
+    from services.identity import organization_is_active
+
     channel = str(payload.get("channel") or "")
     organization_id = payload.get("organization_id")
     if channel == "official":
-        if user.site_role != "operator":
+        if not has_platform_role(session, user):
             raise PermissionError("官方话题仅平台运营账号可以发布")
         organization_id = None
     elif channel == "organization":
         if not organization_id:
             raise ValueError("组织话题必须指定组织")
         org = session.get(Organization, int(organization_id))
-        if not org or org.verification_status != "approved":
+        if not org or not organization_is_active(org):
             raise PermissionError("组织尚未通过认证")
         member = session.execute(
             select(OrganizationMember).where(
@@ -539,6 +537,8 @@ def create_topic(session: Session, user: User, payload: dict[str, Any]) -> Topic
 
 
 def topic_to_dict(session: Session, topic: Topic, user_id: int | None = None) -> dict[str, Any]:
+    from services.identity import topic_trust_projection
+
     tags = session.execute(
         select(Tag).join(TopicTag, TopicTag.tag_id == Tag.id).where(TopicTag.topic_id == topic.id)
     ).scalars().all()
@@ -572,6 +572,7 @@ def topic_to_dict(session: Session, topic: Topic, user_id: int | None = None) ->
             for tag in tags
         ],
         "status": topic.status,
+        **topic_trust_projection(session, topic),
     }
 
 

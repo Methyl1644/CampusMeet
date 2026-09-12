@@ -3,9 +3,16 @@ import json
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import desc, select
+from sqlalchemy import desc, func, select
 
 from api.common import api_ok, current_user_id
+from api.schemas.content import (
+    TagProposalCreateRequest,
+    TagProposalReviewRequest,
+    TopicCreateRequest,
+    TopicPostModerationRequest,
+    TopicUpdateRequest,
+)
 from services.content import (
     create_topic,
     seed_content_catalog,
@@ -15,7 +22,11 @@ from services.content import (
     user_permissions,
     validate_tag_ids,
 )
+from services.content_moderation import ModerationContext, moderate_content
+from services.collaboration_lifecycle import PUBLIC_POST_STATUSES
+from services.moderation_cases import has_active_restriction
 from services.permissions import can_manage_topic
+from services.operators import has_platform_role
 from services.tag_governance import review_tag_proposal, submit_tag_proposal
 from storage.database.db import get_session
 from storage.database.models import (
@@ -35,6 +46,29 @@ from storage.database.models import (
 from tools.post_tools import _post_to_dict
 
 router = APIRouter(tags=["content"])
+
+
+def _moderate_topic(payload: dict[str, Any], user_id: str) -> None:
+    decision = moderate_content(
+        str(payload.get("title") or payload.get("short_title") or ""),
+        ModerationContext(
+            surface="topic",
+            user_id=user_id,
+            structured_fields={
+                "short_title": payload.get("short_title"),
+                "organizer": payload.get("organizer"),
+                "summary": payload.get("summary"),
+                "content": payload.get("content"),
+                "source_url": payload.get("source_url"),
+            },
+        ),
+    )
+    if decision.action != "allow":
+        raise HTTPException(
+            status_code=400,
+            detail=f"内容存在风险，{decision.user_message}"
+            + (f"：{'；'.join(decision.suggestions)}" if decision.suggestions else ""),
+        )
 
 
 def _current_user(user_id: str) -> tuple[Any, User]:
@@ -102,7 +136,11 @@ def _tag_proposal_to_dict(proposal: TagProposal) -> dict[str, Any]:
 
 
 @router.post("/tags/proposals")
-def create_tag_proposal(body: dict[str, Any], user_id: str = Depends(current_user_id)) -> dict[str, Any]:
+def create_tag_proposal(
+    body: TagProposalCreateRequest,
+    user_id: str = Depends(current_user_id),
+) -> dict[str, Any]:
+    body = body.model_dump() if isinstance(body, TagProposalCreateRequest) else body
     session, user = _current_user(user_id)
     try:
         try:
@@ -130,18 +168,35 @@ def create_tag_proposal(body: dict[str, Any], user_id: str = Depends(current_use
 def list_tag_proposals(
     status: str = Query(default="pending"),
     user_id: str = Depends(current_user_id),
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=20, ge=1, le=100),
 ) -> dict[str, Any]:
     session, user = _current_user(user_id)
     try:
-        if user.site_role != "operator":
+        page = page if isinstance(page, int) else 1
+        page_size = page_size if isinstance(page_size, int) else 20
+        if not has_platform_role(session, user):
             raise HTTPException(status_code=403, detail="仅平台运营可以查看候选标签")
         if status not in {"pending", "approved", "merged", "rejected", "all"}:
             raise HTTPException(status_code=400, detail="候选标签状态不正确")
         query = select(TagProposal)
         if status != "all":
             query = query.where(TagProposal.status == status)
-        proposals = session.execute(query.order_by(desc(TagProposal.updated_at))).scalars().all()
-        return api_ok([_tag_proposal_to_dict(proposal) for proposal in proposals])
+        total = int(session.scalar(select(func.count()).select_from(query.subquery())) or 0)
+        proposals = session.execute(
+            query.order_by(desc(TagProposal.updated_at))
+            .offset((page - 1) * page_size)
+            .limit(page_size)
+        ).scalars().all()
+        return api_ok(
+            {
+                "list": [_tag_proposal_to_dict(proposal) for proposal in proposals],
+                "total": total,
+                "page": page,
+                "page_size": page_size,
+                "pages": (total + page_size - 1) // page_size,
+            }
+        )
     finally:
         session.close()
 
@@ -149,9 +204,10 @@ def list_tag_proposals(
 @router.post("/tags/proposals/{proposal_id}/review")
 def review_tag_candidate(
     proposal_id: int,
-    body: dict[str, Any],
+    body: TagProposalReviewRequest,
     user_id: str = Depends(current_user_id),
 ) -> dict[str, Any]:
+    body = body.model_dump() if isinstance(body, TagProposalReviewRequest) else body
     session, reviewer = _current_user(user_id)
     try:
         proposal = session.get(TagProposal, proposal_id)
@@ -225,6 +281,7 @@ def list_topics(
                 "total": total,
                 "page": page,
                 "page_size": page_size,
+                "pages": (total + page_size - 1) // page_size,
             }
         )
     finally:
@@ -251,7 +308,11 @@ def topic_posts(topic_id: int, user_id: str = Depends(current_user_id)) -> dict[
             raise HTTPException(status_code=404, detail="话题不存在")
         posts = session.execute(
             select(Post)
-            .where(Post.kind == "topic_team", Post.topic_id == topic_id)
+            .where(
+                Post.kind == "topic_team",
+                Post.topic_id == topic_id,
+                Post.status.in_(PUBLIC_POST_STATUSES),
+            )
             .order_by(Post.created_at.desc())
         ).scalars().all()
         authors = {
@@ -260,16 +321,20 @@ def topic_posts(topic_id: int, user_id: str = Depends(current_user_id)) -> dict[
                 select(User).where(User.id.in_({post.author_id for post in posts}))
             ).scalars().all()
         } if posts else {}
-        return api_ok([_post_to_dict(post, authors.get(post.author_id)) for post in posts])
+        return api_ok([_post_to_dict(post, authors.get(post.author_id), session) for post in posts])
     finally:
         session.close()
 
 
 @router.post("/topics")
-def publish_topic(body: dict[str, Any], user_id: str = Depends(current_user_id)) -> dict[str, Any]:
+def publish_topic(body: TopicCreateRequest, user_id: str = Depends(current_user_id)) -> dict[str, Any]:
+    body = body.model_dump() if isinstance(body, TopicCreateRequest) else body
     session, user = _current_user(user_id)
     try:
         try:
+            if has_active_restriction(session, user.id, "posting"):
+                raise PermissionError("当前账号处于发布限制期")
+            _moderate_topic(body, user_id)
             topic = create_topic(session, user, body)
             session.commit()
         except PermissionError as exc:
@@ -285,9 +350,16 @@ def publish_topic(body: dict[str, Any], user_id: str = Depends(current_user_id))
 
 
 @router.patch("/topics/{topic_id}")
-def update_topic(topic_id: int, body: dict[str, Any], user_id: str = Depends(current_user_id)) -> dict[str, Any]:
+def update_topic(
+    topic_id: int,
+    body: TopicUpdateRequest,
+    user_id: str = Depends(current_user_id),
+) -> dict[str, Any]:
+    body = body.model_dump(exclude_unset=True) if isinstance(body, TopicUpdateRequest) else body
     session, user = _current_user(user_id)
     try:
+        if has_active_restriction(session, user.id, "posting"):
+            raise HTTPException(status_code=403, detail="当前账号处于发布限制期")
         topic = session.get(Topic, topic_id)
         if not topic:
             raise HTTPException(status_code=404, detail="话题不存在")
@@ -321,6 +393,17 @@ def update_topic(topic_id: int, body: dict[str, Any], user_id: str = Depends(cur
             changed["tag_ids"] = tag_ids
         if not changed:
             raise HTTPException(status_code=400, detail="没有需要更新的内容")
+        _moderate_topic(
+            {
+                "title": topic.title,
+                "short_title": topic.short_title,
+                "organizer": topic.organizer,
+                "summary": topic.summary,
+                "content": topic.content,
+                "source_url": topic.source_url,
+            },
+            user_id,
+        )
         session.add(
             AuditLog(
                 user_id=user.id,
@@ -340,9 +423,10 @@ def update_topic(topic_id: int, body: dict[str, Any], user_id: str = Depends(cur
 def moderate_topic_post(
     topic_id: int,
     post_id: int,
-    body: dict[str, Any],
+    body: TopicPostModerationRequest,
     user_id: str = Depends(current_user_id),
 ) -> dict[str, Any]:
+    body = body.model_dump() if isinstance(body, TopicPostModerationRequest) else body
     session, actor = _current_user(user_id)
     try:
         topic = session.get(Topic, topic_id)
@@ -371,7 +455,7 @@ def moderate_topic_post(
         )
         session.commit()
         author = session.get(User, post.author_id)
-        return api_ok(_post_to_dict(post, author), "帖子状态已更新")
+        return api_ok(_post_to_dict(post, author, session), "帖子状态已更新")
     finally:
         session.close()
 
@@ -406,7 +490,6 @@ def permissions(user_id: str = Depends(current_user_id)) -> dict[str, Any]:
         session.close()
 
 
-@router.post("/organizations/applications")
 def apply_organization(body: dict[str, Any], user_id: str = Depends(current_user_id)) -> dict[str, Any]:
     session, user = _current_user(user_id)
     try:
@@ -439,7 +522,6 @@ def apply_organization(body: dict[str, Any], user_id: str = Depends(current_user
         session.close()
 
 
-@router.post("/organizations/applications/{application_id}/review")
 def review_organization(
     application_id: int,
     body: dict[str, Any],
@@ -515,7 +597,6 @@ def review_organization(
         session.close()
 
 
-@router.post("/organizations/{organization_id}/members")
 def grant_organization_role(
     organization_id: int,
     body: dict[str, Any],

@@ -202,7 +202,7 @@ def test_render_blueprint_defines_public_api_and_static_frontend():
     assert "plan: free" in blueprint
     assert "region: singapore" in blueprint
     assert "buildCommand: uv sync --frozen --no-dev" in blueprint
-    assert "startCommand: uv run --no-sync python src/main.py -m http -p $PORT" in blueprint
+    assert "startCommand: uv run --no-sync alembic upgrade head && uv run --no-sync python src/main.py -m http -p $PORT" in blueprint
     assert "healthCheckPath: /health" in blueprint
 
     assert "name: campusmate-web" in blueprint
@@ -227,6 +227,7 @@ def test_render_blueprint_keeps_external_credentials_out_of_git():
     assert "key: BOOTSTRAP_OPERATOR_EMAIL\n        sync: false" in blueprint
     assert "key: VITE_API_BASE_URL\n        sync: false" in blueprint
     assert "key: JWT_SECRET\n        generateValue: true" in blueprint
+    assert "key: APP_ENV\n        value: production" in blueprint
     assert "AUTH_TEST_MODE" in blueprint
     assert 'value: "false"' in blueprint
     assert "key: CAMPUS_EMAIL_DOMAINS\n        value: nju.edu.cn" in blueprint

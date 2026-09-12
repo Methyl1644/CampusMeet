@@ -1,0 +1,87 @@
+{
+  "personas": {
+    "visitor": {
+      "authenticated": false,
+      "expected_access": ["health", "ready", "auth"]
+    },
+    "campus_user": {
+      "user_id": "101",
+      "auth_status": "verified",
+      "account_status": "active",
+      "site_role": "student"
+    },
+    "organization_owner": {
+      "user_id": "102",
+      "organization_roles": [
+        {
+          "organization_id": "201",
+          "organization_name": "Example Student Organization",
+          "role": "owner",
+          "expires_at": "2027-09-12T00:00:00+00:00"
+        }
+      ]
+    },
+    "publisher": {
+      "user_id": "103",
+      "organization_roles": [
+        {
+          "organization_id": "201",
+          "organization_name": "Example Student Organization",
+          "role": "publisher",
+          "expires_at": "2027-09-12T00:00:00+00:00"
+        }
+      ]
+    },
+    "topic_manager": {
+      "user_id": "104",
+      "topic_roles": [
+        {
+          "topic_id": "301",
+          "topic_title": "Example Competition 2026",
+          "role": "manager",
+          "expires_at": "2027-01-31T00:00:00+00:00"
+        }
+      ]
+    },
+    "post_manager": {
+      "user_id": "105",
+      "post_roles": [
+        {
+          "post_id": "401",
+          "post_title": "Example Team Recruitment",
+          "role": "application_manager",
+          "expires_at": "2026-12-31T00:00:00+00:00"
+        }
+      ]
+    },
+    "team_member": {
+      "user_id": "106",
+      "team_id": "501",
+      "member_role": "member",
+      "contact_unlocked": true
+    },
+    "operator": {
+      "user_id": "107",
+      "platform_role": "operator",
+      "status": "active"
+    }
+  },
+  "success_envelope": {
+    "code": 0,
+    "message": "ok",
+    "data": {}
+  },
+  "error_envelope": {
+    "code": 403,
+    "message": "Permission denied",
+    "data": null,
+    "request_id": "example-request-id"
+  },
+  "page": {
+    "list": [],
+    "total": 0,
+    "page": 1,
+    "page_size": 20,
+    "pages": 0
+  }
+}

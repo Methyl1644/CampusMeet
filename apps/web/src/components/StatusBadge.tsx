@@ -1,6 +1,6 @@
 import { POST_STATUS } from '@shared/constants'
 import type { PostStatus } from '@shared/types'
-import { CalendarX2, CircleCheck, LockKeyhole, UsersRound } from 'lucide-react'
+import { Archive, CalendarX2, CircleCheck, LockKeyhole, Trash2, UsersRound } from 'lucide-react'
 
 const statusStyles = {
   recruiting: {
@@ -18,6 +18,14 @@ const statusStyles = {
   expired: {
     icon: CalendarX2,
     className: 'border-red-200 bg-red-50 text-red-700',
+  },
+  archived: {
+    icon: Archive,
+    className: 'border-stone bg-paper-warm text-ink-muted',
+  },
+  deleted: {
+    icon: Trash2,
+    className: 'border-stone bg-paper-warm text-ink-muted',
   },
 } satisfies Record<
   PostStatus,

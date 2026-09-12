@@ -454,14 +454,16 @@ def test_deployed_coze_api_rejects_non_coze_url_before_sending_token(monkeypatch
                 "suggestions": [],
             },
         ),
-        (ai_tools.ai_match_teammates, {"post_id": "1"}, "COZE_WORKFLOW_MATCH", {"source": "coze"}),
-        (ai_tools.ai_team_plan, {"team_id": "1"}, "COZE_WORKFLOW_TEAM_PLAN", {"source": "coze"}),
     ],
 )
 def test_each_ai_tool_honors_its_canonical_coze_environment_key(
     monkeypatch, tool, payload, workflow_key, coze_payload
 ):
-    """A configured canonical key must use Coze instead of entering the local fallback."""
+    """Stateless workflows use a configured canonical key before local fallback.
+
+    Matching and team planning intentionally are covered separately because they
+    must load and validate a database-controlled context before calling Coze.
+    """
 
     class Response:
         @staticmethod

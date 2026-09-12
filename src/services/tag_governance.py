@@ -124,7 +124,9 @@ def review_tag_proposal(
     canonical_name: str | None = None,
     reason: str = "",
 ) -> Tag | None:
-    if reviewer.site_role != "operator":
+    from services.operators import has_platform_role
+
+    if not has_platform_role(session, reviewer):
         raise PermissionError("仅平台运营可以审核候选标签")
     if proposal.status != "pending":
         raise ValueError("该候选标签已经处理")

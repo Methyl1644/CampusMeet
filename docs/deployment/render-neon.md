@@ -30,6 +30,10 @@
 | `campusmate-api` | `BREVO_API_KEY` | Brevo 创建的 API Key |
 | `campusmate-api` | `BREVO_FROM_EMAIL` | Brevo 中已验证的个人发件邮箱 |
 | `campusmate-api` | `BREVO_FROM_NAME` | `CampusMate` |
+| `campusmate-api` | `COZE_DEPLOY_API_TOKEN` | Coze 部署 API Token |
+| `campusmate-api` | `COZE_*_API_URL` | 工作流 1-4 各自的 `/run` 地址 |
+| `campusmate-api` | `OBJECT_STORAGE_*` | S3 兼容存储的端点、区域、桶名和密钥 |
+| `campusmate-api` | `OBJECT_STORAGE_PUBLIC_BASE_URL` | 公开头像/封面的读取根地址 |
 | `campusmate-web` | `VITE_API_BASE_URL` | `https://campusmate-api.onrender.com` |
 
 `JWT_SECRET` 会由 Render 自动生成，不需要自己填写。
@@ -43,7 +47,9 @@
 1. 在后端的 **Environment** 中，把 `FRONTEND_ORIGINS` 改为前端实际 URL，不要保留末尾 `/`。
 2. 在前端的 **Environment** 中，把 `VITE_API_BASE_URL` 改为后端实际 URL，不要添加 `/api`。
 3. 分别点击 **Save, rebuild, and deploy**。Vite 的 API 地址在构建时写入，因此前端变量变化后必须重新部署。
-4. 打开 `后端实际URL/health`，应看到 `status` 为 `ok`。
+4. 打开 `后端实际URL/health`，应看到 `status` 为 `ok`；再打开 `/ready`，确认数据库和必需配置就绪。
+
+Render 启动命令会先执行 `alembic upgrade head` 再启动 API。生产库不再依赖应用启动时自动建表。
 
 ## 4. 开通注册验证码邮件
 
@@ -65,10 +71,29 @@
 - `COZE_DEPLOY_API_TOKEN`
 - `COZE_POST_DRAFT_API_URL`
 - `COZE_CLASSIFY_REVIEW_API_URL`
+- `COZE_MATCH_API_URL`
+- `COZE_TEAM_PLAN_API_URL`
 
-第一个工作流的地址为部署页显示的 `https://<部署域名>.coze.site/run`；第二个工作流未完成时可暂时留空。凭据未配置或调用失败时，后端会尝试旧版 `COZE_API_TOKEN + COZE_WORKFLOW_*`，再使用现有降级逻辑。不要把任何 Coze 密钥添加到前端变量中。
+每个地址均为部署页显示的 `https://<部署域名>.coze.site/run`。凭据未配置、超时或输出不合规时，后端使用受控降级逻辑。不要把任何 Coze 密钥添加到前端变量中。
 
-## 6. 上线验收
+## 6. 配置对象存储
+
+1. 创建 S3 兼容存储桶，分配最小所需权限的访问密钥。
+2. 在 Render 填写 `OBJECT_STORAGE_ENDPOINT`、`OBJECT_STORAGE_REGION`、`OBJECT_STORAGE_BUCKET`、`OBJECT_STORAGE_ACCESS_KEY`、`OBJECT_STORAGE_SECRET_KEY`。
+3. `OBJECT_STORAGE_PUBLIC_BASE_URL` 仅用于 `public/avatars` 和 `public/topic-covers`；`private/organization-evidence` 不得开放公开读取。
+4. 重新部署后测试“创建凭证 -> PUT -> 完成校验 -> 绑定”。
+
+## 7. 定时维护
+
+每天由唯一调度器执行：
+
+```text
+uv run --no-sync python src/jobs/maintenance.py
+```
+
+Render Cron Job 目前没有免费实例。测试阶段可手动运行；进入持续运营后再建立一个付费 Cron Job。不要在 Web 服务的每个实例内同时启动定时器。
+
+## 8. 上线验收
 
 1. 后端 `/health` 返回成功。
 2. 前端能打开登录页，刷新内部路由不会出现 404。
@@ -76,4 +101,8 @@
 4. 使用 `BOOTSTRAP_OPERATOR_EMAIL` 对应邮箱注册后，重启一次后端服务，并在个人资料接口确认 `site_role` 为 `operator`。
 5. 创建一条组队帖，刷新页面后数据仍存在。
 6. 搜索标准标签和官方话题。
-7. 配置 Coze 后测试 AI 草稿与标签建议；关闭 Coze 配置后确认规则降级仍可用。
+7. 配置 Coze 后测试工作流 1-4；关闭 Coze 配置后确认规则降级仍可用。
+8. 创建和替换头像/话题封面，确认旧对象被清理，私有认证材料不可公开访问。
+9. 手动执行一次维护命令，确认可重复运行且无重复通知。
+
+备份恢复、密钥轮换和故障处置见 `docs/operations/backend-runbook.md`。

@@ -1,12 +1,20 @@
 import json
+from dataclasses import asdict
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
 
-from api.common import current_user_id, invoke_tool, parse_tool_result, unwrap_data
+from api.common import api_ok, current_user_id, invoke_tool, parse_tool_result, unwrap_data
+from api.schemas.agent import (
+    ClassifyReviewRequest,
+    MatchRequest,
+    PostDraftAgentRequest,
+    TeamPlanRequest,
+)
 from services.content import tag_suggestions
+from services.content_moderation import ModerationContext, ModerationDecision, moderate_content
 from services.permissions import can_manage_post
 from services.tag_governance import sanitize_unknown_concepts, submit_tag_proposal
 from storage.database.db import get_session
@@ -22,6 +30,41 @@ from utils.security import screen_content
 router = APIRouter(prefix="/agent", tags=["agent"])
 
 VERIFIED_STATUSES = {"verified", "organization", "campus_verified"}
+
+
+def _draft_object(value: Any) -> dict[str, Any]:
+    if isinstance(value, dict):
+        return value
+    if isinstance(value, str) and value.strip():
+        try:
+            parsed = json.loads(value)
+        except json.JSONDecodeError:
+            return {}
+        return parsed if isinstance(parsed, dict) else {}
+    return {}
+
+
+def _moderation_response(
+    decision: ModerationDecision,
+    draft: dict[str, Any],
+    field_states: dict[str, Any],
+) -> dict[str, Any]:
+    return api_ok(
+        {
+            "reply": decision.user_message,
+            "draft": draft,
+            "is_complete": False,
+            "field_states": field_states,
+            "suggested_tag_ids": [],
+            "candidate_tags": [],
+            "next_field": None,
+            "missing_fields": [],
+            "degraded": False,
+            "blocked": True,
+            "moderation": asdict(decision),
+        },
+        decision.user_message,
+    )
 
 
 def _positive_id(value: str, label: str) -> int:
@@ -124,7 +167,22 @@ def store_tag_proposals(
 
 
 @router.post("/post-draft")
-def post_draft(body: dict[str, Any], user_id: str = Depends(current_user_id)) -> dict[str, Any]:
+def post_draft(body: PostDraftAgentRequest, user_id: str = Depends(current_user_id)) -> dict[str, Any]:
+    body = body.model_dump() if isinstance(body, PostDraftAgentRequest) else body
+    previous_draft = _draft_object(body.get("draft"))
+    field_states = body.get("field_states") if isinstance(body.get("field_states"), dict) else {}
+    message = str(body.get("message") or "")
+    input_decision = moderate_content(
+        message,
+        ModerationContext(
+            surface="post_draft",
+            user_id=user_id,
+            structured_fields=previous_draft,
+        ),
+    )
+    if input_decision.action != "allow":
+        return _moderation_response(input_decision, previous_draft, field_states)
+
     session = get_session()
     try:
         _require_verified_user(session, user_id)
@@ -136,7 +194,6 @@ def post_draft(body: dict[str, Any], user_id: str = Depends(current_user_id)) ->
             raise HTTPException(status_code=400, detail="正规赛事组队帖必须关联有效话题")
         if kind == "casual_invitation" and topic_id:
             raise HTTPException(status_code=400, detail="日常邀约不能关联正式话题")
-        message = str(body.get("message") or "")
         suggested = _candidate_tags(session, message)
     finally:
         session.close()
@@ -154,11 +211,24 @@ def post_draft(body: dict[str, Any], user_id: str = Depends(current_user_id)) ->
             "topic_id": topic_id,
         },
     )
-    return parse_tool_result(raw)
+    result = parse_tool_result(raw)
+    data = result.get("data") if isinstance(result.get("data"), dict) else {}
+    output_decision = moderate_content(
+        str(data.get("reply") or ""),
+        ModerationContext(
+            surface="ai_output",
+            user_id=user_id,
+            structured_fields=_draft_object(data.get("draft")),
+        ),
+    )
+    if output_decision.action != "allow":
+        return _moderation_response(output_decision, previous_draft, field_states)
+    return result
 
 
 @router.post("/classify-review")
-def classify_review(body: dict[str, Any], user_id: str = Depends(current_user_id)) -> dict[str, Any]:
+def classify_review(body: ClassifyReviewRequest, user_id: str = Depends(current_user_id)) -> dict[str, Any]:
+    body = body.model_dump() if isinstance(body, ClassifyReviewRequest) else body
     title = body.get("title") or body.get("activity_name") or ""
     description = body.get("description", "")
     title_screen = screen_content(title)
@@ -199,7 +269,8 @@ def classify_review(body: dict[str, Any], user_id: str = Depends(current_user_id
 
 
 @router.post("/match")
-def match(body: dict[str, Any], user_id: str = Depends(current_user_id)) -> dict[str, Any]:
+def match(body: MatchRequest, user_id: str = Depends(current_user_id)) -> dict[str, Any]:
+    body = body.model_dump() if isinstance(body, MatchRequest) else body
     post_id = str(body.get("post_id") or "")
     session = get_session()
     try:
@@ -212,7 +283,8 @@ def match(body: dict[str, Any], user_id: str = Depends(current_user_id)) -> dict
 
 
 @router.post("/team-plan")
-def team_plan(body: dict[str, Any], user_id: str = Depends(current_user_id)) -> dict[str, Any]:
+def team_plan(body: TeamPlanRequest, user_id: str = Depends(current_user_id)) -> dict[str, Any]:
+    body = body.model_dump() if isinstance(body, TeamPlanRequest) else body
     team_id = str(body.get("team_id") or "")
     session = get_session()
     try:

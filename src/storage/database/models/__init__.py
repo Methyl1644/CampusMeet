@@ -4,6 +4,19 @@ from .application import Application
 from .conversation import Conversation, Message
 from .team import Team, TeamMember
 from .verification_code import VerificationCode
+from .identity import OrganizationInvitation, OrganizationOwnershipTransfer, PlatformRoleGrant
+from .moderation import (
+    AccountRestriction,
+    Appeal,
+    ModerationCase,
+    ModerationEvent,
+    Report,
+    UserBlock,
+)
+from .abuse import AbuseEvent
+from .upload import UploadRecord
+from .notification import Notification
+from .auth import AccountRequest, AuthSession
 from .content import (
     AuditLog,
     Organization,
@@ -29,6 +42,20 @@ __all__ = [
     "Team",
     "TeamMember",
     "VerificationCode",
+    "OrganizationInvitation",
+    "OrganizationOwnershipTransfer",
+    "PlatformRoleGrant",
+    "AccountRestriction",
+    "Appeal",
+    "ModerationCase",
+    "ModerationEvent",
+    "Report",
+    "UserBlock",
+    "AbuseEvent",
+    "UploadRecord",
+    "Notification",
+    "AccountRequest",
+    "AuthSession",
     "AuditLog",
     "Organization",
     "OrganizationApplication",

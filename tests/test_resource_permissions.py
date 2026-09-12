@@ -150,6 +150,53 @@ def test_organization_owner_and_topic_creator_can_edit_but_other_publishers_cann
         assert can_manage_topic(session, other_publisher, topic, "edit_topic") is False
 
 
+def test_expired_organization_cannot_publish_or_manage_topics():
+    from services.content import create_topic
+    from services.permissions import can_manage_topic
+
+    with _session() as session:
+        owner = _user("expired-owner@nju.edu.cn")
+        session.add(owner)
+        session.flush()
+        organization = Organization(
+            name="Expired organization",
+            org_type="student_org",
+            verification_status="approved",
+            expires_at=datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(minutes=1),
+        )
+        session.add(organization)
+        session.flush()
+        session.add(
+            OrganizationMember(
+                organization_id=organization.id,
+                user_id=owner.id,
+                role="owner",
+                status="active",
+            )
+        )
+        topic = _topic(owner.id, organization.id, "organization")
+        session.add(topic)
+        session.flush()
+
+        assert can_manage_topic(session, owner, topic, "edit_topic") is False
+        with pytest.raises(PermissionError):
+            create_topic(
+                session,
+                owner,
+                {
+                    "channel": "organization",
+                    "organization_id": organization.id,
+                    "title": "New event",
+                    "short_title": "Event",
+                    "organizer": organization.name,
+                    "edition": "2027",
+                    "summary": "summary",
+                    "content": "content",
+                    "tag_ids": ["missing-tag"],
+                },
+            )
+
+
 def test_post_roles_separate_application_management_from_content_editing():
     from services.permissions import can_manage_post
     from storage.database.models import PostCollaborator

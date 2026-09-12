@@ -85,9 +85,15 @@ class OrganizationApplication(Base):
     org_type: Mapped[str] = mapped_column(Text, nullable=False)
     official_email: Mapped[str | None] = mapped_column(Text)
     evidence: Mapped[str] = mapped_column(Text, nullable=False)
+    school_scope: Mapped[str | None] = mapped_column(Text)
+    official_page: Mapped[str | None] = mapped_column(Text)
+    responsible_person_statement: Mapped[str | None] = mapped_column(Text)
+    evidence_reference: Mapped[str | None] = mapped_column(Text)
     status: Mapped[str] = mapped_column(Text, nullable=False, default="pending")
     reviewed_by: Mapped[int | None] = mapped_column(BigInteger)
+    review_reason: Mapped[str | None] = mapped_column(Text)
     reviewed_at: Mapped[datetime.datetime | None] = mapped_column(DateTime(timezone=True))
+    expires_at: Mapped[datetime.datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 

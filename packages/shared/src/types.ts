@@ -19,7 +19,7 @@ export type MainCategory =
 export type RiskLevel = 'low' | 'medium' | 'high';
 
 /** 帖子状态 */
-export type PostStatus = 'recruiting' | 'full' | 'closed' | 'expired';
+export type PostStatus = 'recruiting' | 'full' | 'closed' | 'expired' | 'archived' | 'deleted';
 
 export type ContentChannel = 'official' | 'organization' | 'casual';
 export type PostKind = 'topic_team' | 'casual_invitation';
@@ -61,7 +61,8 @@ export interface SearchDirectResult {
 }
 
 /** 用户认证状态 */
-export type AuthStatus = 'unverified' | 'verified' | 'organization';
+export type AuthStatus = 'unverified' | 'verified' | 'campus_verified' | 'organization';
+export type AccountStatus = 'active' | 'deactivated' | 'deletion_requested' | 'deleted';
 
 /** 帖子结构 */
 export interface Post {
@@ -107,6 +108,8 @@ export interface User extends UserBrief {
   verified_email?: string;
   post_count?: number;
   team_count?: number;
+  account_status?: AccountStatus;
+  identity?: IdentitySummary;
 }
 
 /** 登录/注册请求 */
@@ -200,7 +203,7 @@ export interface Application {
   available_time: string;
   reason: string;
   questions?: string[];
-  status: 'pending' | 'accepted' | 'rejected';
+  status: 'pending' | 'accepted' | 'rejected' | 'withdrawn';
   created_at: string;
 }
 
@@ -220,6 +223,7 @@ export interface Message {
   sender_id: string;
   content: string;
   created_at: string;
+  read_at?: string | null;
   is_mine: boolean;
 }
 
@@ -240,6 +244,8 @@ export interface Team {
   id: string;
   post_id: string;
   activity_name: string;
+  owner_id?: string | null;
+  status?: 'active' | 'archived';
   members: TeamMember[];
   division_of_labor: DivisionItem[];
   meeting_agenda: AgendaItem[];
@@ -252,6 +258,7 @@ export interface Team {
 export interface TeamMember {
   user: UserBrief;
   suggested_role: string;
+  member_role?: 'owner' | 'member';
 }
 
 export interface DivisionItem {
@@ -289,10 +296,114 @@ export interface ApiResponse<T = unknown> {
   data: T;
 }
 
+export interface ApiError {
+  code: number;
+  message: string;
+  data: null;
+  request_id: string;
+}
+
 /** 分页响应 */
 export interface PaginatedResponse<T> {
   list: T[];
   total: number;
   page: number;
   page_size: number;
+  pages: number;
+}
+
+export type OrganizationRole = 'owner' | 'publisher' | 'member';
+export type TopicRole = 'manager' | 'editor' | 'coordinator';
+export type PostRole = 'editor' | 'application_manager';
+export type PlatformRole = 'operator' | 'senior_operator';
+export type GrantStatus = 'pending' | 'active' | 'suspended' | 'revoked' | 'expired';
+
+export interface IdentitySummary {
+  campus_verified: boolean;
+  organization_roles: Array<{
+    organization_id: string;
+    organization_name: string;
+    role: OrganizationRole;
+    expires_at?: string | null;
+  }>;
+  topic_roles: Array<{ topic_id: string; topic_title: string; role: TopicRole; expires_at?: string | null }>;
+  post_roles: Array<{ post_id: string; post_title: string; role: PostRole; expires_at?: string | null }>;
+}
+
+export interface ScopedGrant {
+  user_id: string;
+  role: TopicRole | PostRole;
+  status: GrantStatus;
+  granted_by: string;
+  expires_at?: string | null;
+}
+
+export interface PlatformRoleGrant {
+  grant_id: string;
+  user_id: string;
+  role: PlatformRole;
+  status: GrantStatus;
+  granted_by: string;
+  accepted_at?: string | null;
+  effective_at?: string | null;
+  expires_at?: string | null;
+  revoked_at?: string | null;
+}
+
+export interface Notification {
+  id: string;
+  event_type: string;
+  title: string;
+  body: string;
+  target_type?: string | null;
+  target_id?: string | null;
+  read_at?: string | null;
+  created_at: string;
+}
+
+export interface Report {
+  id: string;
+  target_type: 'user' | 'post' | 'topic' | 'message';
+  target_id: string;
+  reason_code: string;
+  description?: string | null;
+  report_count: number;
+  status: 'pending' | 'resolved' | 'dismissed';
+  resolution?: string | null;
+  created_at: string;
+  resolved_at?: string | null;
+}
+
+export interface Appeal {
+  id: string;
+  case_id: string;
+  appellant_id: string;
+  statement: string;
+  status: 'pending' | 'approved' | 'rejected';
+  resolution?: string | null;
+  reviewed_by?: string | null;
+  created_at: string;
+  reviewed_at?: string | null;
+}
+
+export interface UploadTicket {
+  upload_id: string;
+  purpose: 'avatar' | 'topic_cover' | 'organization_evidence';
+  expires_at: string;
+  upload: {
+    url: string;
+    method: 'PUT';
+    headers: Record<string, string>;
+    max_size: number;
+  };
+}
+
+export interface AccountRequest {
+  id: string;
+  request_type: 'data_export' | 'account_deletion';
+  status: 'pending' | 'completed' | 'cancelled' | 'rejected';
+  result_metadata: Record<string, unknown>;
+  completed_at?: string | null;
+  cancelled_at?: string | null;
+  created_at: string;
 }

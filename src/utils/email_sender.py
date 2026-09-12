@@ -7,6 +7,8 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from urllib.request import Request, urlopen
 
+from services.observability import record_metric
+
 logger = logging.getLogger(__name__)
 
 
@@ -114,9 +116,11 @@ def _send_with_resend(
         with urlopen(request, timeout=15) as response:
             response.read()
         logger.info("Verification email sent through Resend to %s", to_email)
+        record_metric("email.delivery", provider="resend", result="success")
         return {"sent": True, "message": f"验证码已发送至 {to_email}"}
     except Exception as error:
         logger.error("Resend verification email failed: %s", error)
+        record_metric("email.delivery", provider="resend", result="failure")
         return {"sent": False, "message": "验证码邮件发送失败，请稍后重试"}
 
 
@@ -155,9 +159,11 @@ def _send_with_brevo(
         with urlopen(request, timeout=15) as response:
             response.read()
         logger.info("Verification email sent through Brevo to %s", to_email)
+        record_metric("email.delivery", provider="brevo", result="success")
         return {"sent": True, "message": f"验证码已发送至 {to_email}"}
     except Exception as error:
         logger.error("Brevo verification email failed: %s", error)
+        record_metric("email.delivery", provider="brevo", result="failure")
         return {"sent": False, "message": "验证码邮件发送失败，请稍后重试"}
 
 
@@ -209,9 +215,11 @@ def send_verification_email(to_email: str, code: str, purpose: str = "注册") -
         server.quit()
 
         logger.info(f"Verification email sent to {to_email}")
+        record_metric("email.delivery", provider="smtp", result="success")
         return {"sent": True, "message": f"验证码已发送至 {to_email}"}
     except Exception as e:
         logger.error(f"Send email failed: {e}")
+        record_metric("email.delivery", provider="smtp", result="failure")
         if os.getenv("AUTH_TEST_MODE", "true").strip().lower() not in {
             "1",
             "true",

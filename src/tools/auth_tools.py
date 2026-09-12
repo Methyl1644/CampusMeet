@@ -13,8 +13,10 @@ from coze_coding_utils.runtime_ctx.context import new_context
 from storage.database.db import get_session
 from storage.database.models.user import User
 from storage.database.models.verification_code import VerificationCode
-from utils.auth import hash_password, verify_password, generate_token, generate_verification_code
+from utils.auth import hash_password, verify_password, generate_verification_code
 from utils.email_sender import send_verification_email, is_email
+from services.abuse_monitoring import check_and_record
+from services.auth_lifecycle import issue_access_token, validate_password
 
 logger = logging.getLogger(__name__)
 
@@ -23,7 +25,7 @@ CODE_RESEND_COOLDOWN_SECONDS = 60
 MAX_CODE_ATTEMPTS = 5
 MAX_PASSWORD_ATTEMPTS = 5
 PASSWORD_LOCK_MINUTES = 15
-ALLOWED_CODE_PURPOSES = {"register", "login", "campus_verify"}
+ALLOWED_CODE_PURPOSES = {"register", "login", "campus_verify", "reset_password"}
 PHONE_PATTERN = re.compile(r"^1[3-9]\d{9}$")
 
 
@@ -92,6 +94,15 @@ def _verify_code(session, account: str, purpose: str, submitted: str) -> Verific
     if not vc:
         return None
     if _code_matches(vc, submitted):
+        claim = session.execute(
+            update(VerificationCode)
+            .where(VerificationCode.id == vc.id, VerificationCode.used == False)
+            .values(used=True)
+            .execution_options(synchronize_session=False)
+        )
+        if claim.rowcount != 1:
+            return None
+        vc.used = True
         return vc
     vc.attempts = (vc.attempts or 0) + 1
     if vc.attempts >= MAX_CODE_ATTEMPTS:
@@ -134,6 +145,7 @@ def _user_to_dict(user: User) -> dict:
         "skills": user.skills or [],
         "auth_status": user.auth_status,
         "site_role": user.site_role,
+        "account_status": user.account_status,
         "verified_email": user.verified_email,
         "post_count": user.post_count,
         "team_count": user.team_count,
@@ -154,7 +166,11 @@ def _user_brief(user: User) -> dict:
 
 
 @tool
-def register_auth_send_code(account: str, purpose: str = "register") -> str:
+def register_auth_send_code(
+    account: str,
+    purpose: str = "register",
+    network_identifier: str = "",
+) -> str:
     """发送验证码到手机号或邮箱。purpose 为 register、login 或 campus_verify。"""
     ctx = request_context.get() or new_context(method="register_auth_send_code")
     try:
@@ -173,7 +189,7 @@ def register_auth_send_code(account: str, purpose: str = "register") -> str:
                 {"sent": False, "message": "请使用南京大学校园邮箱登录"},
                 ensure_ascii=False,
             )
-        if purpose == "campus_verify" and not _is_campus_email(account):
+        if purpose in {"campus_verify", "reset_password"} and not _is_campus_email(account):
             return json.dumps(
                 {"sent": False, "message": "请使用南京大学校园邮箱完成认证"},
                 ensure_ascii=False,
@@ -182,6 +198,24 @@ def register_auth_send_code(account: str, purpose: str = "register") -> str:
         now = datetime.datetime.now(datetime.timezone.utc)
         session = get_session()
         try:
+            abuse = check_and_record(
+                session,
+                user_id=None,
+                event_type="verification_code",
+                target_id="account",
+                content=account,
+                network_identifier=network_identifier,
+            )
+            if abuse.action == "cooldown":
+                session.commit()
+                return json.dumps(
+                    {
+                        "sent": False,
+                        "message": "验证码请求过于频繁，请稍后再试",
+                        "retry_after_seconds": abuse.retry_after_seconds,
+                    },
+                    ensure_ascii=False,
+                )
             active = session.execute(
                 select(VerificationCode)
                 .where(VerificationCode.account == account)
@@ -195,6 +229,7 @@ def register_auth_send_code(account: str, purpose: str = "register") -> str:
                 age = _seconds_since(active.created_at, now)
                 if age < CODE_RESEND_COOLDOWN_SECONDS:
                     retry_after = CODE_RESEND_COOLDOWN_SECONDS - age
+                    session.commit()
                     return _code_response(
                         active.code,
                         "验证码仍然有效，请使用上一条验证码",
@@ -224,7 +259,12 @@ def register_auth_send_code(account: str, purpose: str = "register") -> str:
 
         # 根据账号类型发送验证码
         if is_email(account):
-            purpose_label = {"register": "注册", "login": "登录", "campus_verify": "校园认证"}[purpose]
+            purpose_label = {
+                "register": "注册",
+                "login": "登录",
+                "campus_verify": "校园认证",
+                "reset_password": "重置密码",
+            }[purpose]
             result = send_verification_email(account, code, purpose_label)
             if result.get("code") and not _is_test_mode():
                 _invalidate_verification_code(verification_code_id)
@@ -246,7 +286,17 @@ def register_auth_send_code(account: str, purpose: str = "register") -> str:
 
 
 @tool
-def register_user(account: str, code: str, password: str, nickname: str, major: str, grade: str, skills: str, wechat: str = "") -> str:
+def register_user(
+    account: str,
+    code: str,
+    password: str,
+    nickname: str,
+    major: str,
+    grade: str,
+    skills: str,
+    wechat: str = "",
+    network_identifier: str = "",
+) -> str:
     """使用南京大学校园邮箱验证码注册新用户。"""
     ctx = request_context.get() or new_context(method="register_user")
     try:
@@ -256,13 +306,34 @@ def register_user(account: str, code: str, password: str, nickname: str, major: 
                 {"success": False, "message": "仅支持南京大学校园邮箱注册"},
                 ensure_ascii=False,
             )
-        if len(password) < 8 or not re.search(r"[A-Za-z]", password) or not re.search(r"\d", password):
+        try:
+            validate_password(password)
+        except ValueError:
             return json.dumps(
                 {"success": False, "message": "密码至少 8 位，并同时包含字母和数字"},
                 ensure_ascii=False,
             )
         session = get_session()
         try:
+            abuse = check_and_record(
+                session,
+                user_id=None,
+                event_type="registration",
+                target_id="account",
+                content=account,
+                network_identifier=network_identifier,
+            )
+            session.commit()
+            if abuse.action == "cooldown":
+                return json.dumps(
+                    {
+                        "success": False,
+                        "message": "注册请求过于频繁，请稍后再试",
+                        "retry_after_seconds": abuse.retry_after_seconds,
+                    },
+                    ensure_ascii=False,
+                )
+
             # 验证验证码
             vc = _verify_code(session, account, "register", code)
             if not vc:
@@ -294,11 +365,8 @@ def register_user(account: str, code: str, password: str, nickname: str, major: 
             session.add(user)
             session.flush()
 
-            # 标记验证码已使用
-            vc.used = True
-
             # 生成 token
-            token = generate_token(user.id)
+            token = issue_access_token(session, user.id)
             session.commit()
 
             return json.dumps({
@@ -315,7 +383,12 @@ def register_user(account: str, code: str, password: str, nickname: str, major: 
 
 
 @tool
-def login_user(account: str, password: str = "", code: str = "") -> str:
+def login_user(
+    account: str,
+    password: str = "",
+    code: str = "",
+    network_identifier: str = "",
+) -> str:
     """用户登录。密码和登录验证码二选一，验证码只能使用一次。"""
     ctx = request_context.get() or new_context(method="login_user")
     try:
@@ -328,6 +401,27 @@ def login_user(account: str, password: str = "", code: str = "") -> str:
             user = result.scalar_one_or_none()
             if not user:
                 return json.dumps({"success": False, "message": "账号不存在"}, ensure_ascii=False)
+            if user.account_status != "active":
+                return json.dumps({"success": False, "message": "账号当前不可登录"}, ensure_ascii=False)
+
+            abuse = check_and_record(
+                session,
+                user_id=user.id,
+                event_type="login",
+                target_id="account",
+                content=account,
+                network_identifier=network_identifier,
+            )
+            if abuse.action in {"cooldown", "review"}:
+                session.commit()
+                return json.dumps(
+                    {
+                        "success": False,
+                        "message": "登录尝试过于频繁，请稍后再试",
+                        "retry_after_seconds": abuse.retry_after_seconds,
+                    },
+                    ensure_ascii=False,
+                )
 
             if password:
                 now = datetime.datetime.now(datetime.timezone.utc)
@@ -353,12 +447,12 @@ def login_user(account: str, password: str = "", code: str = "") -> str:
                 vc = _verify_code(session, account, "login", code)
                 if not vc:
                     return json.dumps({"success": False, "message": "验证码无效或已过期"}, ensure_ascii=False)
-                vc.used = True
                 session.commit()
             else:
                 return json.dumps({"success": False, "message": "请输入密码或验证码"}, ensure_ascii=False)
 
-            token = generate_token(user.id)
+            token = issue_access_token(session, user.id)
+            session.commit()
             return json.dumps({
                 "success": True,
                 "token": token,
@@ -408,7 +502,6 @@ def verify_campus_email(user_id: str, email: str, code: str) -> str:
 
             user.auth_status = "verified"
             user.verified_email = email
-            vc.used = True
             session.commit()
 
             return json.dumps({

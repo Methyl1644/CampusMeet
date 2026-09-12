@@ -513,6 +513,6 @@ def test_bootstrap_operator_promotes_only_the_configured_existing_account():
         assert bootstrap_operator(session, "owner@nju.edu.cn") is True
         session.commit()
 
-        assert target.site_role == "operator"
+        assert target.site_role == "senior_operator"
         assert other.site_role == "student"
         assert bootstrap_operator(session, "missing@nju.edu.cn") is False

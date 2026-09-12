@@ -8,9 +8,25 @@ PRD 5.3 安全与隐私规则:
 """
 import re
 import logging
+import unicodedata
 from dataclasses import dataclass, field
 
 logger = logging.getLogger(__name__)
+
+
+def normalize_for_moderation(text: str) -> str:
+    """Normalize user text without changing its readable meaning.
+
+    NFKC folds full-width Latin characters, digits, and punctuation. Invisible
+    spacing and repeated whitespace are removed so split-character variants can
+    be evaluated consistently by moderation rules.
+    """
+    normalized = unicodedata.normalize("NFKC", str(text or ""))
+    normalized = re.sub(r"[\u200b-\u200f\u2060\ufeff]", "", normalized)
+    normalized = normalized.replace("／", "/").replace("．", ".").replace("＠", "@")
+    normalized = re.sub(r"[\t\r\f\v ]+", " ", normalized)
+    normalized = re.sub(r" *\n *", "\n", normalized)
+    return normalized.strip()
 
 
 @dataclass

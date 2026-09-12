@@ -210,7 +210,8 @@ def test_tag_proposal_routes_submit_list_and_review(monkeypatch):
         raise AssertionError("student unexpectedly listed Tag proposals")
 
     listed = content_api.list_tag_proposals("pending", operator_id)
-    assert [item["proposal_id"] for item in listed["data"]] == [str(proposal_id)]
+    assert [item["proposal_id"] for item in listed["data"]["list"]] == [str(proposal_id)]
+    assert listed["data"]["total"] == 1
 
     reviewed = content_api.review_tag_candidate(
         proposal_id,
