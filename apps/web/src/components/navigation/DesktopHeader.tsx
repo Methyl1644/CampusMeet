@@ -2,6 +2,7 @@ import { Bell, CircleHelp, Compass, Home, MessageCircle, Plus } from 'lucide-rea
 import { NavLink, useLocation } from 'react-router-dom'
 import type { HomeFeed, User } from '@shared/types'
 import CampusMark from '@/components/CampusMark'
+import UnreadBadge, { unreadLabel } from './UnreadBadge'
 import UserMenu from './UserMenu'
 
 interface DesktopHeaderProps {
@@ -15,23 +16,6 @@ const primaryItems = [
   { to: '/discover', label: '探索', icon: Compass },
   { to: '/publish', label: '发布', icon: Plus },
 ]
-
-function unreadLabel(label: string, count: number) {
-  return `${label}，${count} 条未读`
-}
-
-function UnreadBadge({ count }: { count: number }) {
-  if (count <= 0) return null
-
-  return (
-    <span
-      aria-hidden="true"
-      className="absolute -right-1 -top-1 flex min-w-[18px] items-center justify-center rounded-full bg-primary-600 px-1 text-[10px] font-semibold leading-[18px] text-white"
-    >
-      {count > 99 ? '99+' : count}
-    </span>
-  )
-}
 
 export default function DesktopHeader({ unread, user, onRefreshHome }: DesktopHeaderProps) {
   const location = useLocation()

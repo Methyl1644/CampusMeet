@@ -136,10 +136,11 @@ describe('responsive application navigation', () => {
   it('announces exact unread counts, caps visual badges, and omits zero badges', () => {
     renderNavigation({ messages: 125, notifications: 0 })
 
-    const messages = screen.getByLabelText('消息，125 条未读')
+    const header = screen.getByLabelText('桌面端应用导航')
+    const messages = within(header).getByLabelText('消息，125 条未读')
     expect(within(messages).getByText('99+')).not.toBeNull()
 
-    const notifications = screen.getByLabelText('通知，0 条未读')
+    const notifications = within(header).getByLabelText('通知，0 条未读')
     expect(within(notifications).queryByText('0')).toBeNull()
   })
 
@@ -194,6 +195,61 @@ describe('responsive application navigation', () => {
     await waitFor(() => expect(document.activeElement).toBe(firstItem))
   })
 
+  it('focuses the last menu item when ArrowUp opens the trigger', async () => {
+    renderNavigation()
+    const trigger = screen.getByRole('button', { name: '打开个人菜单' })
+
+    trigger.focus()
+    fireEvent.keyDown(trigger, { key: 'ArrowUp' })
+
+    const lastItem = await screen.findByRole('menuitem', { name: '退出登录' })
+    await waitFor(() => expect(document.activeElement).toBe(lastItem))
+  })
+
+  it('activates a focused link menu item with Space', async () => {
+    renderNavigation()
+    const trigger = screen.getByRole('button', { name: '打开个人菜单' })
+
+    trigger.focus()
+    fireEvent.keyDown(trigger, { key: 'ArrowDown' })
+    const firstItem = await screen.findByRole('menuitem', { name: '我的活动' })
+    await waitFor(() => expect(document.activeElement).toBe(firstItem))
+
+    fireEvent.keyDown(firstItem, { key: ' ' })
+
+    expect(screen.getByLabelText('当前位置').textContent).toBe('/profile?tab=events')
+    expect(screen.queryByRole('menu')).toBeNull()
+  })
+
+  it.each([
+    { direction: 'Tab', shiftKey: false },
+    { direction: 'Shift+Tab', shiftKey: true },
+  ])('closes the menu when $direction leaves it', async ({ shiftKey }) => {
+    renderNavigation()
+    const trigger = screen.getByRole('button', { name: '打开个人菜单' })
+
+    trigger.focus()
+    fireEvent.keyDown(trigger, { key: 'ArrowDown' })
+    const firstItem = await screen.findByRole('menuitem', { name: '我的活动' })
+    await waitFor(() => expect(document.activeElement).toBe(firstItem))
+
+    fireEvent.keyDown(firstItem, { key: 'Tab', shiftKey })
+
+    expect(screen.queryByRole('menu')).toBeNull()
+  })
+
+  it('closes a click-opened menu when Shift+Tab leaves the trigger', () => {
+    renderNavigation()
+    const trigger = screen.getByRole('button', { name: '打开个人菜单' })
+
+    fireEvent.click(trigger)
+    expect(screen.getByRole('menu', { name: '个人菜单' })).not.toBeNull()
+
+    fireEvent.keyDown(trigger, { key: 'Tab', shiftKey: true })
+
+    expect(screen.queryByRole('menu')).toBeNull()
+  })
+
   it('closes the menu after an outside click', () => {
     renderNavigation()
     fireEvent.click(screen.getByRole('button', { name: '打开个人菜单' }))
@@ -233,17 +289,66 @@ describe('responsive application navigation', () => {
     renderNavigation()
 
     const mobile = screen.getByLabelText('移动端主导航')
+    const bar = mobile.firstElementChild
+    expect(bar?.children).toHaveLength(5)
     expect(within(mobile).getAllByRole('link').map((link) => link.textContent)).toEqual([
       '首页',
       '探索',
       '发布',
       '消息',
-      '我的',
     ])
+    expect(within(mobile).getByRole('button', { name: '打开我的菜单' })).not.toBeNull()
     expect(mobile.className).toContain('pb-[env(safe-area-inset-bottom)]')
     expect(
       within(mobile).getByRole('link', { name: '发布' }).getAttribute('data-primary-action'),
     ).toBe('true')
+  })
+
+  it('exposes notifications, tutorial, and matched profile destinations from mobile 我的', () => {
+    renderNavigation({ messages: 0, notifications: 3 })
+
+    fireEvent.click(
+      within(screen.getByLabelText('移动端主导航')).getByRole('button', {
+        name: '打开我的菜单',
+      }),
+    )
+
+    const menu = screen.getByRole('menu', { name: '我的菜单' })
+    const items = within(menu).getAllByRole('menuitem')
+    expect(items.map((item) => item.textContent)).toEqual([
+      '通知',
+      '教程',
+      '我的活动',
+      '我的小组',
+      '查看个人主页',
+      '设置',
+      '退出登录',
+    ])
+    expect(items.slice(0, 6).map((item) => item.getAttribute('href'))).toEqual([
+      '/profile?view=notifications',
+      '/tutorial',
+      '/profile?tab=events',
+      '/profile?tab=groups',
+      '/profile?view=public',
+      '/profile?view=settings',
+    ])
+  })
+
+  it.each([
+    { count: 7, badge: '7' },
+    { count: 125, badge: '99+' },
+    { count: 0, badge: null },
+  ])('announces $count mobile unread messages with badge $badge', ({ count, badge }) => {
+    renderNavigation({ messages: count, notifications: 0 })
+
+    const messages = within(screen.getByLabelText('移动端主导航')).getByRole('link', {
+      name: `消息，${count} 条未读`,
+    })
+    if (badge) {
+      expect(within(messages).getByText(badge)).not.toBeNull()
+    } else {
+      expect(within(messages).queryByText('0')).toBeNull()
+    }
   })
 
   it('refreshes the shared home request when the active home link is selected', () => {
@@ -278,8 +383,15 @@ describe('authenticated application shell', () => {
     )
 
     expect(await screen.findByText('首页读取 2')).not.toBeNull()
-    expect(screen.getByLabelText('消息，2 条未读')).not.toBeNull()
-    expect(screen.getByLabelText('通知，3 条未读')).not.toBeNull()
+    expect(
+      within(screen.getByLabelText('桌面端应用导航')).getByLabelText('消息，2 条未读'),
+    ).not.toBeNull()
+    expect(
+      within(screen.getByLabelText('移动端主导航')).getByLabelText('消息，2 条未读'),
+    ).not.toBeNull()
+    expect(
+      within(screen.getByLabelText('桌面端应用导航')).getByLabelText('通知，3 条未读'),
+    ).not.toBeNull()
     expect(getHomeFeed).toHaveBeenCalledOnce()
   })
 })

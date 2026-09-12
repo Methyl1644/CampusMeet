@@ -87,3 +87,64 @@ The final commit hash is reported in the task handoff because a commit cannot co
 - Vitest emits existing React Router v7 future-flag notices.
 - The full route-guard suite emits jsdom XHR errors when authenticated layouts mount the real aggregate feed request without an API mock. The provider catches those request failures and all 60 configured tests pass; the focused Task 3 suite mocks the request and is clean apart from the router notices.
 - The first two test attempts did not reach Vitest because `npm` was unavailable and the sandbox initially denied linked dependency reads. The same installed Vitest entry was rerun with the bundled Node runtime and required read permission to capture valid RED/GREEN evidence.
+
+## Fix Round 1
+
+### Status
+
+Complete. All three review findings were addressed with test-first changes, and no subagents were dispatched.
+
+### Findings Addressed
+
+- Kept the mobile bottom bar at exactly five top-level cells and adapted the shared `UserMenu` for the fifth `我的` cell. Its accessible mobile menu exposes notifications, tutorial, all four existing matched profile destinations, and logout.
+- Passed the shared unread aggregate into mobile navigation. The mobile message link announces the exact unread count, caps its visual badge at `99+`, and renders no badge at zero through the same badge implementation used on desktop.
+- Completed menu keyboard behavior: ArrowUp opens and focuses the last item, Space activates link menu items, and Tab or Shift+Tab closes from both menu items and a click-focused trigger. Existing Escape close and trigger-focus restoration remain covered.
+
+### Files Changed
+
+- `apps/web/src/components/Navbar.tsx`
+- `apps/web/src/components/navigation/DesktopHeader.tsx`
+- `apps/web/src/components/navigation/MobileNavigation.tsx`
+- `apps/web/src/components/navigation/Navbar.test.tsx`
+- `apps/web/src/components/navigation/UnreadBadge.tsx`
+- `apps/web/src/components/navigation/UserMenu.tsx`
+- `.superpowers/sdd/2026-09-12-home-shell-phase-two/task-3-report.md`
+
+`apps/web/src/pages/Publish.tsx` remains unchanged. Its working-tree and `HEAD` blob hashes are both `63003d7c17537fbb9fe9a244c8a4f0bd36c9f6d2`.
+
+### Red Evidence
+
+The mobile account-menu tests failed before implementation with 2 failures and 10 passes: the fifth cell was still a link and the `打开我的菜单` button did not exist.
+
+The mobile unread matrix then failed before implementation with 3 failures and 12 passes: counts 7, 125, and 0 all exposed only the accessible name `消息` and rendered no badge. After implementing shared unread rendering, two older global queries correctly surfaced as ambiguous because both responsive navigation surfaces now carried the same label; those assertions were scoped to their intended navigation regions.
+
+The keyboard tests failed before implementation with 4 failures and 15 passes: ArrowUp did not open, Space did not navigate, and both Tab directions left the menu open. A final click-opened Shift+Tab regression test separately failed with 1 failure and 19 passes before the trigger path was fixed.
+
+### Green Evidence
+
+Focused navigation verification:
+
+```text
+Test Files  1 passed (1)
+Tests       20 passed (20)
+```
+
+Full configured frontend verification:
+
+```text
+Test Files  10 passed (10)
+Tests       69 passed (69)
+```
+
+TypeScript project verification completed with exit code 0 and no diagnostics. `git diff --check` also completed without whitespace errors.
+
+### Commit
+
+Commit message: `fix: complete navigation access and keyboard behavior`
+
+The final commit hash is reported in the task handoff because a commit cannot contain its own hash.
+
+### Concerns
+
+- Vitest continues to emit the existing React Router v7 future-flag notices.
+- The configured route-guard suite continues to print the existing caught jsdom XHR errors when no API is running; all tests pass.

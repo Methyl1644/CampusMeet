@@ -18,7 +18,7 @@ export default function Navbar({ unread = emptyUnread, onRefreshHome }: NavbarPr
   return (
     <>
       <DesktopHeader unread={unread} user={user} onRefreshHome={onRefreshHome} />
-      <MobileNavigation />
+      <MobileNavigation unread={unread} user={user} />
     </>
   )
 }

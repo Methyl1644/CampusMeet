@@ -1,6 +1,8 @@
 import {
+  Bell,
   CalendarDays,
   ChevronDown,
+  CircleHelp,
   LogOut,
   Settings,
   UserRound,
@@ -18,16 +20,23 @@ import { useAuthStore } from '@/store/authStore'
 
 interface UserMenuProps {
   user: User
+  variant?: 'desktop' | 'mobile'
 }
 
-const menuLinks = [
+const profileLinks = [
   { to: '/profile?tab=events', label: '我的活动', icon: CalendarDays },
   { to: '/profile?tab=groups', label: '我的小组', icon: UsersRound },
   { to: '/profile?view=public', label: '查看个人主页', icon: UserRound },
   { to: '/profile?view=settings', label: '设置', icon: Settings },
 ]
 
-export default function UserMenu({ user }: UserMenuProps) {
+const mobileLinks = [
+  { to: '/profile?view=notifications', label: '通知', icon: Bell },
+  { to: '/tutorial', label: '教程', icon: CircleHelp },
+  ...profileLinks,
+]
+
+export default function UserMenu({ user, variant = 'desktop' }: UserMenuProps) {
   const [open, setOpen] = useState(false)
   const location = useLocation()
   const navigate = useNavigate()
@@ -35,7 +44,8 @@ export default function UserMenu({ user }: UserMenuProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const triggerRef = useRef<HTMLButtonElement>(null)
   const itemRefs = useRef<Array<HTMLAnchorElement | HTMLButtonElement | null>>([])
-  const focusFirstItemRef = useRef(false)
+  const focusItemRef = useRef<number | null>(null)
+  const menuLinks = variant === 'mobile' ? mobileLinks : profileLinks
 
   const closeMenu = () => setOpen(false)
 
@@ -44,15 +54,16 @@ export default function UserMenu({ user }: UserMenuProps) {
     triggerRef.current?.focus()
   }
 
-  const openFromKeyboard = () => {
-    focusFirstItemRef.current = true
+  const openFromKeyboard = (index: number) => {
+    focusItemRef.current = index
     setOpen(true)
   }
 
   useEffect(() => {
-    if (open && focusFirstItemRef.current) {
-      focusFirstItemRef.current = false
-      itemRefs.current[0]?.focus()
+    if (open && focusItemRef.current !== null) {
+      const index = focusItemRef.current
+      focusItemRef.current = null
+      itemRefs.current[index]?.focus()
     }
   }, [open])
 
@@ -86,12 +97,22 @@ export default function UserMenu({ user }: UserMenuProps) {
   }, [open])
 
   const handleTriggerKeyDown = (event: ReactKeyboardEvent<HTMLButtonElement>) => {
-    if (event.key === 'ArrowDown' || event.key === 'Enter' || event.key === ' ') {
+    if (event.key === 'Tab' && open) {
+      closeMenu()
+    } else if (event.key === 'ArrowDown' || event.key === 'Enter' || event.key === ' ') {
       event.preventDefault()
       if (open) {
         itemRefs.current[0]?.focus()
       } else {
-        openFromKeyboard()
+        openFromKeyboard(0)
+      }
+    } else if (event.key === 'ArrowUp') {
+      event.preventDefault()
+      const lastIndex = menuLinks.length
+      if (open) {
+        itemRefs.current[lastIndex]?.focus()
+      } else {
+        openFromKeyboard(lastIndex)
       }
     }
   }
@@ -100,6 +121,18 @@ export default function UserMenu({ user }: UserMenuProps) {
     event: ReactKeyboardEvent<HTMLAnchorElement | HTMLButtonElement>,
     index: number,
   ) => {
+    if (event.key === 'Tab') {
+      closeMenu()
+      return
+    }
+
+    if (event.key === ' ' && event.currentTarget instanceof HTMLAnchorElement) {
+      event.preventDefault()
+      closeMenu()
+      navigate(menuLinks[index].to)
+      return
+    }
+
     if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return
 
     event.preventDefault()
@@ -117,37 +150,56 @@ export default function UserMenu({ user }: UserMenuProps) {
   const avatarFallback = user.nickname.trim().slice(0, 1) || '我'
 
   return (
-    <div ref={containerRef} className="relative ml-1">
+    <div ref={containerRef} className={variant === 'mobile' ? 'relative min-w-0' : 'relative ml-1'}>
       <button
         ref={triggerRef}
         type="button"
-        aria-label="打开个人菜单"
+        aria-label={variant === 'mobile' ? '打开我的菜单' : '打开个人菜单'}
         aria-haspopup="menu"
         aria-expanded={open}
-        title="个人菜单"
+        title={variant === 'mobile' ? '我的' : '个人菜单'}
         onClick={() => setOpen((current) => !current)}
         onKeyDown={handleTriggerKeyDown}
-        className="flex h-11 items-center gap-1 rounded-card px-1.5 text-ink-muted transition duration-fast hover:bg-primary-50 hover:text-primary-700"
+        className={
+          variant === 'mobile'
+            ? 'flex h-16 w-full min-w-0 flex-col items-center justify-center gap-0.5 text-[11px] font-medium text-ink-muted transition-colors duration-fast hover:text-primary-700'
+            : 'flex h-11 items-center gap-1 rounded-card px-1.5 text-ink-muted transition duration-fast hover:bg-primary-50 hover:text-primary-700'
+        }
       >
-        {user.avatar ? (
-          <img
-            src={user.avatar}
-            alt=""
-            className="size-8 rounded-full border border-stone object-cover"
-          />
+        {variant === 'mobile' ? (
+          <>
+            <span className="flex size-7 shrink-0 items-center justify-center">
+              <UserRound aria-hidden="true" className="size-5" />
+            </span>
+            <span className="w-full truncate px-1 text-center">我的</span>
+          </>
         ) : (
-          <span className="flex size-8 items-center justify-center rounded-full bg-primary-100 text-sm font-semibold text-primary-800">
-            {avatarFallback}
-          </span>
+          <>
+            {user.avatar ? (
+              <img
+                src={user.avatar}
+                alt=""
+                className="size-8 rounded-full border border-stone object-cover"
+              />
+            ) : (
+              <span className="flex size-8 items-center justify-center rounded-full bg-primary-100 text-sm font-semibold text-primary-800">
+                {avatarFallback}
+              </span>
+            )}
+            <ChevronDown aria-hidden="true" className="size-4" />
+          </>
         )}
-        <ChevronDown aria-hidden="true" className="size-4" />
       </button>
 
       {open && (
         <div
           role="menu"
-          aria-label="个人菜单"
-          className="absolute right-0 top-[calc(100%+0.5rem)] w-52 overflow-hidden rounded-card border border-stone bg-paper py-1.5 shadow-lg"
+          aria-label={variant === 'mobile' ? '我的菜单' : '个人菜单'}
+          className={`absolute right-0 w-52 overflow-y-auto rounded-card border border-stone bg-paper py-1.5 shadow-lg ${
+            variant === 'mobile'
+              ? 'bottom-[calc(100%+0.5rem)] max-h-[calc(100dvh-6rem-env(safe-area-inset-bottom))]'
+              : 'top-[calc(100%+0.5rem)]'
+          }`}
         >
           {menuLinks.map(({ to, label, icon: Icon }, index) => (
             <Link
