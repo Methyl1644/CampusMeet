@@ -278,6 +278,7 @@ export interface TaskItem {
   title: string;
   assignee_id?: string;
   assignee_name?: string;
+  due_at?: string;
   deadline?: string;
   done: boolean;
 }
