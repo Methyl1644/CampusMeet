@@ -9,8 +9,11 @@ import {
   ListChecks,
   MessageCircle,
   Phone,
+  RefreshCw,
+  Sparkles,
   Users,
 } from 'lucide-react'
+import { generateTeamPlan } from '@/api/agent'
 import { getTeamDetail, updateTask } from '@/api/teams'
 import type { Team } from '@shared/types'
 import Loading from '@/components/Loading'
@@ -24,6 +27,7 @@ export default function TeamDetail() {
 
   const [team, setTeam] = useState<Team | null>(null)
   const [loading, setLoading] = useState(true)
+  const [generatingPlan, setGeneratingPlan] = useState(false)
 
   useEffect(() => {
     if (!id) return
@@ -74,6 +78,39 @@ export default function TeamDetail() {
     })
   }
 
+  const hasTeamPlan = Boolean(
+    team &&
+      (team.division_of_labor.length > 0 ||
+        team.meeting_agenda.length > 0 ||
+        team.task_list.length > 0 ||
+        team.risk_reminders.length > 0),
+  )
+
+  const handleGeneratePlan = async () => {
+    if (!team || generatingPlan) return
+    const isRegeneration = hasTeamPlan
+    setGeneratingPlan(true)
+    try {
+      const plan = await generateTeamPlan(team.id)
+      setTeam((current) =>
+        current
+          ? {
+              ...current,
+              division_of_labor: plan.division_of_labor,
+              meeting_agenda: plan.meeting_agenda,
+              task_list: plan.task_list,
+              risk_reminders: plan.risk_reminders,
+            }
+          : current,
+      )
+      showToast(isRegeneration ? '团队规划已重新生成' : '团队规划已生成', 'success')
+    } catch {
+      showToast('规划生成失败，已保留当前内容，请稍后重试', 'error')
+    } finally {
+      setGeneratingPlan(false)
+    }
+  }
+
   if (loading) return <Loading />
   if (!team) {
     return (
@@ -103,9 +140,28 @@ export default function TeamDetail() {
             </h1>
             <p className="mt-2 text-sm text-ink-muted">建立于 {team.created_at || '暂无'}</p>
           </div>
-          <span className="text-sm font-semibold tabular-nums text-campus-green">
-            {team.members.length} 位成员
-          </span>
+          <div className="flex flex-wrap items-center justify-end gap-3">
+            <span className="text-sm font-semibold tabular-nums text-campus-green">
+              {team.members.length} 位成员
+            </span>
+            <button
+              type="button"
+              onClick={handleGeneratePlan}
+              disabled={generatingPlan}
+              className="btn-secondary min-h-10 whitespace-nowrap px-3"
+            >
+              {generatingPlan ? (
+                <RefreshCw aria-hidden="true" size={16} className="animate-spin" />
+              ) : (
+                <Sparkles aria-hidden="true" size={16} />
+              )}
+              {generatingPlan
+                ? '正在生成...'
+                : hasTeamPlan
+                  ? '重新生成规划'
+                  : '生成团队规划'}
+            </button>
+          </div>
         </div>
       </Reveal>
 
@@ -209,7 +265,7 @@ export default function TeamDetail() {
                       </span>
                       <div className="mt-0.5 flex flex-wrap gap-x-4 gap-y-1 text-xs text-ink-muted">
                         <span>负责人：{task.assignee_name || '暂无'}</span>
-                        <span>截止：{task.deadline || '暂无'}</span>
+                        <span>截止：{task.due_at || task.deadline || '暂无'}</span>
                       </div>
                     </div>
                   </button>

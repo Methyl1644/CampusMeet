@@ -598,6 +598,33 @@ test('team detail keeps planning controls and locked contact disclosure stable',
   assert.match(teamDetailSource, /team\.contact_info\.length\s*>\s*0/)
 })
 
+test('team detail exposes the deployed AI team-plan workflow with resilient feedback', () => {
+  assert.match(
+    teamDetailSource,
+    /import\s+\{\s*generateTeamPlan\s*\}\s+from\s+['"]@\/api\/agent['"]/,
+    'TeamDetail must use the shared team-plan API client',
+  )
+  assert.match(
+    teamDetailSource,
+    /const\s+handleGeneratePlan\s*=\s*async[\s\S]*?await\s+generateTeamPlan\(team\.id\)/,
+    'TeamDetail must call the deployed team-plan endpoint for the current team',
+  )
+  assert.match(
+    teamDetailSource,
+    /setTeam\(\(current\)[\s\S]*?division_of_labor:\s*plan\.division_of_labor[\s\S]*?meeting_agenda:\s*plan\.meeting_agenda[\s\S]*?task_list:\s*plan\.task_list[\s\S]*?risk_reminders:\s*plan\.risk_reminders/,
+    'A generated plan must refresh every planning section together',
+  )
+  assert.match(teamDetailSource, /生成团队规划/)
+  assert.match(teamDetailSource, /重新生成规划/)
+  assert.match(teamDetailSource, /disabled=\{generatingPlan\}/, 'Duplicate requests must be disabled')
+  assert.match(teamDetailSource, /规划生成失败/, 'The workflow call needs an error boundary')
+  assert.match(
+    teamDetailSource,
+    /task\.due_at\s*\|\|\s*task\.deadline/,
+    'Generated due_at values must remain visible alongside legacy deadline values',
+  )
+})
+
 test('profile preserves editing, underline tabs, records, stats, and logout', () => {
   assert.match(
     profileSource,
