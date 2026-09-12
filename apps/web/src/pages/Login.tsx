@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { ArrowLeft, ArrowRight, Mail } from 'lucide-react'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import { useNavigate } from 'react-router-dom'
-import { sendCode, register, login } from '@/api/auth'
+import { sendCode, register, login, resetPassword } from '@/api/auth'
 import { getApiErrorMessage, getCodeSentMessage } from '@/api/auth-feedback'
 import CampusMark from '@/components/CampusMark'
 import { useToast } from '@/components/Toast'
@@ -10,12 +10,13 @@ import { useAuthStore } from '@/store/authStore'
 import { COMMON_SKILLS } from '@shared/constants'
 import type { User } from '@shared/types'
 
-type Step = 'login' | 'register' | 'profile'
+type Step = 'login' | 'register' | 'profile' | 'reset'
 
 const STEP_INDEX: Record<Step, number> = {
   login: 0,
   register: 0,
   profile: 1,
+  reset: 0,
 }
 
 const REGISTRATION_STEPS = ['校园账户', '完善资料']
@@ -53,11 +54,14 @@ export default function Login() {
   const [account, setAccount] = useState('')
   const [code, setCode] = useState('')
   const [password, setPassword] = useState('')
+  const [newPassword, setNewPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
   const [codeCooldown, setCodeCooldown] = useState(0)
   const [sendingCode, setSendingCode] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const primaryCodeRequestGeneration = useRef(0)
   const primaryAuthPurpose = useRef<'login' | 'register'>('login')
+  const resetCodeRequestGeneration = useRef(0)
 
   const [nickname, setNickname] = useState('')
   const [major, setMajor] = useState('')
@@ -78,16 +82,28 @@ export default function Login() {
     const switchingAuthPurpose =
       (step === 'login' && nextStep === 'register') ||
       (step === 'register' && nextStep === 'login')
+    const leavingPrimaryAuth =
+      (step === 'login' || step === 'register') && nextStep === 'reset'
+    const leavingReset = step === 'reset' && nextStep !== 'reset'
 
     if (nextStep === 'login' || nextStep === 'register') {
       primaryAuthPurpose.current = nextStep
     }
 
-    if (switchingAuthPurpose) {
+    if (switchingAuthPurpose || leavingPrimaryAuth) {
       primaryCodeRequestGeneration.current += 1
       setCode('')
       setCodeCooldown(0)
       setSendingCode(false)
+    }
+
+    if (leavingReset) {
+      resetCodeRequestGeneration.current += 1
+      setCode('')
+      setCodeCooldown(0)
+      setSendingCode(false)
+      setNewPassword('')
+      setConfirmPassword('')
     }
 
     setStageDirection(
@@ -162,6 +178,57 @@ export default function Login() {
     }
   }
 
+  const handleSendResetCode = async () => {
+    if (!isNjuCampusEmail(account)) {
+      showToast('请输入注册时使用的南京大学邮箱', 'error')
+      return
+    }
+    const requestGeneration = ++resetCodeRequestGeneration.current
+    setSendingCode(true)
+    try {
+      const result = await sendCode(account, 'reset_password')
+      if (resetCodeRequestGeneration.current !== requestGeneration) return
+      setCodeCooldown(result.retry_after_seconds ?? 60)
+      showToast(getCodeSentMessage(result), 'success')
+    } catch (error) {
+      if (resetCodeRequestGeneration.current !== requestGeneration) return
+      showToast(getApiErrorMessage(error, '重置验证码发送失败，请稍后重试'), 'error')
+    } finally {
+      if (resetCodeRequestGeneration.current === requestGeneration) setSendingCode(false)
+    }
+  }
+
+  const handleResetPassword = async () => {
+    if (!isNjuCampusEmail(account)) {
+      showToast('请输入注册时使用的南京大学邮箱', 'error')
+      return
+    }
+    if (!code || !newPassword || !confirmPassword) {
+      showToast('请填写验证码和两次新密码', 'error')
+      return
+    }
+    if (newPassword.length < 8 || !/[A-Za-z]/.test(newPassword) || !/\d/.test(newPassword)) {
+      showToast('密码至少 8 位，并同时包含字母和数字', 'error')
+      return
+    }
+    if (newPassword !== confirmPassword) {
+      showToast('两次输入的新密码不一致', 'error')
+      return
+    }
+
+    setSubmitting(true)
+    try {
+      await resetPassword({ account, code, new_password: newPassword })
+      showToast('密码已重置，请使用新密码登录', 'success')
+      setPassword('')
+      goToStep('login')
+    } catch (error) {
+      showToast(getApiErrorMessage(error, '密码重置失败，请检查验证码'), 'error')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
   const handleRegister = async () => {
     if (!validateRegistrationAccount()) return
     setSubmitting(true)
@@ -218,14 +285,17 @@ export default function Login() {
 
           <div className="mb-7 border-b border-stone pb-5">
             <p className="section-label mb-3">
-              {step === 'login'
-                ? '校园账户'
-                : `注册进度 ${registrationStage + 1} / ${REGISTRATION_STEPS.length}`}
+              {step === 'reset'
+                ? '找回账号'
+                : step === 'login'
+                  ? '校园账户'
+                  : `注册进度 ${registrationStage + 1} / ${REGISTRATION_STEPS.length}`}
             </p>
             <h2 className="text-2xl font-semibold text-ink sm:text-3xl">
               {step === 'login' && '欢迎回来'}
               {step === 'register' && '创建账号'}
               {step === 'profile' && '完善个人资料'}
+              {step === 'reset' && '重置密码'}
             </h2>
           </div>
 
@@ -325,9 +395,20 @@ export default function Login() {
                   </div>
 
                   <div>
-                    <label htmlFor="auth-password" className="mb-1.5 block text-sm font-medium text-ink">
-                      {step === 'login' ? '密码' : '设置密码'}
-                    </label>
+                    <div className="mb-1.5 flex items-center justify-between gap-3">
+                      <label htmlFor="auth-password" className="block text-sm font-medium text-ink">
+                        {step === 'login' ? '密码' : '设置密码'}
+                      </label>
+                      {step === 'login' && (
+                        <button
+                          type="button"
+                          onClick={() => goToStep('reset')}
+                          className="text-xs font-semibold text-primary-700 transition-colors hover:text-primary-900"
+                        >
+                          忘记密码？
+                        </button>
+                      )}
+                    </div>
                     <input
                       id="auth-password"
                       type="password"
@@ -359,6 +440,108 @@ export default function Login() {
                       </button>
                     </div>
                   )}
+                </div>
+              )}
+
+              {step === 'reset' && (
+                <div className="space-y-4">
+                  <div>
+                    <label htmlFor="reset-account" className="mb-1.5 block text-sm font-medium text-ink">
+                      南京大学邮箱
+                    </label>
+                    <div className="relative">
+                      <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-muted">
+                        <Mail aria-hidden="true" size={16} />
+                      </span>
+                      <input
+                        id="reset-account"
+                        type="email"
+                        value={account}
+                        onChange={(event) => setAccount(event.target.value)}
+                        autoComplete="email"
+                        placeholder="学号@smail.nju.edu.cn"
+                        className="input-base min-w-0 pl-9"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label htmlFor="reset-code" className="mb-1.5 block text-sm font-medium text-ink">
+                      邮箱验证码
+                    </label>
+                    <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-2">
+                      <input
+                        id="reset-code"
+                        type="text"
+                        inputMode="numeric"
+                        value={code}
+                        onChange={(event) => setCode(event.target.value)}
+                        autoComplete="one-time-code"
+                        className="input-base min-w-0"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleSendResetCode}
+                        disabled={sendingCode || codeCooldown > 0}
+                        className="btn-secondary min-w-[6.5rem] whitespace-nowrap px-3"
+                      >
+                        {sendingCode
+                          ? '发送中...'
+                          : codeCooldown > 0
+                            ? `${codeCooldown}s 后重发`
+                            : '获取验证码'}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label htmlFor="reset-password" className="mb-1.5 block text-sm font-medium text-ink">
+                      新密码
+                    </label>
+                    <input
+                      id="reset-password"
+                      type="password"
+                      value={newPassword}
+                      onChange={(event) => setNewPassword(event.target.value)}
+                      autoComplete="new-password"
+                      className="input-base"
+                    />
+                    <p className="mt-1.5 text-xs text-ink-muted">至少 8 位，同时包含字母和数字</p>
+                  </div>
+
+                  <div>
+                    <label htmlFor="reset-password-confirm" className="mb-1.5 block text-sm font-medium text-ink">
+                      再次输入新密码
+                    </label>
+                    <input
+                      id="reset-password-confirm"
+                      type="password"
+                      value={confirmPassword}
+                      onChange={(event) => setConfirmPassword(event.target.value)}
+                      autoComplete="new-password"
+                      className="input-base"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => goToStep('login')}
+                      className="btn-secondary min-h-11"
+                    >
+                      <ArrowLeft aria-hidden="true" size={16} />
+                      返回登录
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleResetPassword}
+                      disabled={submitting}
+                      className="btn-primary min-h-11"
+                    >
+                      {submitting ? '处理中...' : '重置密码'}
+                      <ArrowRight aria-hidden="true" size={16} />
+                    </button>
+                  </div>
                 </div>
               )}
 
@@ -454,7 +637,7 @@ export default function Login() {
                 </div>
               )}
 
-              {step !== 'login' && (
+              {(step === 'register' || step === 'profile') && (
                 <nav className="mt-8 border-t border-stone pt-5" aria-label="注册进度">
                   <ol className="grid grid-cols-2">
                     {REGISTRATION_STEPS.map((label, index) => {

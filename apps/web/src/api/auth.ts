@@ -1,9 +1,15 @@
 import { post, get, patch } from './client'
 import { API_PATHS } from '@shared/constants'
-import type { AuthResponse, LoginRequest, RegisterRequest, User } from '@shared/types'
+import type {
+  AuthResponse,
+  LoginRequest,
+  PasswordResetRequest,
+  RegisterRequest,
+  User,
+} from '@shared/types'
 import type { VerificationCodeResponse } from './auth-feedback'
 
-export type VerificationCodePurpose = 'register' | 'login' | 'campus_verify'
+export type VerificationCodePurpose = 'register' | 'login' | 'campus_verify' | 'reset_password'
 
 /** 发送验证码 */
 export function sendCode(account: string, purpose: VerificationCodePurpose = 'register') {
@@ -18,6 +24,11 @@ export function register(data: RegisterRequest) {
 /** 登录 */
 export function login(data: LoginRequest) {
   return post<AuthResponse>(API_PATHS.auth.login, data)
+}
+
+/** 通过邮箱验证码重置密码 */
+export function resetPassword(data: PasswordResetRequest) {
+  return post<null>(API_PATHS.auth.resetPassword, data)
 }
 
 /** 校园邮箱认证 */

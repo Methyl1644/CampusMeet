@@ -38,6 +38,10 @@ const apiClientSource = readFileSync(
   new URL('../api/client.ts', import.meta.url),
   'utf8',
 )
+const authApiSource = readFileSync(
+  new URL('../api/auth.ts', import.meta.url),
+  'utf8',
+)
 const postDetailSource = readFileSync(
   new URL('../pages/PostDetail.tsx', import.meta.url),
   'utf8',
@@ -319,7 +323,7 @@ test('authentication keeps every stage inside the approved campus composition', 
   )
   assert.match(
     loginSource,
-    /step\s*!==\s*['"]login['"][\s\S]*?aria-label=['"]注册进度['"]/,
+    /step\s*===\s*['"]register['"]\s*\|\|\s*step\s*===\s*['"]profile['"][\s\S]*?aria-label=['"]注册进度['"]/,
     'Only registration stages may render the horizontal progress line',
   )
   assert.match(
@@ -414,7 +418,7 @@ test('authentication clears purpose-specific OTP state when switching modes', ()
   )
   assert.match(
     loginSource,
-    /if\s*\(switchingAuthPurpose\)\s*\{[\s\S]*?setCode\(['"]['"]\)[\s\S]*?setCodeCooldown\(0\)[\s\S]*?\}/,
+    /if\s*\(switchingAuthPurpose\s*\|\|\s*leavingPrimaryAuth\)\s*\{[\s\S]*?setCode\(['"]['"]\)[\s\S]*?setCodeCooldown\(0\)[\s\S]*?\}/,
     'Purpose changes must clear the OTP value and resend cooldown together',
   )
 })
@@ -437,6 +441,40 @@ test('manual draft edits synchronize meaningful field state for the next AI requ
   )
 })
 
+test('authentication exposes a complete password reset flow', () => {
+  assert.match(
+    loginSource,
+    /type\s+Step\s*=\s*[^\n]*['"]reset['"]/,
+    'Authentication needs a dedicated password reset stage',
+  )
+  assert.match(loginSource, />\s*忘记密码？\s*</, 'Login must expose the reset entry')
+  assert.match(
+    loginSource,
+    /sendCode\(account,\s*['"]reset_password['"]\)/,
+    'Password reset codes must use the reset_password purpose',
+  )
+  assert.match(
+    loginSource,
+    /newPassword\s*!==\s*confirmPassword/,
+    'Password reset must reject mismatched confirmation values',
+  )
+  assert.match(
+    loginSource,
+    /await\s+resetPassword\(\{[\s\S]*?account[\s\S]*?code[\s\S]*?new_password:\s*newPassword[\s\S]*?\}\)/,
+    'Password reset must call the deployed endpoint with its full payload',
+  )
+  assert.match(
+    loginSource,
+    /密码已重置[\s\S]*?goToStep\(['"]login['"]\)/,
+    'A successful reset must return the user to login',
+  )
+  assert.match(
+    authApiSource,
+    /export\s+function\s+resetPassword[\s\S]*?API_PATHS\.auth\.resetPassword/,
+    'The frontend auth client must expose the reset-password endpoint',
+  )
+})
+
 test('primary auth code sends ignore stale completions after a purpose switch', () => {
   assert.match(
     loginSource,
@@ -450,7 +488,7 @@ test('primary auth code sends ignore stale completions after a purpose switch', 
   )
   assert.match(
     loginSource,
-    /if\s*\(switchingAuthPurpose\)\s*\{[\s\S]*?primaryCodeRequestGeneration\.current\s*\+=\s*1[\s\S]*?setCode\(['"]['"]\)[\s\S]*?setCodeCooldown\(0\)[\s\S]*?setSendingCode\(false\)[\s\S]*?\}/,
+    /if\s*\(switchingAuthPurpose\s*\|\|\s*leavingPrimaryAuth\)\s*\{[\s\S]*?primaryCodeRequestGeneration\.current\s*\+=\s*1[\s\S]*?setCode\(['"]['"]\)[\s\S]*?setCodeCooldown\(0\)[\s\S]*?setSendingCode\(false\)[\s\S]*?\}/,
     'A purpose switch must invalidate requests and clear all primary code-send UI state',
   )
   assert.match(
