@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class SendCodeRequest(BaseModel):
@@ -51,3 +51,19 @@ class ProfileUpdateRequest(BaseModel):
     grade: str = Field(default="", max_length=40)
     skills: list[str] | str = Field(default_factory=list)
     wechat: str = Field(default="", max_length=80)
+
+
+class OnboardingUpdateRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    step: int = Field(ge=1, le=6)
+    nickname: str | None = Field(default=None, max_length=40)
+    avatar: str | None = Field(default=None, max_length=500)
+    major: str | None = Field(default=None, max_length=80)
+    grade: str | None = Field(default=None, max_length=40)
+    interests: list[str] | None = Field(default=None, max_length=30)
+    looking_for: list[str] | None = Field(default=None, max_length=12)
+    skills: list[str] | None = Field(default=None, max_length=30)
+    availability: dict[str, object] | None = None
+    bio: str | None = Field(default=None, max_length=500)
+    profile_visibility: dict[str, bool] | None = None

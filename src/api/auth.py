@@ -14,6 +14,7 @@ from api.schemas.auth import (
     RegisterRequest,
     SendCodeRequest,
     ProfileUpdateRequest,
+    OnboardingUpdateRequest,
 )
 from services.auth_lifecycle import (
     account_request_to_dict,
@@ -25,6 +26,11 @@ from services.auth_lifecycle import (
     utcnow,
 )
 from services.identity import identity_summary
+from services.onboarding import (
+    complete_onboarding,
+    onboarding_to_dict,
+    update_onboarding,
+)
 from storage.database.db import get_session
 from storage.database.models import AccountRequest, User
 from tools.auth_tools import (
@@ -127,6 +133,63 @@ def update_profile(body: ProfileUpdateRequest, user_id: str = Depends(current_us
         },
     )
     return parse_tool_result(raw, "user")
+
+
+@router.get("/onboarding")
+def get_onboarding(user_id: str = Depends(current_user_id)) -> dict[str, Any]:
+    session = get_session()
+    try:
+        user = session.get(User, int(user_id))
+        if user is None:
+            raise HTTPException(status_code=404, detail="用户不存在")
+        return api_ok(onboarding_to_dict(user))
+    finally:
+        session.close()
+
+
+@router.patch("/onboarding")
+def patch_onboarding(
+    body: OnboardingUpdateRequest,
+    user_id: str = Depends(current_user_id),
+) -> dict[str, Any]:
+    session = get_session()
+    try:
+        user = session.get(User, int(user_id))
+        if user is None:
+            raise HTTPException(status_code=404, detail="用户不存在")
+        try:
+            data = update_onboarding(
+                session,
+                user,
+                body.model_dump(exclude_unset=True),
+            )
+        except ValueError as exc:
+            session.rollback()
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        session.commit()
+        return api_ok(data)
+    finally:
+        session.close()
+
+
+@router.post("/onboarding/complete")
+def finish_onboarding(
+    user_id: str = Depends(current_user_id),
+) -> dict[str, Any]:
+    session = get_session()
+    try:
+        user = session.get(User, int(user_id))
+        if user is None:
+            raise HTTPException(status_code=404, detail="用户不存在")
+        try:
+            data = complete_onboarding(session, user)
+        except ValueError as exc:
+            session.rollback()
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        session.commit()
+        return api_ok(data)
+    finally:
+        session.close()
 
 
 @router.post("/logout")

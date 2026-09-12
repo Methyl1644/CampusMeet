@@ -17,6 +17,7 @@ from utils.auth import hash_password, verify_password, generate_verification_cod
 from utils.email_sender import send_verification_email, is_email
 from services.abuse_monitoring import check_and_record
 from services.auth_lifecycle import issue_access_token, validate_password
+from services.onboarding import onboarding_to_dict
 
 logger = logging.getLogger(__name__)
 
@@ -133,23 +134,11 @@ def _invalidate_verification_code(verification_code_id: int) -> None:
 
 def _user_to_dict(user: User) -> dict:
     """将 User 对象转为字典"""
-    return {
+    payload = {
         "id": str(user.id),
         "email": user.email,
         "phone": user.phone,
         "wechat": user.wechat,
-        "nickname": user.nickname,
-        "avatar": user.avatar,
-        "major": user.major,
-        "grade": user.grade,
-        "onboarding_step": user.onboarding_step,
-        "onboarding_completed": user.onboarding_completed_at is not None,
-        "bio": user.bio,
-        "interests": user.interests or [],
-        "looking_for": user.looking_for or [],
-        "availability": user.availability or {},
-        "profile_visibility": user.profile_visibility or {},
-        "skills": user.skills or [],
         "auth_status": user.auth_status,
         "site_role": user.site_role,
         "account_status": user.account_status,
@@ -157,6 +146,8 @@ def _user_to_dict(user: User) -> dict:
         "post_count": user.post_count,
         "team_count": user.team_count,
     }
+    payload.update(onboarding_to_dict(user))
+    return payload
 
 
 def _user_brief(user: User) -> dict:
