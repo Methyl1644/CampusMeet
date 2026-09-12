@@ -46,6 +46,65 @@ def test_alembic_upgrade_adopts_an_existing_schema_without_recreating_tables(tmp
     assert "alembic_version" in inspector.get_table_names()
 
 
+def test_auth_onboarding_migration_adds_user_profile_columns(tmp_path):
+    database_url = f"sqlite:///{tmp_path / 'onboarding.db'}"
+    engine = create_engine(database_url)
+    with engine.begin() as connection:
+        connection.execute(
+            text(
+                "CREATE TABLE users ("
+                "id INTEGER PRIMARY KEY, nickname TEXT NOT NULL, major TEXT, grade TEXT)"
+            )
+        )
+    command.stamp(_alembic_config(database_url), "20260912_09")
+
+    command.upgrade(_alembic_config(database_url), "head")
+
+    names = {item["name"] for item in inspect(engine).get_columns("users")}
+    assert {
+        "onboarding_step",
+        "onboarding_completed_at",
+        "bio",
+        "interests",
+        "looking_for",
+        "availability",
+        "profile_visibility",
+    } <= names
+
+
+def test_auth_onboarding_migration_backfills_only_complete_profiles(tmp_path):
+    database_url = f"sqlite:///{tmp_path / 'onboarding-backfill.db'}"
+    engine = create_engine(database_url)
+    with engine.begin() as connection:
+        connection.execute(
+            text(
+                "CREATE TABLE users ("
+                "id INTEGER PRIMARY KEY, nickname TEXT NOT NULL, major TEXT, grade TEXT)"
+            )
+        )
+        connection.execute(
+            text(
+                "INSERT INTO users (id, nickname, major, grade) VALUES "
+                "(1, 'Complete', 'Software', '2026'), "
+                "(2, 'Blank', '   ', '2026')"
+            )
+        )
+    command.stamp(_alembic_config(database_url), "20260912_09")
+
+    command.upgrade(_alembic_config(database_url), "head")
+
+    with engine.connect() as connection:
+        rows = connection.execute(
+            text(
+                "SELECT id, onboarding_step, onboarding_completed_at, interests, looking_for, "
+                "availability, profile_visibility FROM users ORDER BY id"
+            )
+        ).all()
+    assert rows[0][1:] == (1, rows[0].onboarding_completed_at, "[]", "[]", "{}", "{}")
+    assert rows[0].onboarding_completed_at is not None
+    assert rows[1][1:] == (1, None, "[]", "[]", "{}", "{}")
+
+
 def test_identity_migration_preserves_legacy_organization_application_rows(tmp_path):
     database_url = f"sqlite:///{tmp_path / 'legacy-identity.db'}"
     engine = create_engine(database_url)
