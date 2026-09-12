@@ -22,6 +22,17 @@ ROOT = Path(__file__).resolve().parents[1]
 EXPECTED_TABLES = set(Base.metadata.tables)
 
 
+def _load_migration(module_name: str, filename: str):
+    spec = importlib.util.spec_from_file_location(
+        module_name,
+        ROOT / "migrations" / "versions" / filename,
+    )
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
 def _alembic_config(database_url: str) -> Config:
     config = Config(str(ROOT / "alembic.ini"))
     config.set_main_option("script_location", str(ROOT / "migrations"))
@@ -312,8 +323,9 @@ def test_team_task_bound_migration_trims_legacy_json_and_enforces_the_cap(tmp_pa
 
 
 def test_postgresql_task_migration_replaces_restores_and_reapplies_constraint(monkeypatch):
-    migration = importlib.import_module(
-        "migrations.versions.20260913_13_bound_team_task_payload_bytes"
+    migration = _load_migration(
+        "migration_20260913_13",
+        "20260913_13_bound_team_task_payload_bytes.py",
     )
     events = []
 
@@ -404,6 +416,149 @@ def test_postgresql_task_migration_replaces_restores_and_reapplies_constraint(mo
         migration.CONSTRAINT_NAME,
         migration.POSTGRESQL_TEAM_TASK_CHECK,
     )
+
+
+def _create_phase_two_participation_schema(engine, *, dirty_fields: bool = False) -> None:
+    with engine.begin() as connection:
+        connection.execute(text("CREATE TABLE users (id INTEGER PRIMARY KEY)"))
+        if dirty_fields:
+            connection.execute(
+                text(
+                    "CREATE TABLE topics ("
+                    "id INTEGER PRIMARY KEY, title TEXT NOT NULL, location_name TEXT, "
+                    "campus_scope TEXT, capacity INTEGER, participation_mode TEXT)"
+                )
+            )
+            connection.execute(
+                text(
+                    "CREATE TABLE posts ("
+                    "id INTEGER PRIMARY KEY, title TEXT NOT NULL, topic_id INTEGER, status TEXT NOT NULL, "
+                    "cover_url TEXT, purpose TEXT, join_mode TEXT)"
+                )
+            )
+        else:
+            connection.execute(
+                text("CREATE TABLE topics (id INTEGER PRIMARY KEY, title TEXT NOT NULL)")
+            )
+            connection.execute(
+                text(
+                    "CREATE TABLE posts ("
+                    "id INTEGER PRIMARY KEY, title TEXT NOT NULL, topic_id INTEGER, status TEXT NOT NULL)"
+                )
+            )
+        connection.execute(text("INSERT INTO users (id) VALUES (1), (2)"))
+
+
+def test_explore_participation_migration_preserves_legacy_rows_and_is_reversible(tmp_path):
+    database_url = f"sqlite:///{tmp_path / 'explore-participation.db'}"
+    engine = create_engine(database_url)
+    _create_phase_two_participation_schema(engine)
+    with engine.begin() as connection:
+        connection.execute(
+            text("INSERT INTO topics (id, title) VALUES (10, 'Legacy activity')")
+        )
+        connection.execute(
+            text(
+                "INSERT INTO posts (id, title, topic_id, status) VALUES "
+                "(20, 'Legacy group', 10, 'recruiting')"
+            )
+        )
+    config = _alembic_config(database_url)
+    command.stamp(config, "20260913_13")
+
+    command.upgrade(config, "head")
+
+    inspector = inspect(engine)
+    assert {
+        "location_name",
+        "campus_scope",
+        "capacity",
+        "participation_mode",
+    } <= {item["name"] for item in inspector.get_columns("topics")}
+    assert {"cover_url", "purpose", "join_mode"} <= {
+        item["name"] for item in inspector.get_columns("posts")
+    }
+    assert "post_bookmarks" in inspector.get_table_names()
+    assert "uq_posts_effective_official_signup_topic" in {
+        item["name"] for item in inspector.get_indexes("posts")
+    }
+    with engine.connect() as connection:
+        topic = connection.execute(
+            text("SELECT title, capacity, participation_mode FROM topics WHERE id = 10")
+        ).one()
+        post = connection.execute(
+            text("SELECT title, purpose, join_mode FROM posts WHERE id = 20")
+        ).one()
+        revision = connection.execute(
+            text("SELECT version_num FROM alembic_version")
+        ).scalar_one()
+    assert tuple(topic) == ("Legacy activity", None, "open_team")
+    assert tuple(post) == ("Legacy group", "team_recruitment", "application")
+    assert revision == "20260913_14"
+
+    command.downgrade(config, "20260913_13")
+
+    inspector = inspect(engine)
+    assert "post_bookmarks" not in inspector.get_table_names()
+    assert "participation_mode" not in {
+        item["name"] for item in inspector.get_columns("topics")
+    }
+    assert "purpose" not in {item["name"] for item in inspector.get_columns("posts")}
+    with engine.connect() as connection:
+        assert connection.execute(text("SELECT title FROM topics WHERE id = 10")).scalar_one() == "Legacy activity"
+        assert connection.execute(text("SELECT title FROM posts WHERE id = 20")).scalar_one() == "Legacy group"
+
+    command.upgrade(config, "head")
+
+    with engine.connect() as connection:
+        assert connection.execute(
+            text("SELECT participation_mode FROM topics WHERE id = 10")
+        ).scalar_one() == "open_team"
+        assert connection.execute(
+            text("SELECT purpose || ':' || join_mode FROM posts WHERE id = 20")
+        ).scalar_one() == "team_recruitment:application"
+
+
+def test_explore_participation_migration_sanitizes_legacy_values_before_checks(tmp_path):
+    database_url = f"sqlite:///{tmp_path / 'explore-participation-dirty.db'}"
+    engine = create_engine(database_url)
+    _create_phase_two_participation_schema(engine, dirty_fields=True)
+    with engine.begin() as connection:
+        connection.execute(
+            text(
+                "INSERT INTO topics "
+                "(id, title, capacity, participation_mode) "
+                "VALUES (10, 'Dirty activity', -50, 'legacy_mode')"
+            )
+        )
+        connection.execute(
+            text(
+                "INSERT INTO posts "
+                "(id, title, topic_id, status, purpose, join_mode) "
+                "VALUES (20, 'Dirty group', 10, 'recruiting', 'legacy_purpose', 'legacy_join')"
+            )
+        )
+    config = _alembic_config(database_url)
+    command.stamp(config, "20260913_13")
+
+    command.upgrade(config, "head")
+
+    with engine.connect() as connection:
+        topic = connection.execute(
+            text("SELECT title, capacity, participation_mode FROM topics WHERE id = 10")
+        ).one()
+        post = connection.execute(
+            text("SELECT title, purpose, join_mode FROM posts WHERE id = 20")
+        ).one()
+    assert tuple(topic) == ("Dirty activity", None, "open_team")
+    assert tuple(post) == ("Dirty group", "team_recruitment", "application")
+    assert {
+        "ck_topics_participation_mode",
+        "ck_topics_capacity_positive",
+    } <= {item["name"] for item in inspect(engine).get_check_constraints("topics")}
+    assert {"ck_posts_purpose", "ck_posts_join_mode"} <= {
+        item["name"] for item in inspect(engine).get_check_constraints("posts")
+    }
 
 
 def test_identity_migration_preserves_legacy_organization_application_rows(tmp_path):

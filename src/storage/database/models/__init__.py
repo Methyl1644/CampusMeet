@@ -1,5 +1,5 @@
 from .user import User
-from .post import Post
+from .post import Post, PostBookmark
 from .application import Application
 from .conversation import Conversation, Message
 from .team import Team, TeamMember
@@ -36,6 +36,7 @@ from .content import (
 __all__ = [
     "User",
     "Post",
+    "PostBookmark",
     "Application",
     "Conversation",
     "Message",
