@@ -7,9 +7,14 @@ import { getApiErrorMessage, getCodeSentMessage } from '@/api/auth-feedback'
 import CampusMark from '@/components/CampusMark'
 import { useToast } from '@/components/Toast'
 import { useAuthStore } from '@/store/authStore'
-import { destinationAfterAuth } from './authFlow'
+import {
+  createAuthRequestTracker,
+  destinationAfterAuth,
+  passwordForMode,
+  type AuthMode,
+} from './authFlow'
 
-type Step = 'login' | 'register' | 'reset'
+type Step = AuthMode
 
 const isNjuCampusEmail = (value: string) =>
   /^[^\s@]+@(?:smail\.)?nju\.edu\.cn$/i.test(value.trim())
@@ -30,7 +35,8 @@ export default function Login() {
   const [stageDirection, setStageDirection] = useState(1)
   const [account, setAccount] = useState('')
   const [code, setCode] = useState('')
-  const [password, setPassword] = useState('')
+  const [loginPassword, setLoginPassword] = useState('')
+  const [registrationPassword, setRegistrationPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [codeCooldown, setCodeCooldown] = useState(0)
@@ -38,6 +44,7 @@ export default function Login() {
   const [submitting, setSubmitting] = useState(false)
   const registrationCodeRequestGeneration = useRef(0)
   const resetCodeRequestGeneration = useRef(0)
+  const [authRequestTracker] = useState(() => createAuthRequestTracker('login'))
 
   useEffect(() => {
     if (codeCooldown <= 0) return
@@ -48,8 +55,18 @@ export default function Login() {
   }, [codeCooldown])
 
   const goToStep = (nextStep: Step) => {
+    const switchingMode = step !== nextStep
     const leavingRegistration = step === 'register' && nextStep !== 'register'
     const leavingReset = step === 'reset' && nextStep !== 'reset'
+
+    if (switchingMode) {
+      authRequestTracker.switchMode(nextStep)
+      setSubmitting(false)
+      setLoginPassword((current) => passwordForMode(current, 'login', nextStep))
+      setRegistrationPassword((current) => passwordForMode(current, 'register', nextStep))
+      setNewPassword((current) => passwordForMode(current, 'reset', nextStep))
+      setConfirmPassword((current) => passwordForMode(current, 'reset', nextStep))
+    }
 
     if (leavingRegistration) {
       registrationCodeRequestGeneration.current += 1
@@ -63,8 +80,6 @@ export default function Login() {
       setCode('')
       setCodeCooldown(0)
       setSendingCode(false)
-      setNewPassword('')
-      setConfirmPassword('')
     }
 
     setStageDirection(nextStep === 'login' ? -1 : 1)
@@ -76,11 +91,15 @@ export default function Login() {
       showToast('仅支持南京大学学生或教职工邮箱注册', 'error')
       return false
     }
-    if (!account || !code || !password) {
+    if (!account || !code || !registrationPassword) {
       showToast('请填写校园邮箱、验证码和密码', 'error')
       return false
     }
-    if (password.length < 8 || !/[A-Za-z]/.test(password) || !/\d/.test(password)) {
+    if (
+      registrationPassword.length < 8 ||
+      !/[A-Za-z]/.test(registrationPassword) ||
+      !/\d/.test(registrationPassword)
+    ) {
       showToast('密码至少 8 位，并同时包含字母和数字', 'error')
       return false
     }
@@ -115,20 +134,25 @@ export default function Login() {
       showToast('请输入南京大学学生或教职工邮箱', 'error')
       return
     }
-    if (!password) {
+    if (!loginPassword) {
       showToast('请输入密码', 'error')
       return
     }
+    const request = authRequestTracker.begin()
     setSubmitting(true)
     try {
-      const res = await login({ account, password })
-      setAuth(res.token, res.user)
-      showToast('登录成功', 'success')
-      navigate(destinationAfterAuth(res.user))
+      const res = await login({ account, password: loginPassword })
+      authRequestTracker.commit(request, () => {
+        setAuth(res.token, res.user)
+        showToast('登录成功', 'success')
+        navigate(destinationAfterAuth(res.user))
+      })
     } catch (error) {
-      showToast(getApiErrorMessage(error, '登录失败，请检查账号和密码'), 'error')
+      authRequestTracker.commit(request, () => {
+        showToast(getApiErrorMessage(error, '登录失败，请检查账号和密码'), 'error')
+      })
     } finally {
-      setSubmitting(false)
+      authRequestTracker.commit(request, () => setSubmitting(false))
     }
   }
 
@@ -170,31 +194,41 @@ export default function Login() {
       return
     }
 
+    const request = authRequestTracker.begin()
     setSubmitting(true)
     try {
       await resetPassword({ account, code, new_password: newPassword })
-      showToast('密码已重置，请使用新密码登录', 'success')
-      setPassword('')
-      goToStep('login')
+      authRequestTracker.commit(request, () => {
+        showToast('密码已重置，请使用新密码登录', 'success')
+        setLoginPassword('')
+        goToStep('login')
+      })
     } catch (error) {
-      showToast(getApiErrorMessage(error, '密码重置失败，请检查验证码'), 'error')
+      authRequestTracker.commit(request, () => {
+        showToast(getApiErrorMessage(error, '密码重置失败，请检查验证码'), 'error')
+      })
     } finally {
-      setSubmitting(false)
+      authRequestTracker.commit(request, () => setSubmitting(false))
     }
   }
 
   const handleRegister = async () => {
     if (!validateRegistrationAccount()) return
+    const request = authRequestTracker.begin()
     setSubmitting(true)
     try {
-      const res = await register({ account, code, password })
-      setAuth(res.token, res.user)
-      showToast('注册成功', 'success')
-      navigate(destinationAfterAuth(res.user))
+      const res = await register({ account, code, password: registrationPassword })
+      authRequestTracker.commit(request, () => {
+        setAuth(res.token, res.user)
+        showToast('注册成功', 'success')
+        navigate(destinationAfterAuth(res.user))
+      })
     } catch (error) {
-      showToast(getApiErrorMessage(error, '注册失败，请稍后重试'), 'error')
+      authRequestTracker.commit(request, () => {
+        showToast(getApiErrorMessage(error, '注册失败，请稍后重试'), 'error')
+      })
     } finally {
-      setSubmitting(false)
+      authRequestTracker.commit(request, () => setSubmitting(false))
     }
   }
 
@@ -350,8 +384,11 @@ export default function Login() {
                     <input
                       id="auth-password"
                       type="password"
-                      value={password}
-                      onChange={(event) => setPassword(event.target.value)}
+                      value={step === 'login' ? loginPassword : registrationPassword}
+                      onChange={(event) => {
+                        if (step === 'login') setLoginPassword(event.target.value)
+                        else setRegistrationPassword(event.target.value)
+                      }}
                       autoComplete={step === 'login' ? 'current-password' : 'new-password'}
                       className="input-base"
                     />
