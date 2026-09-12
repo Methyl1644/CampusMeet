@@ -251,21 +251,16 @@
             "title": "Account",
             "type": "string"
           },
-          "code": {
-            "default": "",
-            "maxLength": 6,
-            "title": "Code",
-            "type": "string"
-          },
           "password": {
-            "default": "",
             "maxLength": 128,
+            "minLength": 1,
             "title": "Password",
             "type": "string"
           }
         },
         "required": [
-          "account"
+          "account",
+          "password"
         ],
         "title": "LoginRequest",
         "type": "object"
@@ -1039,50 +1034,17 @@
             "title": "Code",
             "type": "string"
           },
-          "grade": {
-            "default": "",
-            "maxLength": 40,
-            "title": "Grade",
-            "type": "string"
-          },
-          "major": {
-            "default": "",
-            "maxLength": 80,
-            "title": "Major",
-            "type": "string"
-          },
-          "nickname": {
-            "maxLength": 40,
-            "minLength": 1,
-            "title": "Nickname",
-            "type": "string"
-          },
           "password": {
             "maxLength": 128,
             "minLength": 8,
             "title": "Password",
-            "type": "string"
-          },
-          "skills": {
-            "items": {
-              "type": "string"
-            },
-            "maxItems": 30,
-            "title": "Skills",
-            "type": "array"
-          },
-          "wechat": {
-            "default": "",
-            "maxLength": 80,
-            "title": "Wechat",
             "type": "string"
           }
         },
         "required": [
           "account",
           "code",
-          "password",
-          "nickname"
+          "password"
         ],
         "title": "RegisterRequest",
         "type": "object"
@@ -1176,7 +1138,6 @@
             "default": "register",
             "enum": [
               "register",
-              "login",
               "campus_verify",
               "reset_password"
             ],
