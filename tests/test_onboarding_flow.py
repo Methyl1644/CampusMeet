@@ -113,6 +113,17 @@ def test_onboarding_step_is_clamped_and_never_decreases(factory):
         assert update_onboarding(session, user, {"step": 99})["onboarding_step"] == 6
 
 
+@pytest.mark.parametrize("step", [3.0, 3.9, True, False])
+def test_onboarding_step_rejects_float_and_bool_values(factory, step):
+    with factory() as session:
+        user = session.get(User, 1)
+
+        with pytest.raises(ValueError, match="step 必须是整数"):
+            update_onboarding(session, user, {"step": step})
+
+        assert user.onboarding_step == 1
+
+
 def test_onboarding_update_rejects_unknown_fields_before_mutating(factory):
     with factory() as session:
         user = session.get(User, 1)
@@ -302,6 +313,46 @@ def test_onboarding_complete_commits_once_and_is_idempotent(client, factory):
         user = session.get(User, 1)
         assert user.onboarding_step == 6
         assert user.onboarding_completed_at == completed_at
+
+
+def test_onboarding_complete_returns_the_authoritative_auth_user(client):
+    client.patch(
+        "/auth/onboarding",
+        json={
+            "step": 5,
+            "nickname": "小紫",
+            "major": "软件工程",
+            "grade": "大二",
+            "interests": ["人工智能", "产品设计", "羽毛球"],
+        },
+    )
+
+    response = client.post("/auth/onboarding/complete")
+    user = response.json()["data"]
+
+    assert response.status_code == 200
+    assert {
+        "id",
+        "email",
+        "auth_status",
+        "site_role",
+        "account_status",
+        "nickname",
+        "major",
+        "grade",
+        "interests",
+        "onboarding_step",
+        "onboarding_completed",
+    } <= set(user)
+    assert user["id"] == "1"
+    assert user["email"] == "student@smail.nju.edu.cn"
+    assert user["auth_status"] == "unverified"
+    assert user["site_role"] == "student"
+    assert user["account_status"] == "active"
+    assert user["nickname"] == "小紫"
+    assert user["interests"] == ["人工智能", "产品设计", "羽毛球"]
+    assert user["onboarding_step"] == 6
+    assert user["onboarding_completed"] is True
 
 
 @pytest.mark.parametrize(

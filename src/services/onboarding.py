@@ -98,10 +98,9 @@ def update_onboarding(
     if "step" not in payload:
         raise ValueError("缺少 onboarding step")
 
-    try:
-        requested_step = int(payload["step"])
-    except (TypeError, ValueError) as exc:
-        raise ValueError("step 必须是整数") from exc
+    requested_step = payload["step"]
+    if type(requested_step) is not int:
+        raise ValueError("step 必须是整数")
 
     normalized: dict[str, object] = {}
     for field, limit in STRING_LIMITS.items():
