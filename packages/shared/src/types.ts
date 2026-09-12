@@ -64,6 +64,30 @@ export interface SearchDirectResult {
 export type AuthStatus = 'unverified' | 'verified' | 'campus_verified' | 'organization';
 export type AccountStatus = 'active' | 'deactivated' | 'deletion_requested' | 'deleted';
 
+export type WeeklyHours =
+  | ''
+  | '每周 1-3 小时'
+  | '每周 4-6 小时'
+  | '每周 7-10 小时'
+  | '每周 10 小时以上';
+
+export interface OnboardingAvailability {
+  weekday_daytime?: boolean;
+  weekday_evening?: boolean;
+  weekend_daytime?: boolean;
+  weekend_evening?: boolean;
+  weekly_hours?: WeeklyHours;
+}
+
+export interface ProfileVisibility {
+  major: boolean;
+  grade: boolean;
+  interests: boolean;
+  skills: boolean;
+  availability: boolean;
+  contact: boolean;
+}
+
 /** 帖子结构 */
 export interface Post {
   id: string;
@@ -110,8 +134,8 @@ export interface User extends UserBrief {
   bio?: string | null;
   interests: string[];
   looking_for: string[];
-  availability: Record<string, unknown>;
-  profile_visibility: Record<string, unknown>;
+  availability: OnboardingAvailability;
+  profile_visibility: ProfileVisibility;
   verified_email?: string;
   post_count?: number;
   team_count?: number;
@@ -130,9 +154,9 @@ export interface OnboardingDraft {
   interests: string[];
   looking_for: string[];
   skills: string[];
-  availability: Record<string, unknown>;
+  availability: OnboardingAvailability;
   bio?: string;
-  profile_visibility: Record<string, boolean>;
+  profile_visibility: ProfileVisibility;
 }
 
 /** 首次资料引导保存请求 */
@@ -145,9 +169,9 @@ export interface OnboardingUpdate {
   interests?: string[];
   looking_for?: string[];
   skills?: string[];
-  availability?: Record<string, unknown>;
+  availability?: OnboardingAvailability;
   bio?: string;
-  profile_visibility?: Record<string, boolean>;
+  profile_visibility?: ProfileVisibility;
 }
 
 /** 登录/注册请求 */

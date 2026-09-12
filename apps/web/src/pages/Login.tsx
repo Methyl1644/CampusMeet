@@ -274,13 +274,10 @@ export default function Login() {
           {(step === 'login' || step === 'register') && (
             <div
               className="mb-6 grid grid-cols-2 rounded-card border border-stone bg-primary-50 p-1"
-              role="tablist"
-              aria-label="登录或注册"
             >
               <button
                 type="button"
-                role="tab"
-                aria-selected={step === 'login'}
+                aria-pressed={step === 'login'}
                 onClick={() => goToStep('login')}
                 className={`min-h-10 rounded-md px-3 text-sm font-semibold transition-colors ${
                   step === 'login' ? 'bg-paper text-primary-700 shadow-panel' : 'text-ink-muted'
@@ -290,8 +287,7 @@ export default function Login() {
               </button>
               <button
                 type="button"
-                role="tab"
-                aria-selected={step === 'register'}
+                aria-pressed={step === 'register'}
                 onClick={() => goToStep('register')}
                 className={`min-h-10 rounded-md px-3 text-sm font-semibold transition-colors ${
                   step === 'register' ? 'bg-paper text-primary-700 shadow-panel' : 'text-ink-muted'
@@ -316,7 +312,13 @@ export default function Login() {
               }}
             >
               {(step === 'login' || step === 'register') && (
-                <div className="space-y-4">
+                <form
+                  className="space-y-4"
+                  onSubmit={(event) => {
+                    event.preventDefault()
+                    void (step === 'login' ? handleLogin() : handleRegister())
+                  }}
+                >
                   <div>
                     <label htmlFor="auth-account" className="mb-1.5 block text-sm font-medium text-ink">
                       南京大学邮箱
@@ -397,19 +399,24 @@ export default function Login() {
                   </div>
 
                   <button
-                    type="button"
-                    onClick={step === 'login' ? handleLogin : handleRegister}
+                    type="submit"
                     disabled={submitting}
                     className="btn-primary min-h-11 w-full"
                   >
                     {submitting ? '处理中...' : step === 'login' ? '登录' : '注册并继续'}
                     <ArrowRight size={16} />
                   </button>
-                </div>
+                </form>
               )}
 
               {step === 'reset' && (
-                <div className="space-y-4">
+                <form
+                  className="space-y-4"
+                  onSubmit={(event) => {
+                    event.preventDefault()
+                    void handleResetPassword()
+                  }}
+                >
                   <div>
                     <label htmlFor="reset-account" className="mb-1.5 block text-sm font-medium text-ink">
                       南京大学邮箱
@@ -498,8 +505,7 @@ export default function Login() {
                       返回登录
                     </button>
                     <button
-                      type="button"
-                      onClick={handleResetPassword}
+                      type="submit"
                       disabled={submitting}
                       className="btn-primary min-h-11"
                     >
@@ -507,7 +513,7 @@ export default function Login() {
                       <ArrowRight aria-hidden="true" size={16} />
                     </button>
                   </div>
-                </div>
+                </form>
               )}
 
             </motion.section>

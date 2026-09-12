@@ -6,6 +6,7 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
+from services.content_catalog import STANDARD_TAGS
 from storage.database.models import User
 
 
@@ -34,13 +35,81 @@ LIST_LIMITS = {
     "looking_for": 12,
     "skills": 30,
 }
+LIST_ITEM_LIMITS = {
+    "interests": 30,
+    "looking_for": 40,
+    "skills": 80,
+}
+ONBOARDING_INTERESTS = tuple(
+    name for _, name, category, _, _, _ in STANDARD_TAGS if category == "activity"
+)
+ONBOARDING_INTEREST_SET = frozenset(ONBOARDING_INTERESTS)
+AVAILABILITY_FIELDS = frozenset(
+    {
+        "weekday_daytime",
+        "weekday_evening",
+        "weekend_daytime",
+        "weekend_evening",
+        "weekly_hours",
+    }
+)
+LEGACY_AVAILABILITY_FIELDS = {
+    "工作日白天": "weekday_daytime",
+    "工作日晚间": "weekday_evening",
+    "周末白天": "weekend_daytime",
+    "周末晚间": "weekend_evening",
+}
+WEEKLY_HOURS_OPTIONS = frozenset(
+    {
+        "",
+        "每周 1-3 小时",
+        "每周 4-6 小时",
+        "每周 7-10 小时",
+        "每周 10 小时以上",
+    }
+)
+PROFILE_VISIBILITY_FIELDS = frozenset(
+    {"major", "grade", "interests", "skills", "availability", "contact"}
+)
+DEFAULT_PROFILE_VISIBILITY = {
+    "major": True,
+    "grade": True,
+    "interests": True,
+    "skills": True,
+    "availability": False,
+    "contact": False,
+}
+MAX_ONBOARDING_TEXT = 4000
 
 
 def utcnow() -> datetime.datetime:
     return datetime.datetime.now(datetime.timezone.utc)
 
 
+def _serialized_availability(value: object) -> dict[str, object]:
+    if not isinstance(value, Mapping):
+        return {}
+    normalized: dict[str, object] = {}
+    for stored_key, item in value.items():
+        key = LEGACY_AVAILABILITY_FIELDS.get(stored_key, stored_key)
+        if key == "weekly_hours":
+            if isinstance(item, str) and item in WEEKLY_HOURS_OPTIONS:
+                normalized[key] = item
+        elif key in AVAILABILITY_FIELDS and type(item) is bool:
+            normalized[key] = item
+    return normalized
+
+
 def onboarding_to_dict(user: User) -> dict[str, Any]:
+    stored_visibility = user.profile_visibility or {}
+    profile_visibility = {
+        **DEFAULT_PROFILE_VISIBILITY,
+        **{
+            key: value
+            for key, value in stored_visibility.items()
+            if key in PROFILE_VISIBILITY_FIELDS and type(value) is bool
+        },
+    }
     return {
         "nickname": user.nickname,
         "avatar": user.avatar,
@@ -51,8 +120,8 @@ def onboarding_to_dict(user: User) -> dict[str, Any]:
         "bio": user.bio,
         "interests": user.interests or [],
         "looking_for": user.looking_for or [],
-        "availability": user.availability or {},
-        "profile_visibility": user.profile_visibility or {},
+        "availability": _serialized_availability(user.availability),
+        "profile_visibility": profile_visibility,
         "skills": user.skills or [],
     }
 
@@ -70,7 +139,13 @@ def _normalize_list(field: str, value: object) -> list[str]:
         if not isinstance(item, str):
             raise ValueError(f"{field} 只能包含字符串")
         item = item.strip()
-        if item and item not in seen:
+        if not item:
+            raise ValueError(f"{field} 不能包含空白项")
+        if len(item) > LIST_ITEM_LIMITS[field]:
+            raise ValueError(f"{field} 单项最多 {LIST_ITEM_LIMITS[field]} 个字符")
+        if field == "interests" and item not in ONBOARDING_INTEREST_SET:
+            raise ValueError("interests 只能包含标准兴趣标签")
+        if item not in seen:
             seen.add(item)
             normalized.append(item)
     return normalized
@@ -79,11 +154,33 @@ def _normalize_list(field: str, value: object) -> list[str]:
 def _normalize_mapping(field: str, value: object) -> dict[str, object]:
     if not isinstance(value, dict) or not all(isinstance(key, str) for key in value):
         raise ValueError(f"{field} 必须是对象")
-    if field == "profile_visibility" and not all(
-        isinstance(item, bool) for item in value.values()
-    ):
-        raise ValueError("profile_visibility 的值必须是布尔值")
+    allowed_fields = (
+        AVAILABILITY_FIELDS if field == "availability" else PROFILE_VISIBILITY_FIELDS
+    )
+    unknown_fields = sorted(set(value) - allowed_fields)
+    if unknown_fields:
+        raise ValueError(f"{field} 包含未知字段: {', '.join(unknown_fields)}")
+    if field == "profile_visibility":
+        if not all(type(item) is bool for item in value.values()):
+            raise ValueError("profile_visibility 的值必须是布尔值")
+    else:
+        for key, item in value.items():
+            if key == "weekly_hours":
+                if not isinstance(item, str) or item not in WEEKLY_HOURS_OPTIONS:
+                    raise ValueError("weekly_hours 不是支持的时间范围")
+            elif type(item) is not bool:
+                raise ValueError(f"availability.{key} 必须是布尔值")
     return dict(value)
+
+
+def _text_size(value: object) -> int:
+    if isinstance(value, str):
+        return len(value)
+    if isinstance(value, Mapping):
+        return sum(_text_size(item) for item in value.values())
+    if isinstance(value, list):
+        return sum(_text_size(item) for item in value)
+    return 0
 
 
 def update_onboarding(
@@ -92,11 +189,16 @@ def update_onboarding(
     payload: Mapping[str, object],
 ) -> dict[str, Any]:
     del session
+    if user.onboarding_completed_at is not None:
+        raise ValueError("资料已完成，不能修改 onboarding 草稿")
+
     unknown_fields = sorted(set(payload) - UPDATE_FIELDS)
     if unknown_fields:
         raise ValueError(f"包含未知字段: {', '.join(unknown_fields)}")
     if "step" not in payload:
         raise ValueError("缺少 onboarding step")
+    if _text_size(payload) > MAX_ONBOARDING_TEXT:
+        raise ValueError(f"onboarding 文本总量不能超过 {MAX_ONBOARDING_TEXT} 个字符")
 
     requested_step = payload["step"]
     if type(requested_step) is not int:
@@ -120,7 +222,20 @@ def update_onboarding(
 
     for field in ("availability", "profile_visibility"):
         if field in payload and payload[field] is not None:
-            normalized[field] = _normalize_mapping(field, payload[field])
+            mapping = _normalize_mapping(field, payload[field])
+            if field == "profile_visibility":
+                stored_visibility = user.profile_visibility or {}
+                normalized[field] = {
+                    **DEFAULT_PROFILE_VISIBILITY,
+                    **{
+                        key: value
+                        for key, value in stored_visibility.items()
+                        if key in PROFILE_VISIBILITY_FIELDS and type(value) is bool
+                    },
+                    **mapping,
+                }
+            else:
+                normalized[field] = mapping
 
     current_step = user.onboarding_step or 1
     normalized["onboarding_step"] = max(
@@ -148,6 +263,8 @@ def complete_onboarding(session: Session, user: User) -> dict[str, Any]:
         for item in (user.interests or [])
         if isinstance(item, str) and item.strip()
     }
+    if not unique_interests <= ONBOARDING_INTEREST_SET:
+        raise ValueError("interests 只能包含标准兴趣标签")
     if len(unique_interests) < 3:
         raise ValueError("至少选择三个兴趣")
 

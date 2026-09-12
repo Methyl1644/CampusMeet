@@ -131,6 +131,75 @@
         "title": "ApplicationCreateRequest",
         "type": "object"
       },
+      "AvailabilityRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "weekday_daytime": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Weekday Daytime"
+          },
+          "weekday_evening": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Weekday Evening"
+          },
+          "weekend_daytime": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Weekend Daytime"
+          },
+          "weekend_evening": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Weekend Evening"
+          },
+          "weekly_hours": {
+            "anyOf": [
+              {
+                "enum": [
+                  "",
+                  "每周 1-3 小时",
+                  "每周 4-6 小时",
+                  "每周 7-10 小时",
+                  "每周 10 小时以上"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Weekly Hours"
+          }
+        },
+        "title": "AvailabilityRequest",
+        "type": "object"
+      },
       "CampusEmailVerificationRequest": {
         "properties": {
           "code": {
@@ -302,14 +371,12 @@
           "availability": {
             "anyOf": [
               {
-                "additionalProperties": true,
-                "type": "object"
+                "$ref": "#/components/schemas/AvailabilityRequest"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Availability"
+            ]
           },
           "avatar": {
             "anyOf": [
@@ -351,6 +418,55 @@
             "anyOf": [
               {
                 "items": {
+                  "enum": [
+                    "数学建模",
+                    "程序设计",
+                    "算法竞赛",
+                    "创新创业",
+                    "电子设计",
+                    "机器人",
+                    "网络安全",
+                    "数据科学",
+                    "人工智能",
+                    "商业案例",
+                    "金融竞赛",
+                    "模拟法庭",
+                    "辩论",
+                    "语言竞赛",
+                    "科研项目",
+                    "论文写作",
+                    "学习小组",
+                    "考试备考",
+                    "读书会",
+                    "讲座",
+                    "工作坊",
+                    "职业发展",
+                    "实习交流",
+                    "志愿服务",
+                    "公益活动",
+                    "羽毛球",
+                    "篮球",
+                    "足球",
+                    "乒乓球",
+                    "排球",
+                    "网球",
+                    "跑步",
+                    "骑行",
+                    "徒步",
+                    "健身",
+                    "游泳",
+                    "飞盘",
+                    "舞蹈",
+                    "音乐",
+                    "歌唱",
+                    "摄影",
+                    "视频创作",
+                    "桌游",
+                    "电子竞技",
+                    "约饭",
+                    "旅行",
+                    "校园参访"
+                  ],
                   "type": "string"
                 },
                 "maxItems": 30,
@@ -366,6 +482,8 @@
             "anyOf": [
               {
                 "items": {
+                  "maxLength": 40,
+                  "minLength": 1,
                   "type": "string"
                 },
                 "maxItems": 12,
@@ -404,21 +522,19 @@
           "profile_visibility": {
             "anyOf": [
               {
-                "additionalProperties": {
-                  "type": "boolean"
-                },
-                "type": "object"
+                "$ref": "#/components/schemas/ProfileVisibilityRequest"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Profile Visibility"
+            ]
           },
           "skills": {
             "anyOf": [
               {
                 "items": {
+                  "maxLength": 80,
+                  "minLength": 1,
                   "type": "string"
                 },
                 "maxItems": 30,
@@ -1165,6 +1281,43 @@
           }
         },
         "title": "ProfileUpdateRequest",
+        "type": "object"
+      },
+      "ProfileVisibilityRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "availability": {
+            "default": false,
+            "title": "Availability",
+            "type": "boolean"
+          },
+          "contact": {
+            "default": false,
+            "title": "Contact",
+            "type": "boolean"
+          },
+          "grade": {
+            "default": true,
+            "title": "Grade",
+            "type": "boolean"
+          },
+          "interests": {
+            "default": true,
+            "title": "Interests",
+            "type": "boolean"
+          },
+          "major": {
+            "default": true,
+            "title": "Major",
+            "type": "boolean"
+          },
+          "skills": {
+            "default": true,
+            "title": "Skills",
+            "type": "boolean"
+          }
+        },
+        "title": "ProfileVisibilityRequest",
         "type": "object"
       },
       "RegisterRequest": {

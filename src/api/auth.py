@@ -48,6 +48,11 @@ from utils.auth import verify_password, verify_token
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
+def onboarding_user_query(user_id: int, *, for_update: bool = False):
+    statement = select(User).where(User.id == user_id)
+    return statement.with_for_update() if for_update else statement
+
+
 @router.post("/send-code")
 def send_code(body: SendCodeRequest, request: Request) -> dict[str, Any]:
     return parse_tool_result(
@@ -140,7 +145,7 @@ def update_profile(body: ProfileUpdateRequest, user_id: str = Depends(current_us
 def get_onboarding(user_id: str = Depends(current_user_id)) -> dict[str, Any]:
     session = get_session()
     try:
-        user = session.get(User, int(user_id))
+        user = session.scalar(onboarding_user_query(int(user_id)))
         if user is None:
             raise HTTPException(status_code=404, detail="用户不存在")
         return api_ok(onboarding_to_dict(user))
@@ -155,7 +160,7 @@ def patch_onboarding(
 ) -> dict[str, Any]:
     session = get_session()
     try:
-        user = session.get(User, int(user_id))
+        user = session.scalar(onboarding_user_query(int(user_id), for_update=True))
         if user is None:
             raise HTTPException(status_code=404, detail="用户不存在")
         try:
@@ -179,7 +184,7 @@ def finish_onboarding(
 ) -> dict[str, Any]:
     session = get_session()
     try:
-        user = session.get(User, int(user_id))
+        user = session.scalar(onboarding_user_query(int(user_id), for_update=True))
         if user is None:
             raise HTTPException(status_code=404, detail="用户不存在")
         try:

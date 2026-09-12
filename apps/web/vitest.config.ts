@@ -11,6 +11,7 @@ export default defineConfig({
   test: {
     include: [
       'src/pages/authFlow.test.ts',
+      'src/pages/Login.test.tsx',
       'src/components/onboarding/onboardingState.test.ts',
       'src/router/authRouting.test.ts',
       'src/router/authRouting.integration.test.tsx',

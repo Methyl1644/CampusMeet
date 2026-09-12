@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   ChevronDown,
   ChevronUp,
@@ -24,31 +24,14 @@ import {
 } from '@/components/onboarding/onboardingState'
 import { useAuthStore } from '@/store/authStore'
 import { commitCompletedOnboarding, requiredRoute } from '@/router/authRouting'
-import { COMMON_SKILLS } from '@shared/constants'
-import type { OnboardingDraft, OnboardingUpdate } from '@shared/types'
-
-const INTEREST_OPTIONS = [
-  '人工智能',
-  '产品设计',
-  '数学建模',
-  '学术科研',
-  '软件开发',
-  '创新创业',
-  '摄影',
-  '音乐',
-  '阅读',
-  '羽毛球',
-  '跑步',
-  '篮球',
-  '旅行',
-  '户外徒步',
-  '志愿服务',
-  '校园文化',
-  '语言学习',
-  '辩论表达',
-  '数据分析',
-  '电影',
-] as const
+import { COMMON_SKILLS, ONBOARDING_INTERESTS } from '@shared/constants'
+import type {
+  OnboardingAvailability,
+  OnboardingDraft,
+  OnboardingUpdate,
+  ProfileVisibility,
+  WeeklyHours,
+} from '@shared/types'
 
 const GOAL_OPTIONS = [
   '比赛组队',
@@ -59,7 +42,12 @@ const GOAL_OPTIONS = [
   '寻找长期伙伴',
 ] as const
 
-const AVAILABILITY_OPTIONS = ['工作日白天', '工作日晚间', '周末白天', '周末晚间'] as const
+const AVAILABILITY_OPTIONS = [
+  ['weekday_daytime', '工作日白天'],
+  ['weekday_evening', '工作日晚间'],
+  ['weekend_daytime', '周末白天'],
+  ['weekend_evening', '周末晚间'],
+] as const
 const SKILL_OPTIONS = [...new Set(COMMON_SKILLS)]
 
 const VISIBILITY_OPTIONS = [
@@ -68,14 +56,16 @@ const VISIBILITY_OPTIONS = [
   ['interests', '兴趣'],
   ['skills', '技能'],
   ['availability', '空闲时间'],
+  ['contact', '联系方式'],
 ] as const
 
-const DEFAULT_VISIBILITY: Record<string, boolean> = {
+const DEFAULT_VISIBILITY: ProfileVisibility = {
   major: true,
   grade: true,
   interests: true,
   skills: true,
   availability: false,
+  contact: false,
 }
 
 const STEP_META = [
@@ -154,7 +144,7 @@ export default function Onboarding() {
 function OnboardingFlow() {
   const navigate = useNavigate()
   const { showToast } = useToast()
-  const { user, setUser, updateUser } = useAuthStore()
+  const { user, setUser } = useAuthStore()
   const [draft, setDraft] = useState<OnboardingDraft | null>(null)
   const [step, setStep] = useState(1)
   const [direction, setDirection] = useState(1)
@@ -163,6 +153,9 @@ function OnboardingFlow() {
   const [isSaving, setIsSaving] = useState(false)
   const [interestQuery, setInterestQuery] = useState('')
   const [showAllInterests, setShowAllInterests] = useState(false)
+  const focusStepHeading = useCallback((heading: HTMLHeadingElement | null) => {
+    heading?.focus({ preventScroll: true })
+  }, [])
 
   useEffect(() => {
     let active = true
@@ -172,7 +165,17 @@ function OnboardingFlow() {
       .then((savedDraft) => {
         if (!active) return
         if (savedDraft.onboarding_completed) {
-          updateUser({ onboarding_completed: true, onboarding_step: 6 })
+          const currentUser = useAuthStore.getState().user
+          if (!currentUser) {
+            navigate('/login', { replace: true })
+            return
+          }
+          setUser({
+            ...currentUser,
+            ...savedDraft,
+            onboarding_completed: true,
+            onboarding_step: 6,
+          })
           navigate('/home', { replace: true })
           return
         }
@@ -210,16 +213,16 @@ function OnboardingFlow() {
     return () => {
       active = false
     }
-  }, [loadAttempt, navigate, showToast, updateUser, user?.email])
+  }, [loadAttempt, navigate, setUser, showToast, user?.email])
 
   const visibleInterests = useMemo(() => {
     if (!draft) return []
     const query = interestQuery.trim().toLocaleLowerCase('zh-CN')
     if (query) {
-      return INTEREST_OPTIONS.filter((option) => option.toLocaleLowerCase('zh-CN').includes(query))
+      return ONBOARDING_INTERESTS.filter((option) => option.toLocaleLowerCase('zh-CN').includes(query))
     }
-    if (showAllInterests) return [...INTEREST_OPTIONS]
-    return [...new Set([...draft.interests, ...INTEREST_OPTIONS.slice(0, 12)])]
+    if (showAllInterests) return [...ONBOARDING_INTERESTS]
+    return [...new Set([...draft.interests, ...ONBOARDING_INTERESTS.slice(0, 12)])]
   }, [draft, interestQuery, showAllInterests])
 
   const saveAndGo = async (nextStep: number) => {
@@ -271,7 +274,10 @@ function OnboardingFlow() {
     if (step > 1) void saveAndGo(step - 1)
   }
 
-  const setAvailability = (key: string, selected: boolean) => {
+  const setAvailability = (
+    key: Exclude<keyof OnboardingAvailability, 'weekly_hours'>,
+    selected: boolean,
+  ) => {
     if (!draft) return
     setDraft((current) => {
       if (!current) return current
@@ -336,7 +342,11 @@ function OnboardingFlow() {
       onContinue={() => void handleContinue()}
     >
       <p className="text-sm font-semibold text-primary-700">{meta.label}</p>
-      <h1 className="mt-2 max-w-2xl text-3xl font-semibold leading-tight text-ink sm:text-4xl">
+      <h1
+        ref={focusStepHeading}
+        tabIndex={-1}
+        className="mt-2 max-w-2xl text-3xl font-semibold leading-tight text-ink sm:text-4xl"
+      >
         {meta.title}
       </h1>
 
@@ -370,7 +380,6 @@ function OnboardingFlow() {
             value={draft.nickname}
             maxLength={40}
             autoComplete="nickname"
-            autoFocus
             onChange={(event) => setDraft({ ...draft, nickname: event.target.value })}
             placeholder="例如：小紫"
             className="input-base mt-2 min-h-12 text-base"
@@ -391,7 +400,6 @@ function OnboardingFlow() {
                 id="onboarding-major"
                 value={draft.major}
                 maxLength={80}
-                autoFocus
                 onChange={(event) => setDraft({ ...draft, major: event.target.value })}
                 placeholder="例如：软件学院"
                 className="input-base min-h-12 pl-10 text-base"
@@ -495,15 +503,15 @@ function OnboardingFlow() {
           <div>
             <h2 className="font-sans text-sm font-semibold text-ink">常用空闲时段</h2>
             <div className="mt-3 grid gap-2 sm:grid-cols-2">
-              {AVAILABILITY_OPTIONS.map((option) => (
-                <label key={option} className="flex min-h-11 items-center gap-3 rounded-card border border-stone bg-paper px-3.5 py-2.5 text-sm text-ink">
+              {AVAILABILITY_OPTIONS.map(([key, label]) => (
+                <label key={key} className="flex min-h-11 items-center gap-3 rounded-card border border-stone bg-paper px-3.5 py-2.5 text-sm text-ink">
                   <input
                     type="checkbox"
-                    checked={draft.availability[option] === true}
-                    onChange={(event) => setAvailability(option, event.target.checked)}
+                    checked={draft.availability[key] === true}
+                    onChange={(event) => setAvailability(key, event.target.checked)}
                     className="size-4 accent-primary-600"
                   />
-                  {option}
+                  {label}
                 </label>
               ))}
             </div>
@@ -515,7 +523,10 @@ function OnboardingFlow() {
               value={typeof draft.availability.weekly_hours === 'string' ? draft.availability.weekly_hours : ''}
               onChange={(event) => setDraft({
                 ...draft,
-                availability: { ...draft.availability, weekly_hours: event.target.value },
+                availability: {
+                  ...draft.availability,
+                  weekly_hours: event.target.value as WeeklyHours,
+                },
               })}
               className="input-base mt-2 min-h-11 font-normal"
             >
@@ -604,12 +615,17 @@ function OnboardingFlow() {
               <p className="mt-2 break-words text-xs leading-5 text-ink-muted">
                 时间：{
                   [
-                    ...AVAILABILITY_OPTIONS.filter((option) => draft.availability[option] === true),
+                    ...AVAILABILITY_OPTIONS
+                      .filter(([key]) => draft.availability[key] === true)
+                      .map(([, label]) => label),
                     typeof draft.availability.weekly_hours === 'string' ? draft.availability.weekly_hours : '',
                   ].filter(Boolean).join('、') || '暂未填写'
                 }
               </p>
             )}
+            <p className="mt-2 break-words text-xs leading-5 text-ink-muted">
+              联系方式：{draft.profile_visibility.contact ? '公开' : '不公开'}
+            </p>
           </section>
         </div>
       )}

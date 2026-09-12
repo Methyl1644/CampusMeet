@@ -4,6 +4,7 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
+from sqlalchemy.dialects import postgresql
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
@@ -79,6 +80,44 @@ def test_user_model_persists_onboarding_collection_defaults(factory):
         assert user.profile_visibility == {}
 
 
+def test_onboarding_visibility_defaults_contact_to_private(factory):
+    with factory() as session:
+        draft = onboarding_to_dict(session.get(User, 1))
+
+    assert draft["profile_visibility"]["contact"] is False
+
+
+def test_onboarding_contact_visibility_uses_the_fixed_schema(client, factory):
+    response = client.patch(
+        "/auth/onboarding",
+        json={"step": 6, "profile_visibility": {"contact": True}},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["data"]["profile_visibility"]["contact"] is True
+    with factory() as session:
+        assert session.get(User, 1).profile_visibility["contact"] is True
+
+
+def test_onboarding_serialization_normalizes_legacy_availability_keys(factory):
+    with factory() as session:
+        user = session.get(User, 1)
+        user.availability = {
+            "工作日白天": True,
+            "工作日晚间": False,
+            "weekly_hours": "每周 4-6 小时",
+            "unknown": {"nested": True},
+        }
+
+        draft = onboarding_to_dict(user)
+
+    assert draft["availability"] == {
+        "weekday_daytime": True,
+        "weekday_evening": False,
+        "weekly_hours": "每周 4-6 小时",
+    }
+
+
 def test_onboarding_draft_persists_each_step(factory):
     with factory() as session:
         user = session.get(User, 1)
@@ -90,7 +129,7 @@ def test_onboarding_draft_persists_each_step(factory):
                 "nickname": "  小紫  ",
                 "major": " 软件工程 ",
                 "grade": " 大二 ",
-                "interests": [" 人工智能 ", "产品设计", "人工智能", "羽毛球"],
+                "interests": ["人工智能", "数学建模", "人工智能", "羽毛球"],
             },
         )
         session.commit()
@@ -101,7 +140,7 @@ def test_onboarding_draft_persists_each_step(factory):
         assert user.nickname == "小紫"
         assert user.major == "软件工程"
         assert user.grade == "大二"
-        assert user.interests == ["人工智能", "产品设计", "羽毛球"]
+        assert user.interests == ["人工智能", "数学建模", "羽毛球"]
 
 
 def test_onboarding_step_is_clamped_and_never_decreases(factory):
@@ -167,7 +206,7 @@ def test_onboarding_completion_requires_non_empty_profile_fields(factory, field)
             {
                 "step": 5,
                 **values,
-                "interests": ["人工智能", "产品设计", "羽毛球"],
+                "interests": ["人工智能", "数学建模", "羽毛球"],
             },
         )
 
@@ -211,7 +250,7 @@ def test_onboarding_completion_is_idempotent(factory):
                 "nickname": "小紫",
                 "major": "软件工程",
                 "grade": "大二",
-                "interests": ["人工智能", "产品设计", "羽毛球"],
+                "interests": ["人工智能", "数学建模", "羽毛球"],
             },
         )
 
@@ -258,7 +297,8 @@ def test_onboarding_get_and_patch_resume_the_authenticated_users_draft(client, f
             "nickname": "  小紫  ",
             "major": " 软件工程 ",
             "grade": " 大二 ",
-            "interests": ["人工智能", "产品设计", "人工智能", "羽毛球"],
+            "interests": [" 人工智能 ", "数学建模", "人工智能", "羽毛球"],
+            "skills": [" Python "],
         },
     )
     resumed = client.get("/auth/onboarding")
@@ -266,7 +306,8 @@ def test_onboarding_get_and_patch_resume_the_authenticated_users_draft(client, f
     assert response.status_code == 200
     assert response.json()["data"]["onboarding_step"] == 3
     assert resumed.json()["data"]["nickname"] == "小紫"
-    assert resumed.json()["data"]["interests"] == ["人工智能", "产品设计", "羽毛球"]
+    assert resumed.json()["data"]["interests"] == ["人工智能", "数学建模", "羽毛球"]
+    assert resumed.json()["data"]["skills"] == ["Python"]
     with factory() as session:
         assert session.get(User, 1).onboarding_step == 3
 
@@ -297,7 +338,7 @@ def test_onboarding_complete_commits_once_and_is_idempotent(client, factory):
             "nickname": "小紫",
             "major": "软件工程",
             "grade": "大二",
-            "interests": ["人工智能", "产品设计", "羽毛球"],
+            "interests": ["人工智能", "数学建模", "羽毛球"],
         },
     )
 
@@ -315,6 +356,102 @@ def test_onboarding_complete_commits_once_and_is_idempotent(client, factory):
         assert user.onboarding_completed_at == completed_at
 
 
+def test_completed_onboarding_rejects_patch_without_changing_database(client, factory):
+    original = {
+        "step": 6,
+        "nickname": "小紫",
+        "major": "软件工程",
+        "grade": "大二",
+        "interests": ["人工智能", "数学建模", "羽毛球"],
+        "bio": "期待长期合作",
+    }
+    assert client.patch("/auth/onboarding", json=original).status_code == 200
+    assert client.post("/auth/onboarding/complete").status_code == 200
+    with factory() as session:
+        before = onboarding_to_dict(session.get(User, 1))
+
+    response = client.patch(
+        "/auth/onboarding",
+        json={"step": 6, "nickname": "", "major": "", "interests": []},
+    )
+
+    assert response.status_code == 400
+    assert response.json() == {"detail": "资料已完成，不能修改 onboarding 草稿"}
+    with factory() as session:
+        assert onboarding_to_dict(session.get(User, 1)) == before
+
+
+def test_onboarding_write_query_declares_postgresql_row_lock():
+    statement = auth_api.onboarding_user_query(1, for_update=True)
+
+    compiled = str(statement.compile(dialect=postgresql.dialect()))
+
+    assert "FOR UPDATE" in compiled
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {"step": 3, "skills": ["x" * 81]},
+        {"step": 3, "looking_for": ["   "]},
+        {"step": 5, "availability": {"unknown": True}},
+        {"step": 5, "availability": {"weekday_daytime": {"nested": True}}},
+        {"step": 6, "profile_visibility": {"unknown": True}},
+        {"step": 6, "profile_visibility": {"major": {"nested": True}}},
+        {
+            "step": 6,
+            "avatar": "a" * 500,
+            "bio": "b" * 500,
+            "nickname": "n" * 40,
+            "major": "m" * 80,
+            "grade": "g" * 40,
+            "skills": [(f"{index:02d}" + "s" * 78) for index in range(30)],
+            "looking_for": [(chr(97 + index) * 40) for index in range(12)],
+        },
+        {"step": 3, "interests": ["自造兴趣"]},
+    ],
+    ids=[
+        "oversized-list-item",
+        "blank-list-item",
+        "unknown-availability-key",
+        "nested-availability-value",
+        "unknown-visibility-key",
+        "nested-visibility-value",
+        "oversized-total-payload",
+        "nonstandard-interest",
+    ],
+)
+def test_onboarding_schema_rejects_unbounded_json_without_mutating(
+    client, factory, payload
+):
+    response = client.patch("/auth/onboarding", json=payload)
+
+    assert response.status_code == 422
+    with factory() as session:
+        user = session.get(User, 1)
+        assert user.onboarding_step == 1
+        assert user.interests == []
+        assert user.skills == []
+        assert user.availability == {}
+        assert user.profile_visibility == {}
+
+
+def test_onboarding_service_rejects_nonstandard_interests_before_mutating(factory):
+    with factory() as session:
+        user = session.get(User, 1)
+
+        with pytest.raises(ValueError, match="标准兴趣标签"):
+            update_onboarding(
+                session,
+                user,
+                {"step": 3, "nickname": "changed", "interests": ["自造兴趣"]},
+            )
+
+        assert user.nickname == "student"
+        assert user.onboarding_step == 1
+        assert user.interests == []
+
+
 def test_onboarding_complete_returns_the_authoritative_auth_user(client):
     client.patch(
         "/auth/onboarding",
@@ -323,7 +460,7 @@ def test_onboarding_complete_returns_the_authoritative_auth_user(client):
             "nickname": "小紫",
             "major": "软件工程",
             "grade": "大二",
-            "interests": ["人工智能", "产品设计", "羽毛球"],
+            "interests": ["人工智能", "数学建模", "羽毛球"],
         },
     )
 
@@ -350,7 +487,7 @@ def test_onboarding_complete_returns_the_authoritative_auth_user(client):
     assert user["site_role"] == "student"
     assert user["account_status"] == "active"
     assert user["nickname"] == "小紫"
-    assert user["interests"] == ["人工智能", "产品设计", "羽毛球"]
+    assert user["interests"] == ["人工智能", "数学建模", "羽毛球"]
     assert user["onboarding_step"] == 6
     assert user["onboarding_completed"] is True
 
