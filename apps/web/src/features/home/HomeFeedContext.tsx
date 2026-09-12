@@ -10,6 +10,10 @@ import {
 } from 'react'
 import type { HomeFeed } from '@shared/types'
 import { getHomeFeed } from '@/api/home'
+import {
+  createHomeFeedRequestGate,
+  type HomeFeedRequestGate,
+} from './HomeFeedRequestGate'
 
 interface HomeFeedContextValue {
   feed: HomeFeed | null
@@ -24,46 +28,51 @@ export function HomeFeedProvider({ children }: { children: ReactNode }) {
   const [feed, setFeed] = useState<HomeFeed | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<unknown | null>(null)
-  const mountedRef = useRef(false)
-  const requestRef = useRef(0)
+  const gateRef = useRef<HomeFeedRequestGate | null>(null)
   const initialRequestRef = useRef<Promise<HomeFeed> | null>(null)
 
-  const applyRequest = useCallback(async (requestPromise: Promise<HomeFeed>) => {
-    const request = ++requestRef.current
-    setLoading(true)
-    setError(null)
+  const applyRequest = useCallback(
+    async (requestPromise: Promise<HomeFeed>, gate: HomeFeedRequestGate) => {
+      const requestId = gate.begin()
+      setLoading(true)
+      setError(null)
 
-    try {
-      const nextFeed = await requestPromise
-      if (mountedRef.current && request === requestRef.current) {
-        setFeed(nextFeed)
+      try {
+        const nextFeed = await requestPromise
+        gate.commit(requestId, () => {
+          setFeed(nextFeed)
+          setLoading(false)
+        })
+      } catch (nextError) {
+        gate.commit(requestId, () => {
+          setError(nextError)
+          setLoading(false)
+        })
       }
-    } catch (nextError) {
-      if (mountedRef.current && request === requestRef.current) {
-        setError(nextError)
-      }
-    } finally {
-      if (mountedRef.current && request === requestRef.current) {
-        setLoading(false)
-      }
-    }
-  }, [])
-
-  const reload = useCallback(
-    async () => applyRequest(getHomeFeed()),
-    [applyRequest],
+    },
+    [],
   )
 
+  const reload = useCallback(async () => {
+    const gate = gateRef.current
+    if (gate) {
+      await applyRequest(getHomeFeed(), gate)
+    }
+  }, [applyRequest])
+
   useEffect(() => {
-    mountedRef.current = true
+    const gate = createHomeFeedRequestGate()
+    gateRef.current = gate
     if (!initialRequestRef.current) {
       initialRequestRef.current = getHomeFeed()
     }
-    void applyRequest(initialRequestRef.current)
+    void applyRequest(initialRequestRef.current, gate)
 
     return () => {
-      mountedRef.current = false
-      requestRef.current += 1
+      gate.dispose()
+      if (gateRef.current === gate) {
+        gateRef.current = null
+      }
     }
   }, [applyRequest])
 

@@ -1,11 +1,12 @@
 // @vitest-environment jsdom
 
-import { StrictMode, useEffect } from 'react'
+import { StrictMode } from 'react'
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { HomeFeed } from '@shared/types'
 import { getHomeFeed } from '@/api/home'
 import { HomeFeedProvider, useHomeFeed } from './HomeFeedContext'
+import { createHomeFeedRequestGate } from './HomeFeedRequestGate'
 
 vi.mock('@/api/home', () => ({
   getHomeFeed: vi.fn(),
@@ -41,12 +42,15 @@ function deferred<T>() {
   return { promise, resolve, reject }
 }
 
-function Consumer({ name, onRender }: { name: string; onRender?: () => void }) {
-  const { feed: currentFeed, loading, error, reload } = useHomeFeed()
+function feedNamed(nickname: string): HomeFeed {
+  return {
+    ...feed,
+    profile: { ...feed.profile, nickname },
+  }
+}
 
-  useEffect(() => {
-    onRender?.()
-  })
+function Consumer({ name }: { name: string }) {
+  const { feed: currentFeed, loading, error, reload } = useHomeFeed()
 
   return (
     <section aria-label={name}>
@@ -65,6 +69,24 @@ beforeEach(() => {
 })
 
 afterEach(cleanup)
+
+describe('HomeFeedRequestGate', () => {
+  it('suppresses an observable late transition after disposal', async () => {
+    const request = deferred<HomeFeed>()
+    const gate = createHomeFeedRequestGate()
+    const requestId = gate.begin()
+    const committedFeeds: HomeFeed[] = []
+    const completion = request.promise.then((nextFeed) => {
+      gate.commit(requestId, () => committedFeeds.push(nextFeed))
+    })
+
+    gate.dispose()
+    request.resolve(feed)
+    await completion
+
+    expect(committedFeeds).toEqual([])
+  })
+})
 
 describe('HomeFeedProvider', () => {
   it('shares one mount request and the same resolved state with multiple consumers', async () => {
@@ -138,22 +160,85 @@ describe('HomeFeedProvider', () => {
     await screen.findByText('Mei')
   })
 
-  it('ignores a late request completion after unmount', async () => {
-    const request = deferred<HomeFeed>()
-    const onRender = vi.fn()
-    vi.mocked(getHomeFeed).mockReturnValue(request.promise)
+  it('keeps the newer feed when an older reload resolves last', async () => {
+    const olderReload = deferred<HomeFeed>()
+    const newerReload = deferred<HomeFeed>()
+    vi.mocked(getHomeFeed)
+      .mockResolvedValueOnce(feed)
+      .mockReturnValueOnce(olderReload.promise)
+      .mockReturnValueOnce(newerReload.promise)
 
-    const view = render(
+    render(
       <HomeFeedProvider>
-        <Consumer name="feed" onRender={onRender} />
+        <Consumer name="feed" />
       </HomeFeedProvider>,
     )
-    expect(onRender).toHaveBeenCalledOnce()
 
-    view.unmount()
-    await act(async () => request.resolve(feed))
+    await screen.findByText('Lin')
+    fireEvent.click(screen.getByRole('button', { name: 'Reload feed' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Reload feed' }))
 
-    expect(onRender).toHaveBeenCalledOnce()
+    await act(async () => newerReload.resolve(feedNamed('Newest')))
+    await screen.findByText('Newest')
+    expect(screen.getByLabelText('feed').textContent).toContain('Newestidleno error')
+
+    await act(async () => olderReload.resolve(feedNamed('Stale')))
+
+    expect(screen.getByLabelText('feed').textContent).toContain('Newestidleno error')
+  })
+
+  it('keeps the newer success when an older reload fails last', async () => {
+    const olderReload = deferred<HomeFeed>()
+    const newerReload = deferred<HomeFeed>()
+    vi.mocked(getHomeFeed)
+      .mockResolvedValueOnce(feed)
+      .mockReturnValueOnce(olderReload.promise)
+      .mockReturnValueOnce(newerReload.promise)
+
+    render(
+      <HomeFeedProvider>
+        <Consumer name="feed" />
+      </HomeFeedProvider>,
+    )
+
+    await screen.findByText('Lin')
+    fireEvent.click(screen.getByRole('button', { name: 'Reload feed' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Reload feed' }))
+
+    await act(async () => newerReload.resolve(feedNamed('Newest')))
+    await screen.findByText('Newest')
+
+    await act(async () => olderReload.reject(new Error('Stale failure')))
+
+    expect(screen.getByLabelText('feed').textContent).toContain('Newestidleno error')
+  })
+
+  it('stays loading when an older reload settles before the newer reload', async () => {
+    const olderReload = deferred<HomeFeed>()
+    const newerReload = deferred<HomeFeed>()
+    vi.mocked(getHomeFeed)
+      .mockResolvedValueOnce(feed)
+      .mockReturnValueOnce(olderReload.promise)
+      .mockReturnValueOnce(newerReload.promise)
+
+    render(
+      <HomeFeedProvider>
+        <Consumer name="feed" />
+      </HomeFeedProvider>,
+    )
+
+    await screen.findByText('Lin')
+    fireEvent.click(screen.getByRole('button', { name: 'Reload feed' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Reload feed' }))
+
+    await act(async () => olderReload.resolve(feedNamed('Stale')))
+
+    expect(screen.getByLabelText('feed').textContent).toContain('Linloadingno error')
+
+    await act(async () => newerReload.resolve(feedNamed('Newest')))
+    await waitFor(() => {
+      expect(screen.getByLabelText('feed').textContent).toContain('Newestidleno error')
+    })
   })
 })
 
