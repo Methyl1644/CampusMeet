@@ -119,6 +119,37 @@ export interface User extends UserBrief {
   identity?: IdentitySummary;
 }
 
+/** 首次资料引导草稿 */
+export interface OnboardingDraft {
+  onboarding_step: number;
+  onboarding_completed: boolean;
+  nickname: string;
+  avatar?: string;
+  major: string;
+  grade: string;
+  interests: string[];
+  looking_for: string[];
+  skills: string[];
+  availability: Record<string, unknown>;
+  bio?: string;
+  profile_visibility: Record<string, boolean>;
+}
+
+/** 首次资料引导保存请求 */
+export interface OnboardingUpdate {
+  step: number;
+  nickname?: string;
+  avatar?: string;
+  major?: string;
+  grade?: string;
+  interests?: string[];
+  looking_for?: string[];
+  skills?: string[];
+  availability?: Record<string, unknown>;
+  bio?: string;
+  profile_visibility?: Record<string, boolean>;
+}
+
 /** 登录/注册请求 */
 export interface LoginRequest {
   account: string;
