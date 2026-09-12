@@ -215,6 +215,80 @@ describe('Home', () => {
     }
   })
 
+  it('preserves a legacy timeline row identity when empty-id tasks are inserted and reordered', () => {
+    const sharedDueAt = localIso(0, 20)
+    const targetItem = {
+      team_id: '',
+      team_name: '旧版数据小组甲',
+      task_id: '',
+      title: '整理旧版资料',
+      due_at: sharedDueAt,
+      done: false,
+    }
+    const otherItem = {
+      team_id: '',
+      team_name: '旧版数据小组乙',
+      task_id: '',
+      title: '核对旧版资料',
+      due_at: sharedDueAt,
+      done: false,
+    }
+    const insertedItem = {
+      team_id: '',
+      team_name: '旧版数据小组丙',
+      task_id: '',
+      title: '归档旧版资料',
+      due_at: sharedDueAt,
+      done: false,
+    }
+    const { rerender } = render(
+      <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+        <GroupTimeline items={[targetItem, otherItem]} />
+      </MemoryRouter>,
+    )
+    const targetRow = screen.getByRole('link', { name: /整理旧版资料/ }).closest('li')
+
+    rerender(
+      <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+        <GroupTimeline items={[insertedItem, targetItem, otherItem]} />
+      </MemoryRouter>,
+    )
+
+    expect(screen.getByRole('link', { name: /整理旧版资料/ }).closest('li')).toBe(targetRow)
+
+    rerender(
+      <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+        <GroupTimeline items={[otherItem, insertedItem, targetItem]} />
+      </MemoryRouter>,
+    )
+
+    expect(screen.getByRole('link', { name: /整理旧版资料/ }).closest('li')).toBe(targetRow)
+  })
+
+  it('gives genuinely identical legacy timeline rows distinct keys', () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+    const legacyItem = {
+      team_id: '',
+      team_name: '旧版数据小组',
+      task_id: '',
+      title: '整理旧版资料',
+      due_at: localIso(0, 20),
+      done: false,
+    }
+
+    try {
+      render(
+        <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+          <GroupTimeline items={[legacyItem, { ...legacyItem }]} />
+        </MemoryRouter>,
+      )
+
+      expect(consoleError.mock.calls.some((call) => call.some((value) => String(value).includes('same key')))).toBe(false)
+    } finally {
+      consoleError.mockRestore()
+    }
+  })
+
   it('renders personalized recommendations and a locally grouped joined-group timeline', async () => {
     vi.mocked(getHomeFeed).mockResolvedValue(feedFixture)
 

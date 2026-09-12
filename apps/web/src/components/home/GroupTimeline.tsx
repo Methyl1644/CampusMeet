@@ -59,10 +59,34 @@ function dueTime(value: string | null) {
   }).format(new Date(value))
 }
 
-function timelineItemKey(item: HomeTimelineItem, index: number) {
-  const teamKey = item.team_id.trim() || `legacy-team-${index}`
-  const taskKey = item.task_id.trim() || `legacy-task-${index}`
-  return JSON.stringify([teamKey, taskKey])
+function timelineItemIdentity(item: HomeTimelineItem) {
+  const teamId = item.team_id.trim()
+  const taskId = item.task_id.trim()
+
+  if (teamId && taskId) return JSON.stringify(['id', teamId, taskId])
+
+  return JSON.stringify(['legacy', teamId, taskId, item.team_name, item.title, item.due_at])
+}
+
+function keyedTimelineItems(items: HomeTimelineItem[]) {
+  const totals = new Map<string, number>()
+  const occurrences = new Map<string, number>()
+
+  for (const item of items) {
+    const identity = timelineItemIdentity(item)
+    totals.set(identity, (totals.get(identity) ?? 0) + 1)
+  }
+
+  return items.map((item) => {
+    const identity = timelineItemIdentity(item)
+    const occurrence = occurrences.get(identity) ?? 0
+    occurrences.set(identity, occurrence + 1)
+
+    return {
+      item,
+      key: totals.get(identity) === 1 ? identity : JSON.stringify([identity, occurrence]),
+    }
+  })
 }
 
 export default function GroupTimeline({
@@ -98,8 +122,8 @@ export default function GroupTimeline({
                 {group.label}
               </h3>
               <ul>
-                {group.items.map((item, index) => (
-                  <li key={timelineItemKey(item, index)} className="border-b border-stone last:border-b-0">
+                {keyedTimelineItems(group.items).map(({ item, key }) => (
+                  <li key={key} className="border-b border-stone last:border-b-0">
                     <Link
                       to={`/teams/${item.team_id}`}
                       className="group grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-4 px-4 py-4 transition-colors duration-feedback hover:bg-primary-50"
