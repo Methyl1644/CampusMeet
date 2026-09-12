@@ -1,6 +1,6 @@
 import datetime
 
-from sqlalchemy import BigInteger, Boolean, DateTime, Float, ForeignKey, Integer, Text, UniqueConstraint, func
+from sqlalchemy import BigInteger, Boolean, DateTime, Float, ForeignKey, Index, Integer, Text, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from storage.database.shared.model import Base
@@ -186,6 +186,9 @@ class PostTag(Base):
 
 class TopicFollow(Base):
     __tablename__ = "topic_follows"
+    __table_args__ = (
+        Index("ix_topic_follows_user_created", "user_id", "created_at", "topic_id"),
+    )
 
     topic_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("topics.id"), primary_key=True)
     user_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("users.id"), primary_key=True)

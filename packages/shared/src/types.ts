@@ -67,7 +67,42 @@ export interface HomeProfile {
   grade: string | null;
 }
 
-export interface HomeTopic extends Topic {
+export type HomeTrustBadge =
+  | { kind: 'platform_official'; label: string }
+  | { kind: 'verified_organization'; label: string; organization_name: string };
+
+export interface HomeResponsiblePerson {
+  user_id: string;
+  nickname: string;
+  role: string;
+  badge: string;
+}
+
+export interface HomeTag {
+  tag_id: string;
+  canonical_name: string;
+  category: string;
+  display_color: string;
+}
+
+export interface HomeTopic {
+  id: string;
+  channel: Exclude<ContentChannel, 'casual'>;
+  title: string;
+  short_title: string;
+  organizer: string;
+  edition: string;
+  summary: string;
+  content: string;
+  source_url: string | null;
+  source_status: string;
+  cover_url: string | null;
+  follower_count: number;
+  followed: boolean;
+  tags: HomeTag[];
+  status: 'active';
+  trust_badges: HomeTrustBadge[];
+  responsible_people: HomeResponsiblePerson[];
   registration_deadline: string | null;
   activity_start_at: string | null;
   activity_end_at: string | null;

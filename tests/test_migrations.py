@@ -142,6 +142,32 @@ def test_auth_onboarding_migration_matches_fresh_schema_server_defaults(tmp_path
     assert set(upgraded_defaults.values()) == {None}
 
 
+def test_home_feed_migration_adds_user_oriented_topic_follow_index(tmp_path):
+    database_url = f"sqlite:///{tmp_path / 'home-feed-index.db'}"
+    engine = create_engine(database_url)
+    with engine.begin() as connection:
+        connection.execute(
+            text(
+                "CREATE TABLE topic_follows ("
+                "topic_id INTEGER NOT NULL, user_id INTEGER NOT NULL, created_at DATETIME NOT NULL, "
+                "PRIMARY KEY (topic_id, user_id))"
+            )
+        )
+    command.stamp(_alembic_config(database_url), "20260912_10")
+
+    before = {index["name"] for index in inspect(engine).get_indexes("topic_follows")}
+    assert "ix_topic_follows_user_created" not in before
+
+    command.upgrade(_alembic_config(database_url), "head")
+
+    indexes = {index["name"]: index for index in inspect(engine).get_indexes("topic_follows")}
+    assert indexes["ix_topic_follows_user_created"]["column_names"] == [
+        "user_id",
+        "created_at",
+        "topic_id",
+    ]
+
+
 def test_identity_migration_preserves_legacy_organization_application_rows(tmp_path):
     database_url = f"sqlite:///{tmp_path / 'legacy-identity.db'}"
     engine = create_engine(database_url)

@@ -6,7 +6,8 @@ import importlib
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, event, text
+from sqlalchemy.exc import PendingRollbackError, SQLAlchemyError
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
@@ -30,6 +31,23 @@ from storage.database.shared.model import Base
 UTC_NOW = datetime.datetime(2026, 9, 12, 12, 0, tzinfo=datetime.timezone.utc)
 
 
+class PostgreSQLAbortLikeSession(Session):
+    """Make SQLite retain PostgreSQL's transaction-aborted behavior after SQL errors."""
+
+    def _execute_internal(self, *args, **kwargs):
+        if self.info.get("statement_failed"):
+            raise PendingRollbackError("transaction is aborted until rollback")
+        try:
+            return super()._execute_internal(*args, **kwargs)
+        except SQLAlchemyError:
+            self.info["statement_failed"] = True
+            raise
+
+    def rollback(self) -> None:
+        self.info["statement_failed"] = False
+        super().rollback()
+
+
 @pytest.fixture
 def factory():
     engine = create_engine(
@@ -39,6 +57,21 @@ def factory():
     )
     Base.metadata.create_all(engine)
     return sessionmaker(bind=engine, expire_on_commit=False)
+
+
+@pytest.fixture
+def abort_like_factory():
+    engine = create_engine(
+        "sqlite+pysqlite:///:memory:",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+    Base.metadata.create_all(engine)
+    return sessionmaker(
+        bind=engine,
+        class_=PostgreSQLAbortLikeSession,
+        expire_on_commit=False,
+    )
 
 
 @pytest.fixture
@@ -163,7 +196,18 @@ def test_recommendations_apply_all_tie_breakers_and_limit_to_eight(session, user
         title="最新无日期",
         updated_at=UTC_NOW + datetime.timedelta(hours=2),
     )
-    _topic(session, topic_id=19, title="较早无日期", updated_at=UTC_NOW + datetime.timedelta(hours=1))
+    same_update_lower_id = _topic(
+        session,
+        topic_id=19,
+        title="相同更新时间低 ID",
+        updated_at=UTC_NOW + datetime.timedelta(hours=2),
+    )
+    older_undated = _topic(
+        session,
+        topic_id=18,
+        title="较早无日期",
+        updated_at=UTC_NOW + datetime.timedelta(hours=1),
+    )
     for topic_id in range(3, 12):
         _topic(
             session,
@@ -176,7 +220,13 @@ def test_recommendations_apply_all_tie_breakers_and_limit_to_eight(session, user
 
     ids = [topic["id"] for topic in feed["recommended_topics"]]
     assert len(ids) == 8
-    assert ids[:3] == [str(dated.id), str(later.id), str(newest_undated.id)]
+    assert ids[:5] == [
+        str(dated.id),
+        str(later.id),
+        str(newest_undated.id),
+        str(same_update_lower_id.id),
+        str(older_undated.id),
+    ]
 
 
 def test_followed_topics_and_deadline_reminder_use_recent_active_follows(session, user):
@@ -224,7 +274,14 @@ def test_joined_groups_timeline_and_unread_counts_use_only_memberships(session, 
         activity_name="AI 小组",
         task_list=[
             {"id": "late", "title": "提交材料", "deadline": "2026-09-14T09:00:00"},
-            {"id": "bad", "title": "讨论方案", "due_at": "不是日期", "done": True},
+            {
+                "id": "fallback",
+                "title": "讨论方案",
+                "due_at": "不是日期",
+                "deadline": "2026-09-15T09:00:00+00:00",
+                "done": True,
+            },
+            {"id": "bad", "title": "整理记录", "due_at": "仍然不是日期"},
             {"id": "early", "title": "确定选题", "due_at": "2026-09-13T08:00:00+00:00", "done": False},
         ],
     )
@@ -274,10 +331,16 @@ def test_joined_groups_timeline_and_unread_counts_use_only_memberships(session, 
             "target_members": 4,
         }
     ]
-    assert [item["task_id"] for item in feed["group_timeline"]] == ["early", "late", "bad"]
+    assert [item["task_id"] for item in feed["group_timeline"]] == [
+        "early",
+        "late",
+        "fallback",
+        "bad",
+    ]
     assert feed["group_timeline"][1]["due_at"] == "2026-09-14T09:00:00+00:00"
-    assert feed["group_timeline"][2]["due_at"] is None
+    assert feed["group_timeline"][2]["due_at"] == "2026-09-15T09:00:00+00:00"
     assert feed["group_timeline"][2]["done"] is True
+    assert feed["group_timeline"][3]["due_at"] is None
     assert feed["unread"] == {"messages": 1, "notifications": 1}
 
 
@@ -299,6 +362,133 @@ def test_home_feed_degrades_only_the_failed_section(session, user, monkeypatch):
     assert feed["warnings"] == ["group_timeline"]
 
 
+def test_home_feed_recovers_after_a_real_statement_failure(abort_like_factory, monkeypatch):
+    home = importlib.import_module("services.home")
+    with abort_like_factory() as session:
+        user = User(
+            id=1,
+            email="recovery@nju.edu.cn",
+            password_hash="hash",
+            nickname="恢复测试",
+        )
+        session.add(user)
+        topic = _topic(session, topic_id=1, title="已关注活动")
+        session.add(TopicFollow(topic_id=topic.id, user_id=user.id, created_at=UTC_NOW))
+        session.commit()
+        user = session.get(User, 1)
+
+        def fail_with_real_statement(db_session, *_args):
+            db_session.execute(text("SELECT * FROM missing_home_section_table"))
+
+        monkeypatch.setitem(
+            home.HOME_SECTION_BUILDERS,
+            "recommended_topics",
+            fail_with_real_statement,
+        )
+
+        feed = home.build_home_feed(session, user, now=UTC_NOW)
+
+        assert feed["recommended_topics"] == []
+        assert [topic["id"] for topic in feed["followed_topics"]] == ["1"]
+        assert feed["unread"] == {"messages": 0, "notifications": 0}
+        assert feed["warnings"] == ["recommended_topics"]
+        assert session.scalar(text("SELECT 1")) == 1
+
+
+def test_home_feed_query_plan_stays_bounded_as_the_catalog_grows(session, user):
+    user.interests = ["人工智能"]
+    for topic_id in range(1, 65):
+        tag = (
+            ("activity_ai", "人工智能")
+            if topic_id % 2
+            else (f"activity_{topic_id}", f"标签 {topic_id}")
+        )
+        topic = _topic(
+            session,
+            topic_id=topic_id,
+            title=f"活动 {topic_id}",
+            deadline=UTC_NOW + datetime.timedelta(days=(topic_id % 10) + 1),
+            tags=(tag,),
+        )
+        if topic_id <= 6:
+            session.add(
+                TopicFollow(
+                    topic_id=topic.id,
+                    user_id=user.id,
+                    created_at=UTC_NOW - datetime.timedelta(minutes=topic_id),
+                )
+            )
+    session.flush()
+
+    statement_count = 0
+    largest_parameter_count = 0
+
+    def count_statement(_connection, _cursor, _statement, parameters, _context, _many):
+        nonlocal statement_count, largest_parameter_count
+        statement_count += 1
+        if isinstance(parameters, (list, tuple)):
+            largest_parameter_count = max(largest_parameter_count, len(parameters))
+
+    engine = session.get_bind()
+    event.listen(engine, "before_cursor_execute", count_statement)
+    try:
+        feed = _build_home_feed(session, user)
+    finally:
+        event.remove(engine, "before_cursor_execute", count_statement)
+
+    assert len(feed["recommended_topics"]) == 8
+    assert len(feed["followed_topics"]) == 4
+    assert statement_count <= 18
+    assert largest_parameter_count <= 20
+
+
+def test_home_feed_limits_joined_groups_and_timeline_items(session, user):
+    for team_id in range(1, 6):
+        post = Post(
+            id=team_id,
+            title=f"小组 {team_id}",
+            main_category="学习与科研",
+            activity_name=f"小组 {team_id}",
+            current_members=team_id,
+            target_members=6,
+            author_id=user.id,
+        )
+        session.add(post)
+        session.flush()
+        team = Team(
+            id=team_id,
+            post_id=post.id,
+            owner_id=user.id,
+            activity_name=post.activity_name,
+            task_list=[
+                {
+                    "id": f"task-{team_id}-{task_id}",
+                    "title": f"任务 {team_id}-{task_id}",
+                    "due_at": (UTC_NOW + datetime.timedelta(days=team_id, minutes=task_id)).isoformat(),
+                }
+                for task_id in range(3)
+            ],
+        )
+        session.add(team)
+        session.flush()
+        session.add(
+            TeamMember(
+                team_id=team.id,
+                user_id=user.id,
+                member_role="owner",
+                created_at=UTC_NOW + datetime.timedelta(minutes=team_id),
+            )
+        )
+    session.flush()
+
+    feed = _build_home_feed(session, user)
+
+    assert [group["id"] for group in feed["joined_groups"]] == ["5", "4", "3", "2"]
+    assert len(feed["group_timeline"]) == 12
+    assert feed["group_timeline"][0]["task_id"] == "task-1-0"
+    assert feed["group_timeline"][-1]["task_id"] == "task-4-2"
+
+
 def test_home_endpoint_requires_auth_wraps_contract_and_rejects_missing_users(factory, monkeypatch):
     home_api = importlib.import_module("api.home")
     app = FastAPI()
@@ -311,12 +501,81 @@ def test_home_endpoint_requires_auth_wraps_contract_and_rejects_missing_users(fa
         app.dependency_overrides[current_user_id] = lambda: "1"
         with factory() as session:
             session.add(User(id=1, email="home@nju.edu.cn", password_hash="hash", nickname="首页用户"))
+            topic = _topic(
+                session,
+                topic_id=1,
+                title="首页活动",
+                deadline=UTC_NOW + datetime.timedelta(days=3),
+                tags=(("activity_ai", "人工智能"),),
+            )
+            session.add(TopicFollow(topic_id=topic.id, user_id=1, created_at=UTC_NOW))
             session.commit()
         response = client.get("/api/home")
 
         assert response.status_code == 200
-        assert response.json()["code"] == 0
-        assert "recommended_topics" in response.json()["data"]
+        payload = response.json()
+        assert set(payload) == {"code", "message", "data"}
+        assert payload["code"] == 0
+        assert payload["message"] == "ok"
+        assert set(payload["data"]) == {
+            "profile",
+            "deadline_reminder",
+            "recommended_topics",
+            "followed_topics",
+            "joined_groups",
+            "group_timeline",
+            "unread",
+            "warnings",
+        }
+        assert set(payload["data"]["profile"]) == {"id", "nickname", "avatar", "major", "grade"}
+        topic_keys = {
+            "id",
+            "channel",
+            "title",
+            "short_title",
+            "organizer",
+            "edition",
+            "summary",
+            "content",
+            "source_url",
+            "source_status",
+            "cover_url",
+            "follower_count",
+            "followed",
+            "tags",
+            "status",
+            "trust_badges",
+            "responsible_people",
+            "registration_deadline",
+            "activity_start_at",
+            "activity_end_at",
+        }
+        recommended = payload["data"]["recommended_topics"][0]
+        assert set(recommended) == topic_keys | {"recommendation_reason"}
+        assert recommended["source_url"] is None
+        assert recommended["cover_url"] is None
+        assert set(recommended["tags"][0]) == {
+            "tag_id",
+            "canonical_name",
+            "category",
+            "display_color",
+        }
+        assert set(recommended["trust_badges"][0]) == {"kind", "label"}
+        assert recommended["responsible_people"] == []
+        assert set(payload["data"]["deadline_reminder"]) == topic_keys | {"days_remaining"}
+        assert set(payload["data"]["unread"]) == {"messages", "notifications"}
+
+        response_schema = app.openapi()["paths"]["/api/home"]["get"]["responses"]["200"][
+            "content"
+        ]["application/json"]["schema"]
+        assert response_schema == {"$ref": "#/components/schemas/HomeFeedResponse"}
+        schemas = app.openapi()["components"]["schemas"]
+        assert set(schemas["HomeOfficialTrustBadge"]["properties"]) == {"kind", "label"}
+        assert set(schemas["HomeVerifiedOrganizationTrustBadge"]["required"]) == {
+            "kind",
+            "label",
+            "organization_name",
+        }
 
         app.dependency_overrides[current_user_id] = lambda: "999"
         missing = client.get("/api/home")

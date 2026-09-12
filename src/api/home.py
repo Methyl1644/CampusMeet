@@ -3,6 +3,7 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException
 
 from api.common import api_ok, current_user_id
+from api.schemas.home import HomeFeedResponse
 from services.home import build_home_feed
 from storage.database.db import get_session
 from storage.database.models import User
@@ -11,7 +12,7 @@ from storage.database.models import User
 router = APIRouter(prefix="/home", tags=["home"])
 
 
-@router.get("")
+@router.get("", response_model=HomeFeedResponse)
 def home_feed(user_id: str = Depends(current_user_id)) -> dict[str, Any]:
     session = get_session()
     try:
