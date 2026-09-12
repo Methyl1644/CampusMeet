@@ -35,6 +35,7 @@ export default function Home() {
   const timelineDegraded = feed.warnings.includes('group_timeline')
   const followedDegraded = feed.warnings.includes('followed_topics')
   const groupsDegraded = feed.warnings.includes('joined_groups')
+  const deadlineDegraded = feed.warnings.includes('deadline_reminder')
 
   return (
     <div
@@ -56,7 +57,11 @@ export default function Home() {
       </aside>
 
       <div className="min-w-0 overflow-hidden">
-        {feed.deadline_reminder && !feed.warnings.includes('deadline_reminder') ? (
+        {deadlineDegraded ? (
+          <p role="status" className="mb-4 text-xs text-ink-muted">
+            截止提醒暂时无法加载
+          </p>
+        ) : feed.deadline_reminder ? (
           <div className="mb-7">
             <DeadlineReminder reminder={feed.deadline_reminder} />
           </div>

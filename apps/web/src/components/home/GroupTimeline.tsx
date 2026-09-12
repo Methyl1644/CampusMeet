@@ -59,6 +59,12 @@ function dueTime(value: string | null) {
   }).format(new Date(value))
 }
 
+function timelineItemKey(item: HomeTimelineItem, index: number) {
+  const teamKey = item.team_id.trim() || `legacy-team-${index}`
+  const taskKey = item.task_id.trim() || `legacy-task-${index}`
+  return JSON.stringify([teamKey, taskKey])
+}
+
 export default function GroupTimeline({
   items,
   degraded = false,
@@ -92,8 +98,8 @@ export default function GroupTimeline({
                 {group.label}
               </h3>
               <ul>
-                {group.items.map((item) => (
-                  <li key={item.task_id} className="border-b border-stone last:border-b-0">
+                {group.items.map((item, index) => (
+                  <li key={timelineItemKey(item, index)} className="border-b border-stone last:border-b-0">
                     <Link
                       to={`/teams/${item.team_id}`}
                       className="group grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-4 px-4 py-4 transition-colors duration-feedback hover:bg-primary-50"

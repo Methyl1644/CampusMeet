@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { MemoryRouter } from 'react-router-dom'
 import type { HomeFeed, RecommendedHomeTopic } from '@shared/types'
 import { getHomeFeed } from '@/api/home'
+import GroupTimeline from '@/components/home/GroupTimeline'
 import { HomeFeedProvider } from '@/features/home/HomeFeedContext'
 import Home from './Home'
 
@@ -139,9 +140,81 @@ beforeEach(() => {
   vi.clearAllMocks()
 })
 
-afterEach(cleanup)
+afterEach(() => {
+  cleanup()
+  vi.unstubAllGlobals()
+})
 
 describe('Home', () => {
+  it('keeps timeline rows distinct when two teams share a task id across a rerender', () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+    const sharedDueAt = localIso(0, 20)
+    const initialItems = [
+      {
+        team_id: 'team-modeling',
+        team_name: '美赛建模小组',
+        task_id: 't1',
+        title: '完成论文框架',
+        due_at: sharedDueAt,
+        done: false,
+      },
+      {
+        team_id: 'team-robotics',
+        team_name: '机器人竞赛小组',
+        task_id: 't1',
+        title: '测试巡线模块',
+        due_at: sharedDueAt,
+        done: false,
+      },
+      {
+        team_id: '',
+        team_name: '旧版数据小组甲',
+        task_id: '',
+        title: '整理旧版资料',
+        due_at: sharedDueAt,
+        done: false,
+      },
+      {
+        team_id: '',
+        team_name: '旧版数据小组乙',
+        task_id: '',
+        title: '核对旧版资料',
+        due_at: sharedDueAt,
+        done: false,
+      },
+    ]
+
+    try {
+      const { rerender } = render(
+        <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+          <GroupTimeline items={initialItems} />
+        </MemoryRouter>,
+      )
+
+      expect(screen.getByRole('link', { name: /完成论文框架/ }).getAttribute('href')).toBe('/teams/team-modeling')
+      expect(screen.getByRole('link', { name: /测试巡线模块/ }).getAttribute('href')).toBe('/teams/team-robotics')
+
+      rerender(
+        <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+          <GroupTimeline
+            items={[
+              initialItems[0],
+              { ...initialItems[1], title: '完成巡线模块复测', done: true },
+              initialItems[2],
+              { ...initialItems[3], title: '完成旧版资料核对', done: true },
+            ]}
+          />
+        </MemoryRouter>,
+      )
+
+      expect(screen.queryByText('测试巡线模块')).toBeNull()
+      expect(screen.getByRole('link', { name: /完成巡线模块复测/ }).getAttribute('href')).toBe('/teams/team-robotics')
+      expect(consoleError.mock.calls.some((call) => call.some((value) => String(value).includes('same key')))).toBe(false)
+    } finally {
+      consoleError.mockRestore()
+    }
+  })
+
   it('renders personalized recommendations and a locally grouped joined-group timeline', async () => {
     vi.mocked(getHomeFeed).mockResolvedValue(feedFixture)
 
@@ -163,6 +236,48 @@ describe('Home', () => {
     )
     expect(screen.getByText('已完成')).toBeTruthy()
     expect(getHomeFeed).toHaveBeenCalledOnce()
+  })
+
+  it('gates event-card translation behind the reduced-motion-safe media variant', async () => {
+    vi.stubGlobal('matchMedia', vi.fn().mockReturnValue({ matches: true }))
+    vi.mocked(getHomeFeed).mockResolvedValue(feedFixture)
+
+    renderHome()
+
+    const card = await screen.findByRole('link', { name: new RegExp(recommendedTopic.title) })
+    expect(window.matchMedia('(prefers-reduced-motion: reduce)').matches).toBe(true)
+    expect(card.classList.contains('motion-safe:hover:-translate-y-0.5')).toBe(true)
+    expect(card.classList.contains('hover:-translate-y-0.5')).toBe(false)
+  })
+
+  it('keeps valid long recommendation content inside stable card geometry', async () => {
+    const longReason = '与你关注的人工智能、机器人、跨学科创新、产品设计和校园公益方向高度相关，也符合你近期希望参与长期项目并认识不同专业同学的偏好'
+    const longTopic: RecommendedHomeTopic = {
+      ...recommendedTopic,
+      id: 'topic-long-content',
+      title: '跨学科校园人工智能与机器人创新实践挑战赛长期联合招募计划',
+      organizer: '计算机科学与技术系、电子科学与工程学院及创新创业学院联合工作组',
+      recommendation_reason: longReason,
+    }
+    vi.mocked(getHomeFeed).mockResolvedValue({
+      ...feedFixture,
+      deadline_reminder: null,
+      recommended_topics: [longTopic],
+    })
+
+    renderHome()
+
+    const card = await screen.findByRole('link', { name: new RegExp(longTopic.title) })
+    const body = card.lastElementChild as HTMLElement
+    const timing = within(card).getByLabelText(/截止/)
+    const reason = within(card).getByText(longReason)
+
+    expect(card.classList.contains('h-[392px]')).toBe(true)
+    expect(body.classList.contains('h-[238px]')).toBe(true)
+    expect(timing.classList.contains('line-clamp-2')).toBe(true)
+    expect(timing.getAttribute('title')).toBe(timing.textContent)
+    expect(reason.classList.contains('line-clamp-2')).toBe(true)
+    expect(reason.textContent).toBe(longReason)
   })
 
   it('renders restrained recommendation and timeline empty states', async () => {
@@ -198,6 +313,21 @@ describe('Home', () => {
     expect(await screen.findByText(recommendedTopic.title)).toBeTruthy()
     expect(screen.getByText('小组动态暂时无法加载')).toBeTruthy()
     expect(screen.queryByText('小组有新任务时，会在这里按日期出现。')).toBeNull()
+  })
+
+  it('distinguishes an unavailable deadline reminder from a healthy empty result', async () => {
+    vi.mocked(getHomeFeed).mockResolvedValue({
+      ...feedFixture,
+      warnings: ['deadline_reminder'],
+    })
+
+    renderHome()
+
+    expect(await screen.findByText('截止提醒暂时无法加载')).toBeTruthy()
+    expect(screen.getByText(recommendedTopic.title)).toBeTruthy()
+    expect(screen.queryByText(/距报名截止还有/)).toBeNull()
+    expect(screen.queryByRole('button', { name: '关闭截止提醒' })).toBeNull()
+    expect(screen.queryByRole('link', { name: '查看活动' })).toBeNull()
   })
 
   it('offers one focused retry after a fatal aggregate error', async () => {
