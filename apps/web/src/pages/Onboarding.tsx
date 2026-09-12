@@ -5,6 +5,7 @@ import {
   Clock3,
   Eye,
   GraduationCap,
+  RefreshCw,
   Search,
   UserRound,
 } from 'lucide-react'
@@ -12,9 +13,15 @@ import { useNavigate } from 'react-router-dom'
 import { getApiErrorMessage } from '@/api/auth-feedback'
 import { completeOnboarding, getOnboarding, saveOnboarding } from '@/api/onboarding'
 import { useToast } from '@/components/Toast'
+import CampusMark from '@/components/CampusMark'
 import ChoiceChips from '@/components/onboarding/ChoiceChips'
 import OnboardingShell from '@/components/onboarding/OnboardingShell'
-import { canContinue } from '@/components/onboarding/onboardingState'
+import {
+  canContinue,
+  canEditOnboarding,
+  canEnterOnboarding,
+  type OnboardingLoadStatus,
+} from '@/components/onboarding/onboardingState'
 import { useAuthStore } from '@/store/authStore'
 import { COMMON_SKILLS } from '@shared/constants'
 import type { OnboardingDraft, OnboardingUpdate } from '@shared/types'
@@ -131,29 +138,19 @@ export default function Onboarding() {
   const navigate = useNavigate()
   const { showToast } = useToast()
   const { user, updateUser } = useAuthStore()
-  const [draft, setDraft] = useState<OnboardingDraft>(() => ({
-    onboarding_step: 1,
-    onboarding_completed: false,
-    nickname: user?.nickname ?? '',
-    avatar: user?.avatar,
-    major: user?.major ?? '',
-    grade: user?.grade ?? '',
-    interests: [],
-    looking_for: [],
-    skills: [],
-    availability: {},
-    bio: '',
-    profile_visibility: DEFAULT_VISIBILITY,
-  }))
+  const [draft, setDraft] = useState<OnboardingDraft | null>(null)
   const [step, setStep] = useState(1)
   const [direction, setDirection] = useState(1)
-  const [isLoading, setIsLoading] = useState(true)
+  const [loadStatus, setLoadStatus] = useState<OnboardingLoadStatus>('loading')
+  const [loadAttempt, setLoadAttempt] = useState(0)
   const [isSaving, setIsSaving] = useState(false)
   const [interestQuery, setInterestQuery] = useState('')
   const [showAllInterests, setShowAllInterests] = useState(false)
 
   useEffect(() => {
     let active = true
+    setLoadStatus('loading')
+    setDraft(null)
     getOnboarding()
       .then((savedDraft) => {
         if (!active) return
@@ -183,35 +180,33 @@ export default function Onboarding() {
           },
         })
         setStep(clampStep(savedDraft.onboarding_step || 1))
+        setLoadStatus('ready')
       })
       .catch((error) => {
         if (active) {
+          setDraft(null)
+          setLoadStatus('error')
           showToast(getApiErrorMessage(error, '资料加载失败，请稍后重试'), 'error')
         }
-      })
-      .finally(() => {
-        if (active) setIsLoading(false)
       })
 
     return () => {
       active = false
     }
-  }, [navigate, showToast, updateUser, user?.email])
+  }, [loadAttempt, navigate, showToast, updateUser, user?.email])
 
   const visibleInterests = useMemo(() => {
+    if (!draft) return []
     const query = interestQuery.trim().toLocaleLowerCase('zh-CN')
     if (query) {
       return INTEREST_OPTIONS.filter((option) => option.toLocaleLowerCase('zh-CN').includes(query))
     }
     if (showAllInterests) return [...INTEREST_OPTIONS]
     return [...new Set([...draft.interests, ...INTEREST_OPTIONS.slice(0, 12)])]
-  }, [draft.interests, interestQuery, showAllInterests])
-
-  const meta = STEP_META[step - 1]
-  const valid = canContinue(step, draft)
+  }, [draft, interestQuery, showAllInterests])
 
   const saveAndGo = async (nextStep: number) => {
-    if (isSaving) return
+    if (isSaving || !canEnterOnboarding(loadStatus, draft)) return
     setIsSaving(true)
     try {
       const savedDraft = await saveOnboarding(toUpdate(draft, nextStep))
@@ -234,7 +229,7 @@ export default function Onboarding() {
   }
 
   const handleContinue = async () => {
-    if (!valid || isSaving) return
+    if (!canEnterOnboarding(loadStatus, draft) || !canContinue(step, draft) || isSaving) return
     if (step < 6) {
       await saveAndGo(step + 1)
       return
@@ -259,13 +254,17 @@ export default function Onboarding() {
   }
 
   const setAvailability = (key: string, selected: boolean) => {
-    setDraft((current) => ({
-      ...current,
-      availability: { ...current.availability, [key]: selected },
-    }))
+    if (!draft) return
+    setDraft((current) => {
+      if (!current) return current
+      return {
+        ...current,
+        availability: { ...current.availability, [key]: selected },
+      }
+    })
   }
 
-  if (isLoading) {
+  if (loadStatus === 'loading') {
     return (
       <main className="onboarding-page items-center justify-center px-5">
         <div role="status" className="flex items-center gap-2 text-sm text-ink-muted">
@@ -276,11 +275,40 @@ export default function Onboarding() {
     )
   }
 
+  if (!canEnterOnboarding(loadStatus, draft)) {
+    return (
+      <main className="onboarding-page items-center justify-center px-5">
+        <section className="w-full max-w-md text-center" aria-labelledby="onboarding-load-error-title">
+          <CampusMark />
+          <h1 id="onboarding-load-error-title" className="mt-8 text-2xl font-semibold text-ink">
+            暂时无法载入资料
+          </h1>
+          <p className="mt-3 text-sm leading-6 text-ink-muted">
+            你的已保存内容没有被更改。重新载入后再继续完善资料。
+          </p>
+          <button
+            type="button"
+            onClick={() => setLoadAttempt((current) => current + 1)}
+            className="btn-primary mt-6 min-h-11 px-5"
+          >
+            <RefreshCw aria-hidden="true" className="size-[18px]" />
+            重新载入
+          </button>
+        </section>
+      </main>
+    )
+  }
+
+  const meta = STEP_META[step - 1]
+  const valid = canContinue(step, draft)
+  const stageDisabled = !canEditOnboarding(loadStatus, draft, isSaving)
+
   return (
     <OnboardingShell
       step={step}
       direction={direction}
       isSaving={isSaving}
+      stageDisabled={stageDisabled}
       canGoBack={step > 1}
       continueDisabled={!valid}
       continueLabel={step === 6 ? '完成资料' : '继续'}
@@ -429,9 +457,7 @@ export default function Onboarding() {
             selected={draft.looking_for}
             onChange={(looking_for) => setDraft({ ...draft, looking_for })}
           />
-          <p className="mt-4 min-h-5 text-sm text-red-700" aria-live="polite">
-            {draft.looking_for.length > 0 ? '' : '请至少选择一个参与目标'}
-          </p>
+          <p className="mt-4 min-h-5 text-sm text-ink-muted">可多选，也可以暂时跳过</p>
         </div>
       )}
 

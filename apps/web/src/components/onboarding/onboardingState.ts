@@ -1,5 +1,22 @@
 import type { OnboardingDraft } from '@shared/types'
 
+export type OnboardingLoadStatus = 'loading' | 'ready' | 'error'
+
+export function canEnterOnboarding(
+  status: OnboardingLoadStatus,
+  draft: OnboardingDraft | null,
+): draft is OnboardingDraft {
+  return status === 'ready' && draft !== null
+}
+
+export function canEditOnboarding(
+  status: OnboardingLoadStatus,
+  draft: OnboardingDraft | null,
+  isSaving: boolean,
+): boolean {
+  return canEnterOnboarding(status, draft) && !isSaving
+}
+
 const hasText = (value?: string) => Boolean(value?.trim())
 
 const uniqueNonEmptyCount = (values?: string[]) =>
@@ -14,7 +31,6 @@ export function canContinue(step: number, draft: OnboardingDraft): boolean {
     case 3:
       return uniqueNonEmptyCount(draft.interests) >= 3
     case 4:
-      return uniqueNonEmptyCount(draft.looking_for) >= 1
     case 5:
     case 6:
       return true

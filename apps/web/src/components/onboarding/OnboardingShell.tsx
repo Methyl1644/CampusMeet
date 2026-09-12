@@ -7,6 +7,7 @@ interface OnboardingShellProps {
   step: number
   direction: number
   isSaving: boolean
+  stageDisabled: boolean
   canGoBack: boolean
   continueDisabled: boolean
   continueLabel?: string
@@ -33,6 +34,7 @@ export default function OnboardingShell({
   step,
   direction,
   isSaving,
+  stageDisabled,
   canGoBack,
   continueDisabled,
   continueLabel = '继续',
@@ -96,7 +98,13 @@ export default function OnboardingShell({
             className="onboarding-stage-grid"
           >
             <section className="flex min-w-0 flex-col" aria-label={`资料完善第 ${step} 步`}>
-              <div className="min-h-[430px] flex-1 sm:min-h-[470px]">{children}</div>
+              <fieldset
+                disabled={stageDisabled}
+                className="m-0 min-h-[430px] min-w-0 flex-1 border-0 p-0 sm:min-h-[470px]"
+              >
+                <legend className="sr-only">资料完善第 {step} 步字段</legend>
+                {children}
+              </fieldset>
               <div className="mt-8 flex min-h-11 items-center justify-end border-t border-stone pt-5">
                 <button
                   type="button"
