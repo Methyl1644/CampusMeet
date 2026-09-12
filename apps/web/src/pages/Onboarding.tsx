@@ -20,6 +20,8 @@ import {
   canContinue,
   canEditOnboarding,
   canEnterOnboarding,
+  MAX_ONBOARDING_INTERESTS,
+  MIN_ONBOARDING_INTERESTS,
   type OnboardingLoadStatus,
 } from '@/components/onboarding/onboardingState'
 import { useAuthStore } from '@/store/authStore'
@@ -450,6 +452,7 @@ function OnboardingFlow() {
               options={visibleInterests}
               selected={draft.interests}
               onChange={(interests) => setDraft({ ...draft, interests })}
+              maxSelected={MAX_ONBOARDING_INTERESTS}
             />
             {visibleInterests.length === 0 && (
               <p className="py-5 text-sm text-ink-muted">没有匹配的标准兴趣</p>
@@ -470,7 +473,8 @@ function OnboardingFlow() {
             </button>
           )}
           <p className="mt-2 min-h-5 text-sm text-ink-muted" aria-live="polite">
-            已选择 {new Set(draft.interests.map((item) => item.trim()).filter(Boolean)).size} / 至少 3 个
+            已选择 {new Set(draft.interests.map((item) => item.trim()).filter(Boolean)).size}
+            {' / '}{MIN_ONBOARDING_INTERESTS} 至 {MAX_ONBOARDING_INTERESTS} 个
           </p>
         </div>
       )}

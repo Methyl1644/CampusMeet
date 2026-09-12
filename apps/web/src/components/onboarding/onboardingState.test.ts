@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { ONBOARDING_INTERESTS } from '@shared/constants'
 import type { OnboardingDraft } from '@shared/types'
 import { canContinue, canEditOnboarding, canEnterOnboarding } from './onboardingState'
 
@@ -30,9 +31,22 @@ describe('canContinue', () => {
     expect(canContinue(1, { nickname: '' } as OnboardingDraft)).toBe(false)
   })
 
-  it('requires three unique interests on step three', () => {
-    expect(canContinue(3, { interests: ['AI', 'AI', '跑步'] } as OnboardingDraft)).toBe(false)
-    expect(canContinue(3, { interests: ['AI', '产品', '跑步'] } as OnboardingDraft)).toBe(true)
+  it('requires three to thirty unique standard interests on step three', () => {
+    expect(canContinue(3, {
+      interests: ['人工智能', '人工智能', '数学建模'],
+    } as OnboardingDraft)).toBe(false)
+    expect(canContinue(3, {
+      interests: ['人工智能', '数学建模', '羽毛球'],
+    } as OnboardingDraft)).toBe(true)
+    expect(canContinue(3, {
+      interests: [...ONBOARDING_INTERESTS.slice(0, 30)],
+    } as OnboardingDraft)).toBe(true)
+    expect(canContinue(3, {
+      interests: [...ONBOARDING_INTERESTS.slice(0, 31)],
+    } as OnboardingDraft)).toBe(false)
+    expect(canContinue(3, {
+      interests: ['自造兴趣一', '自造兴趣二', '自造兴趣三'],
+    } as OnboardingDraft)).toBe(false)
   })
 
   it('allows optional steps four, five and six', () => {

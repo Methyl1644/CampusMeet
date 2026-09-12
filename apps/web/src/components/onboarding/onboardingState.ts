@@ -1,3 +1,4 @@
+import { ONBOARDING_INTERESTS } from '@shared/constants'
 import type { OnboardingDraft } from '@shared/types'
 
 export type OnboardingLoadStatus = 'loading' | 'ready' | 'error'
@@ -19,8 +20,21 @@ export function canEditOnboarding(
 
 const hasText = (value?: string) => Boolean(value?.trim())
 
-const uniqueNonEmptyCount = (values?: string[]) =>
-  new Set(values?.map((value) => value.trim()).filter(Boolean)).size
+export const MIN_ONBOARDING_INTERESTS = 3
+export const MAX_ONBOARDING_INTERESTS = 30
+
+const standardInterests = new Set<string>(ONBOARDING_INTERESTS)
+
+const uniqueStandardInterestCount = (values?: string[]) => {
+  const normalized = values?.map((value) => value.trim()) ?? []
+  if (
+    normalized.length > MAX_ONBOARDING_INTERESTS
+    || normalized.some((value) => !standardInterests.has(value))
+  ) {
+    return 0
+  }
+  return new Set(normalized).size
+}
 
 export function canContinue(step: number, draft: OnboardingDraft): boolean {
   switch (step) {
@@ -28,8 +42,10 @@ export function canContinue(step: number, draft: OnboardingDraft): boolean {
       return hasText(draft.nickname)
     case 2:
       return hasText(draft.major) && hasText(draft.grade)
-    case 3:
-      return uniqueNonEmptyCount(draft.interests) >= 3
+    case 3: {
+      const interestCount = uniqueStandardInterestCount(draft.interests)
+      return interestCount >= MIN_ONBOARDING_INTERESTS && interestCount <= MAX_ONBOARDING_INTERESTS
+    }
     case 4:
     case 5:
     case 6:
