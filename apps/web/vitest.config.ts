@@ -17,6 +17,8 @@ export default defineConfig({
       'src/router/authRouting.test.ts',
       'src/router/authRouting.integration.test.tsx',
       'src/store/authStore.test.ts',
+      'src/api/home.test.ts',
+      'src/features/home/HomeFeedContext.test.tsx',
     ],
   },
 })
