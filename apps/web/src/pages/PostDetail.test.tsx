@@ -5,10 +5,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { MemoryRouter, Route, Routes, useNavigate } from 'react-router-dom'
 import { createApplication } from '@/api/applications'
 import { getExploreGroup, joinExploreGroup, setGroupFavorite } from '@/api/explore'
-import { getMyTeams } from '@/api/teams'
+import { getMyTeams, type MyTeamSummary } from '@/api/teams'
 import { ToastProvider } from '@/components/Toast'
 import PostDetail from './PostDetail'
-import { groupDetailFixture, teamFixture } from './detailTestFixtures'
+import { groupDetailFixture } from './detailTestFixtures'
 
 vi.mock('@/api/applications', () => ({ createApplication: vi.fn() }))
 vi.mock('@/api/explore', () => ({
@@ -24,8 +24,16 @@ function deferred<T>() {
   return { promise, resolve }
 }
 
+const myTeamSummaryFixture: MyTeamSummary = {
+  id: 'team-1',
+  post_id: groupDetailFixture.id,
+  activity_name: groupDetailFixture.activity_name,
+  my_role: '队长',
+  created_at: '2026-09-13T08:00:00+08:00',
+}
+
 function teamPage(
-  list: typeof teamFixture[],
+  list: MyTeamSummary[],
   { page = 1, pageSize = 100, pages = 1, total = list.length } = {},
 ) {
   return { list, total, page, page_size: pageSize, pages }
@@ -56,7 +64,7 @@ beforeEach(() => {
   vi.resetAllMocks()
   vi.mocked(getExploreGroup).mockResolvedValue(groupDetailFixture)
   vi.mocked(setGroupFavorite).mockResolvedValue({ post_id: groupDetailFixture.id, bookmark: true })
-  vi.mocked(getMyTeams).mockResolvedValue(teamPage([teamFixture]))
+  vi.mocked(getMyTeams).mockResolvedValue(teamPage([myTeamSummaryFixture]))
   vi.mocked(joinExploreGroup).mockResolvedValue({
     ...groupDetailFixture,
     join_state: 'joined',
@@ -94,11 +102,11 @@ describe('PostDetail group experience', () => {
     vi.mocked(getExploreGroup).mockResolvedValue({ ...groupDetailFixture, join_state: 'joined' })
     vi.mocked(getMyTeams)
       .mockResolvedValueOnce(teamPage(
-        [{ ...teamFixture, id: 'unrelated-team', post_id: 'another-post' }],
+        [{ ...myTeamSummaryFixture, id: 'unrelated-team', post_id: 'another-post' }],
         { page: 1, pages: 2, total: 101 },
       ))
       .mockResolvedValueOnce(teamPage(
-        [{ ...teamFixture, id: 'matching-team', post_id: groupDetailFixture.id }],
+        [{ ...myTeamSummaryFixture, id: 'matching-team', post_id: groupDetailFixture.id }],
         { page: 2, pages: 2, total: 101 },
       ))
     renderPost()
@@ -301,7 +309,7 @@ describe('PostDetail group experience', () => {
       .mockReturnValueOnce(freshARequest.promise)
     vi.mocked(getMyTeams)
       .mockReturnValueOnce(oldLookup.promise)
-      .mockResolvedValueOnce(teamPage([{ ...teamFixture, id: 'fresh-team' }]))
+      .mockResolvedValueOnce(teamPage([{ ...myTeamSummaryFixture, id: 'fresh-team' }]))
     renderPost()
 
     expect(await screen.findByText('正在查找团队...')).toBeTruthy()
@@ -311,7 +319,7 @@ describe('PostDetail group experience', () => {
     expect(await screen.findByRole('status', { name: '正在加载组队详情' })).toBeTruthy()
 
     await act(async () => {
-      oldLookup.resolve(teamPage([{ ...teamFixture, id: 'old-team' }]))
+      oldLookup.resolve(teamPage([{ ...myTeamSummaryFixture, id: 'old-team' }]))
       await oldLookup.promise
       freshARequest.resolve(freshA)
       await freshARequest.promise

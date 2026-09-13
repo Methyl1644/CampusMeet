@@ -7,6 +7,14 @@ interface MyTeamsParams {
   page_size?: number
 }
 
+export interface MyTeamSummary {
+  id: string
+  post_id: string
+  activity_name: string
+  my_role: string | null
+  created_at: string | null
+}
+
 /** 获取团队详情 */
 export function getTeamDetail(id: string, signal?: AbortSignal) {
   return get<Team>(API_PATHS.teams.detail.replace(':id', id), undefined, signal)
@@ -19,7 +27,7 @@ export function updateTask(teamId: string, taskId: string, done: boolean) {
 
 /** 获取我的团队 */
 export function getMyTeams(params?: MyTeamsParams, signal?: AbortSignal) {
-  return get<PaginatedResponse<Team>>(
+  return get<PaginatedResponse<MyTeamSummary>>(
     API_PATHS.teams.myTeams,
     params as Record<string, unknown> | undefined,
     signal,
