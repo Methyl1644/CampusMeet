@@ -17,7 +17,11 @@ async function shareCurrentPage(title: string) {
     await navigator.share({ title, url })
     return
   }
-  await navigator.clipboard?.writeText(url)
+  if (navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(url)
+    return
+  }
+  throw new Error('Sharing is unavailable')
 }
 
 function displayValue(value: string | null) {

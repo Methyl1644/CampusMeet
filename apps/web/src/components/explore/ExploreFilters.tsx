@@ -101,6 +101,16 @@ export default function ExploreFilters(props: ExploreFiltersProps) {
     return () => document.removeEventListener('keydown', handleKeyDown)
   }, [open])
 
+  useEffect(() => {
+    if (typeof window.matchMedia !== 'function') return
+    const desktop = window.matchMedia('(min-width: 768px)')
+    const closeAtDesktop = (event: MediaQueryListEvent) => {
+      if (event.matches) setOpen(false)
+    }
+    desktop.addEventListener('change', closeAtDesktop)
+    return () => desktop.removeEventListener('change', closeAtDesktop)
+  }, [])
+
   const clearFilters = () => props.onChange({ filters: { date: '', status: '', type: '', campus: '' } })
 
   return (

@@ -115,6 +115,25 @@ describe('Explore URL state', () => {
     expect(groupChanged.group.tagIds).toEqual(['music'])
   })
 
+  it('canonicalizes equivalent tag sets without resetting pagination', () => {
+    const original = readExploreState(new URLSearchParams(
+      'activity_tags=activity_ai%2Cactivity_programming&activity_page=5',
+    ))
+
+    const updated = updateExploreState(original, {
+      tagIds: ['activity_programming', 'activity_ai', 'activity_programming'],
+    })
+
+    expect(updated.activity.tagIds).toEqual(['activity_ai', 'activity_programming'])
+    expect(updated.activity.page).toBe(5)
+    expect(writeExploreState(updated.view, updated).get('activity_tags')).toBe(
+      'activity_ai,activity_programming',
+    )
+    expect(readExploreState(new URLSearchParams(
+      'activity_tags=activity_programming%2Cactivity_ai',
+    )).activity.tagIds).toEqual(['activity_ai', 'activity_programming'])
+  })
+
   it('lets the hook switch views and update the active branch without losing the other branch', () => {
     const { result } = renderHook(() => {
       const explore = useExploreState()

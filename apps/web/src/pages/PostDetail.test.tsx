@@ -79,6 +79,7 @@ beforeEach(() => {
     status: 'pending', created_at: '2026-09-13T08:00:00+08:00',
   })
   Object.defineProperty(navigator, 'share', { configurable: true, value: vi.fn().mockResolvedValue(undefined) })
+  Object.defineProperty(navigator, 'clipboard', { configurable: true, value: undefined })
 })
 
 afterEach(() => cleanup())
@@ -210,6 +211,18 @@ describe('PostDetail group experience', () => {
     expect(navigator.share).toHaveBeenCalled()
     expect(actions.getAttribute('data-mobile-safe-area')).toBe('true')
     expect(screen.getByTestId('group-detail-page').className).toContain('pb-[calc(')
+  })
+
+  it('reports a share failure when the browser exposes no sharing API', async () => {
+    Object.defineProperty(navigator, 'share', { configurable: true, value: undefined })
+    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: undefined })
+    renderPost()
+
+    const actions = await screen.findByRole('region', { name: '组队操作' })
+    fireEvent.click(within(actions).getByRole('button', { name: '分享组队' }))
+
+    expect(await screen.findByText('暂时无法分享，请稍后重试')).toBeTruthy()
+    expect(screen.queryByText('分享内容已准备好')).toBeNull()
   })
 
   it('retries a failed detail request and ignores an older successful route response', async () => {

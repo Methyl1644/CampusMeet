@@ -65,6 +65,40 @@ describe('TeamDetail consistency', () => {
     expect(updateTask).toHaveBeenCalledWith('team-1', 'task-1', true)
   })
 
+  it('serializes each task mutation while leaving other tasks operable', async () => {
+    const firstMutation = deferred<Awaited<ReturnType<typeof updateTask>>>()
+    const secondTask = {
+      ...teamFixture.task_list[0],
+      id: 'task-2',
+      title: '准备展示材料',
+    }
+    vi.mocked(getTeamDetail).mockResolvedValue({
+      ...teamFixture,
+      task_list: [...teamFixture.task_list, secondTask],
+    })
+    vi.mocked(updateTask)
+      .mockReturnValueOnce(firstMutation.promise)
+      .mockResolvedValueOnce({ ...secondTask, done: true })
+    renderTeam()
+
+    const firstTask = await screen.findByRole('button', { name: /完成原型/ })
+    fireEvent.click(firstTask)
+    fireEvent.click(firstTask)
+
+    expect(updateTask).toHaveBeenCalledTimes(1)
+    expect(firstTask.hasAttribute('disabled')).toBe(true)
+    const otherTask = screen.getByRole('button', { name: /准备展示材料/ })
+    expect(otherTask.hasAttribute('disabled')).toBe(false)
+    fireEvent.click(otherTask)
+    expect(updateTask).toHaveBeenCalledTimes(2)
+
+    await act(async () => {
+      firstMutation.resolve({ ...teamFixture.task_list[0], done: true })
+      await firstMutation.promise
+    })
+    expect(screen.getByRole('button', { name: /完成原型/ }).hasAttribute('disabled')).toBe(false)
+  })
+
   it('shows a retryable in-page error and ignores stale route responses', async () => {
     vi.mocked(getTeamDetail).mockRejectedValueOnce(new Error('offline')).mockResolvedValueOnce(teamFixture)
     renderTeam()

@@ -87,9 +87,13 @@ function pageValue(value: string | null): number {
   return Number.isSafeInteger(page) && page >= 1 ? page : 1
 }
 
+function canonicalTagIds(values: string[]): string[] {
+  return [...new Set(values.map((tag) => tag.trim()).filter(Boolean))].sort()
+}
+
 function tagsValue(value: string | null): string[] {
   if (!value) return []
-  return [...new Set(value.split(',').map((tag) => tag.trim()).filter(Boolean))]
+  return canonicalTagIds(value.split(','))
 }
 
 function readActivity(search: URLSearchParams): ActivityExploreState {
@@ -140,7 +144,7 @@ function writeViewState(
   state: ActivityExploreState | GroupExploreState,
 ) {
   setNonDefault(search, `${prefix}_q`, state.query)
-  setNonDefault(search, `${prefix}_tags`, state.tagIds.join(','))
+  setNonDefault(search, `${prefix}_tags`, canonicalTagIds(state.tagIds).join(','))
   setNonDefault(search, `${prefix}_date`, state.filters.date)
   setNonDefault(search, `${prefix}_status`, state.filters.status)
   setNonDefault(search, `${prefix}_type`, state.filters.type)
@@ -174,7 +178,7 @@ function updateActivity(
 ): ActivityExploreState {
   const merged: ActivityExploreState = {
     query: update.query ?? current.query,
-    tagIds: update.tagIds ? [...new Set(update.tagIds.map((tag) => tag.trim()).filter(Boolean))] : current.tagIds,
+    tagIds: update.tagIds ? canonicalTagIds(update.tagIds) : current.tagIds,
     filters: {
       date: update.filters?.date !== undefined
         ? oneOf(update.filters.date, activityDates, '')
@@ -202,7 +206,7 @@ function updateActivity(
 function updateGroup(current: GroupExploreState, update: ExploreViewStateUpdate): GroupExploreState {
   const merged: GroupExploreState = {
     query: update.query ?? current.query,
-    tagIds: update.tagIds ? [...new Set(update.tagIds.map((tag) => tag.trim()).filter(Boolean))] : current.tagIds,
+    tagIds: update.tagIds ? canonicalTagIds(update.tagIds) : current.tagIds,
     filters: {
       date: update.filters?.date !== undefined
         ? oneOf(update.filters.date, groupDates, '')

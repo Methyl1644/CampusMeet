@@ -101,6 +101,7 @@ describe('Discover Explore experience', () => {
     expect(heading.classList.contains('font-bold')).toBe(true)
     const search = screen.getByRole('searchbox', { name: '搜索活动' })
     expect(heading.compareDocumentPosition(search) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(search.getAttribute('placeholder')).toBe('搜索活动标题或简介')
 
     fireEvent.keyDown(tabs[0], { key: 'ArrowRight' })
     await waitFor(() => expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('找到此刻正缺你的队伍'))
@@ -171,6 +172,80 @@ describe('Discover Explore experience', () => {
 
     expect(screen.queryByRole('dialog', { name: '筛选活动' })).toBeNull()
     await waitFor(() => expect(document.activeElement).toBe(trigger))
+  })
+
+  it('closes the mobile filter dialog when the viewport enters the desktop breakpoint', async () => {
+    let desktopListener: ((event: MediaQueryListEvent) => void) | undefined
+    const desktopQuery = {
+      matches: false,
+      media: '(min-width: 768px)',
+      onchange: null,
+      addEventListener: (_type: string, listener: (event: MediaQueryListEvent) => void) => {
+        desktopListener = listener
+      },
+      removeEventListener: vi.fn(),
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    } as unknown as MediaQueryList
+    vi.stubGlobal('matchMedia', vi.fn((query: string) => query === desktopQuery.media
+      ? desktopQuery
+      : ({
+          matches: false,
+          media: query,
+          onchange: null,
+          addEventListener: vi.fn(),
+          removeEventListener: vi.fn(),
+          addListener: vi.fn(),
+          removeListener: vi.fn(),
+          dispatchEvent: vi.fn(),
+        } as MediaQueryList)))
+
+    renderDiscover()
+    const trigger = screen.getByRole('button', { name: '打开筛选' })
+    fireEvent.click(trigger)
+    expect(screen.getByRole('dialog', { name: '筛选活动' })).toBeTruthy()
+    expect(desktopListener).toBeTypeOf('function')
+
+    Object.defineProperty(desktopQuery, 'matches', { configurable: true, value: true })
+    act(() => desktopListener?.({ matches: true, media: desktopQuery.media } as MediaQueryListEvent))
+
+    expect(screen.queryByRole('dialog', { name: '筛选活动' })).toBeNull()
+    await new Promise((resolve) => window.setTimeout(resolve, 0))
+    expect(document.activeElement).not.toBe(trigger)
+  })
+
+  it('bounds category scrolling and disables smooth motion when reduced motion is requested', async () => {
+    vi.stubGlobal('matchMedia', vi.fn((query: string) => ({
+      matches: query === '(prefers-reduced-motion: reduce)',
+      media: query,
+      onchange: null,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    } as MediaQueryList)))
+    renderDiscover()
+    await screen.findByText(activityFixture.title)
+
+    const region = screen.getByRole('region', { name: '兴趣分类' })
+    const rail = region.querySelector('.overflow-x-auto') as HTMLDivElement
+    Object.defineProperties(rail, {
+      clientWidth: { configurable: true, value: 400 },
+      scrollWidth: { configurable: true, value: 900 },
+      scrollLeft: { configurable: true, writable: true, value: 480 },
+      scrollBy: { configurable: true, value: vi.fn() },
+    })
+    const scrollTo = vi.fn()
+    Object.defineProperty(rail, 'scrollTo', { configurable: true, value: scrollTo })
+
+    fireEvent.click(screen.getByRole('button', { name: '向右浏览分类' }))
+    expect(scrollTo).toHaveBeenLastCalledWith({ behavior: 'auto', left: 500 })
+
+    rail.scrollLeft = 20
+    fireEvent.click(screen.getByRole('button', { name: '向左浏览分类' }))
+    expect(scrollTo).toHaveBeenLastCalledWith({ behavior: 'auto', left: 0 })
   })
 
   it('renders stable loading, empty, error/retry, and paginated result states', async () => {

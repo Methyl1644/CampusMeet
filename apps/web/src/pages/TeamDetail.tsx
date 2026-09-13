@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import {
   AlertTriangle,
@@ -32,25 +32,57 @@ export default function TeamDetail() {
     teamId: string
     routeGeneration: number
   } | null>(null)
+  const taskMutationOwners = useRef(new Map<string, symbol>())
+  const [pendingTaskKeys, setPendingTaskKeys] = useState<Set<string>>(() => new Set())
 
   const handleToggleTask = async (taskId: string, currentDone: boolean) => {
     if (!team) return
-    setTeam((current) => current?.id === team.id ? {
+    const sourceTeamId = team.id
+    const routeGeneration = routeOwner.current.generation
+    const key = `${sourceTeamId}:${routeGeneration}:${taskId}`
+    if (taskMutationOwners.current.has(key)) return
+    const owner = Symbol(key)
+    taskMutationOwners.current.set(key, owner)
+    setPendingTaskKeys((current) => new Set(current).add(key))
+    const ownsMutation = () => (
+      taskMutationOwners.current.get(key) === owner
+      && routeOwner.current.key === sourceTeamId
+      && routeOwner.current.generation === routeGeneration
+    )
+    setTeam((current) => current?.id === sourceTeamId ? {
       ...current,
       task_list: current.task_list.map((task) =>
         task.id === taskId ? { ...task, done: !currentDone } : task,
       ),
     } : current)
     try {
-      await updateTask(team.id, taskId, !currentDone)
-    } catch {
-      setTeam((current) => current?.id === team.id ? {
+      const updated = await updateTask(sourceTeamId, taskId, !currentDone)
+      if (!ownsMutation()) return
+      setTeam((current) => current?.id === sourceTeamId ? {
         ...current,
         task_list: current.task_list.map((task) =>
-          task.id === taskId ? { ...task, done: currentDone } : task,
+          task.id === taskId ? { ...task, ...updated } : task,
         ),
       } : current)
-      showToast('更新失败', 'error')
+    } catch {
+      if (ownsMutation()) {
+        setTeam((current) => current?.id === sourceTeamId ? {
+          ...current,
+          task_list: current.task_list.map((task) =>
+            task.id === taskId ? { ...task, done: currentDone } : task,
+          ),
+        } : current)
+        showToast('更新失败', 'error')
+      }
+    } finally {
+      if (taskMutationOwners.current.get(key) === owner) {
+        taskMutationOwners.current.delete(key)
+        setPendingTaskKeys((current) => {
+          const next = new Set(current)
+          next.delete(key)
+          return next
+        })
+      }
     }
   }
 
@@ -268,6 +300,7 @@ export default function TeamDetail() {
                     key={task.id}
                     onClick={() => handleToggleTask(task.id, task.done)}
                     aria-pressed={task.done}
+                    disabled={pendingTaskKeys.has(`${team.id}:${routeOwner.current.generation}:${task.id}`)}
                     className="flex min-h-16 w-full items-center gap-3 px-1 py-2 text-left transition-colors hover:bg-paper focus-visible:bg-paper"
                   >
                     {task.done ? (

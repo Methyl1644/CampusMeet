@@ -225,7 +225,7 @@ export default function DiscoveryHub() {
             value={activeState.query}
             onChange={(event) => updateActiveState({ query: event.target.value })}
             aria-label={`搜索${noun}`}
-            placeholder={`搜索${noun}名称、组织者或标签`}
+            placeholder={state.view === 'activity' ? '搜索活动标题或简介' : '搜索组队标题或描述'}
             className="input-base h-11 pl-11 pr-11"
           />
           {activeState.query && (

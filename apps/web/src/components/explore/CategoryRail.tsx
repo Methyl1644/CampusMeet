@@ -35,11 +35,24 @@ export default function CategoryRail({ view, selectedTagIds, onChange }: Categor
     )))
   }
 
+  const move = (direction: -1 | 1) => {
+    const element = rail.current
+    if (!element) return
+    const maximum = Math.max(0, element.scrollWidth - element.clientWidth)
+    const left = Math.min(maximum, Math.max(
+      0,
+      element.scrollLeft + direction * element.clientWidth * 0.9,
+    ))
+    const reducedMotion = typeof window.matchMedia === 'function'
+      && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    element.scrollTo({ left, behavior: reducedMotion ? 'auto' : 'smooth' })
+  }
+
   return (
     <section aria-label="兴趣分类" className="relative mt-4 min-w-0 border-y border-stone py-3">
       <div
         ref={rail}
-        className="flex min-w-0 gap-2 overflow-x-auto scroll-smooth px-0.5 pb-1 pr-20 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:pr-24"
+        className="flex min-w-0 gap-2 overflow-x-auto px-0.5 pb-1 pr-20 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:pr-24"
       >
         <button
           type="button"
@@ -70,7 +83,7 @@ export default function CategoryRail({ view, selectedTagIds, onChange }: Categor
           className="icon-button size-9 border border-stone bg-paper"
           aria-label="向左浏览分类"
           title="向左浏览分类"
-          onClick={() => rail.current?.scrollBy({ left: -260, behavior: 'smooth' })}
+          onClick={() => move(-1)}
         >
           <ChevronLeft aria-hidden="true" className="size-4" />
         </button>
@@ -79,7 +92,7 @@ export default function CategoryRail({ view, selectedTagIds, onChange }: Categor
           className="icon-button size-9 border border-stone bg-paper"
           aria-label="向右浏览分类"
           title="向右浏览分类"
-          onClick={() => rail.current?.scrollBy({ left: 260, behavior: 'smooth' })}
+          onClick={() => move(1)}
         >
           <ChevronRight aria-hidden="true" className="size-4" />
         </button>

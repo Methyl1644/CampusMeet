@@ -53,6 +53,7 @@ beforeEach(() => {
     follower_count: activityDetailFixture.follower_count + 1,
   })
   Object.defineProperty(navigator, 'share', { configurable: true, value: vi.fn().mockResolvedValue(undefined) })
+  Object.defineProperty(navigator, 'clipboard', { configurable: true, value: undefined })
 })
 
 afterEach(() => cleanup())
@@ -158,6 +159,18 @@ describe('TopicDetail activity experience', () => {
     expect(navigator.share).toHaveBeenCalled()
     expect(actions.getAttribute('data-mobile-safe-area')).toBe('true')
     expect(screen.getByTestId('activity-detail-page').className).toContain('pb-[calc(')
+  })
+
+  it('reports a share failure when the browser exposes no sharing API', async () => {
+    Object.defineProperty(navigator, 'share', { configurable: true, value: undefined })
+    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: undefined })
+    renderTopic()
+
+    const actions = await screen.findByRole('region', { name: '活动操作' })
+    fireEvent.click(within(actions).getByRole('button', { name: '分享活动' }))
+
+    expect(await screen.findByText('暂时无法分享，请稍后重试')).toBeTruthy()
+    expect(screen.queryByText('分享内容已准备好')).toBeNull()
   })
 
   it('shows an in-page failure with retry', async () => {
