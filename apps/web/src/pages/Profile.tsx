@@ -47,7 +47,7 @@ export default function Profile() {
         setProfile(profileData)
         setPosts(postsData)
         setApplications(appsData)
-        setTeams(teamsData)
+        setTeams(teamsData.list)
       } catch {
         showToast('加载失败', 'error')
       } finally {

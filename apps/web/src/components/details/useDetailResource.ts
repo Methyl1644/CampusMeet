@@ -2,6 +2,14 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 
 type DetailLoader<T> = (id: string, signal?: AbortSignal) => Promise<T>
 
+export function useRouteGeneration(routeKey: string) {
+  const owner = useRef({ key: routeKey, generation: 1 })
+  if (owner.current.key !== routeKey) {
+    owner.current = { key: routeKey, generation: owner.current.generation + 1 }
+  }
+  return owner
+}
+
 export function useDetailResource<T>(id: string, load: DetailLoader<T>) {
   const [data, setData] = useState<T | null>(null)
   const [loading, setLoading] = useState(true)

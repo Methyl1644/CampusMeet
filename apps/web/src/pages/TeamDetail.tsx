@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import {
   AlertTriangle,
@@ -17,7 +17,7 @@ import { generateTeamPlan } from '@/api/agent'
 import { getTeamDetail, updateTask } from '@/api/teams'
 import type { Team } from '@shared/types'
 import Loading from '@/components/Loading'
-import { useDetailResource } from '@/components/details/useDetailResource'
+import { useDetailResource, useRouteGeneration } from '@/components/details/useDetailResource'
 import { Reveal } from '@/components/motion/Reveal'
 import { useToast } from '@/components/Toast'
 
@@ -27,9 +27,11 @@ export default function TeamDetail() {
   const { showToast } = useToast()
 
   const { data: team, setData: setTeam, loading, error, retry } = useDetailResource(id ?? '', getTeamDetail)
-  const [generatingTeamId, setGeneratingTeamId] = useState<string | null>(null)
-  const activeTeamId = useRef(id)
-  activeTeamId.current = id
+  const routeOwner = useRouteGeneration(id ?? '')
+  const [generatingPlanFor, setGeneratingPlanFor] = useState<{
+    teamId: string
+    routeGeneration: number
+  } | null>(null)
 
   const handleToggleTask = async (taskId: string, currentDone: boolean) => {
     if (!team) return
@@ -71,13 +73,21 @@ export default function TeamDetail() {
   )
 
   const handleGeneratePlan = async () => {
-    if (!team || generatingTeamId === team.id) return
+    if (!team) return
     const sourceTeamId = team.id
+    const routeGeneration = routeOwner.current.generation
+    if (
+      generatingPlanFor?.teamId === sourceTeamId &&
+      generatingPlanFor.routeGeneration === routeGeneration
+    ) return
+    const ownsRoute = () => (
+      routeOwner.current.key === sourceTeamId && routeOwner.current.generation === routeGeneration
+    )
     const isRegeneration = hasTeamPlan
-    setGeneratingTeamId(sourceTeamId)
+    setGeneratingPlanFor({ teamId: sourceTeamId, routeGeneration })
     try {
       const plan = await generateTeamPlan(sourceTeamId)
-      if (activeTeamId.current !== sourceTeamId) return
+      if (!ownsRoute()) return
       setTeam((current) =>
         current?.id === sourceTeamId
           ? {
@@ -91,11 +101,13 @@ export default function TeamDetail() {
       )
       showToast(isRegeneration ? '团队规划已重新生成' : '团队规划已生成', 'success')
     } catch {
-      if (activeTeamId.current === sourceTeamId) {
+      if (ownsRoute()) {
         showToast('规划生成失败，已保留当前内容，请稍后重试', 'error')
       }
     } finally {
-      setGeneratingTeamId((current) => current === sourceTeamId ? null : current)
+      setGeneratingPlanFor((current) => (
+        current?.teamId === sourceTeamId && current.routeGeneration === routeGeneration ? null : current
+      ))
     }
   }
 
@@ -120,7 +132,10 @@ export default function TeamDetail() {
     )
   }
 
-  const generatingPlan = generatingTeamId === team.id
+  const generatingPlan = (
+    generatingPlanFor?.teamId === team.id &&
+    generatingPlanFor.routeGeneration === routeOwner.current.generation
+  )
 
   return (
     <div data-testid="team-detail-page" className="mx-auto min-w-0 max-w-5xl overflow-x-clip pb-8">

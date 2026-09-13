@@ -7,7 +7,7 @@ import ApplicationModal from '@/components/ApplicationModal'
 import GroupHero from '@/components/details/GroupHero'
 import ParticipantPreview from '@/components/details/ParticipantPreview'
 import StickyActions from '@/components/details/StickyActions'
-import { useDetailResource } from '@/components/details/useDetailResource'
+import { useDetailResource, useRouteGeneration } from '@/components/details/useDetailResource'
 import { useToast } from '@/components/Toast'
 import type { ExploreGroupDetail } from '@shared/types'
 
@@ -24,44 +24,69 @@ function displayValue(value: string | null) {
   return value?.trim() || '待确认'
 }
 
+const myTeamsPageSize = 100
+
 export default function PostDetail() {
   const { id = '' } = useParams()
   const navigate = useNavigate()
   const { showToast } = useToast()
   const { data: group, setData: setGroup, loading, error, retry } = useDetailResource(id, getExploreGroup)
+  const routeOwner = useRouteGeneration(id)
   const [favoritePending, setFavoritePending] = useState(false)
-  const [joiningPostId, setJoiningPostId] = useState<string | null>(null)
+  const [joiningPost, setJoiningPost] = useState<{ postId: string; routeGeneration: number } | null>(null)
   const [showApplication, setShowApplication] = useState(false)
-  const [joinedTeam, setJoinedTeam] = useState<{ postId: string; teamId: string } | null>(null)
-  const [teamLookup, setTeamLookup] = useState<{ postId: string; status: 'loading' | 'unresolved' } | null>(null)
-  const activeGroupId = useRef(id)
+  const [joinedTeam, setJoinedTeam] = useState<{ postId: string; routeGeneration: number; teamId: string } | null>(null)
+  const [teamLookup, setTeamLookup] = useState<{
+    postId: string
+    routeGeneration: number
+    status: 'loading' | 'unresolved'
+  } | null>(null)
   const teamLookupGeneration = useRef(0)
-  activeGroupId.current = id
 
-  const resolveJoinedTeam = useCallback(async (postId: string) => {
+  const resolveJoinedTeam = useCallback(async (postId: string, routeGeneration: number) => {
     const generation = ++teamLookupGeneration.current
-    setTeamLookup({ postId, status: 'loading' })
+    const ownsLookup = () => (
+      routeOwner.current.key === postId &&
+      routeOwner.current.generation === routeGeneration &&
+      teamLookupGeneration.current === generation
+    )
+    setTeamLookup({ postId, routeGeneration, status: 'loading' })
     try {
-      const teams = await getMyTeams()
-      if (activeGroupId.current !== postId || teamLookupGeneration.current !== generation) return
-      const matchingTeam = teams.find((team) => team.post_id === postId)
+      const firstPage = await getMyTeams({ page: 1, page_size: myTeamsPageSize })
+      if (!ownsLookup()) return
+      let matchingTeam = firstPage.list.find((team) => team.post_id === postId)
+      const pageSize = Math.min(myTeamsPageSize, Math.max(1, firstPage.page_size))
+      const finalPage = Math.max(firstPage.page, firstPage.pages)
+
+      for (let page = firstPage.page + 1; !matchingTeam && page <= finalPage; page += 1) {
+        const result = await getMyTeams({ page, page_size: pageSize })
+        if (!ownsLookup()) return
+        matchingTeam = result.list.find((team) => team.post_id === postId)
+      }
+
       if (matchingTeam) {
-        setJoinedTeam({ postId, teamId: matchingTeam.id })
+        setJoinedTeam({ postId, routeGeneration, teamId: matchingTeam.id })
         setTeamLookup(null)
       } else {
-        setTeamLookup({ postId, status: 'unresolved' })
+        setTeamLookup({ postId, routeGeneration, status: 'unresolved' })
       }
     } catch {
-      if (activeGroupId.current === postId && teamLookupGeneration.current === generation) {
-        setTeamLookup({ postId, status: 'unresolved' })
+      if (ownsLookup()) {
+        setTeamLookup({ postId, routeGeneration, status: 'unresolved' })
       }
     }
-  }, [])
+  }, [routeOwner])
 
   useEffect(() => {
-    if (!group || group.join_state !== 'joined' || joinedTeam?.postId === group.id) return
-    void resolveJoinedTeam(group.id)
-  }, [group, joinedTeam?.postId, resolveJoinedTeam])
+    const routeGeneration = routeOwner.current.generation
+    if (
+      !group ||
+      group.id !== routeOwner.current.key ||
+      group.join_state !== 'joined' ||
+      (joinedTeam?.postId === group.id && joinedTeam.routeGeneration === routeGeneration)
+    ) return
+    void resolveJoinedTeam(group.id, routeGeneration)
+  }, [group, joinedTeam, resolveJoinedTeam, routeOwner])
 
   const handleFavorite = async () => {
     if (!group || favoritePending) return
@@ -81,20 +106,27 @@ export default function PostDetail() {
   }
 
   const handleDirectJoin = async () => {
-    if (!group || joiningPostId === group.id) return
+    if (!group) return
     const sourcePostId = group.id
-    setJoiningPostId(sourcePostId)
+    const routeGeneration = routeOwner.current.generation
+    if (joiningPost?.postId === sourcePostId && joiningPost.routeGeneration === routeGeneration) return
+    const ownsRoute = () => (
+      routeOwner.current.key === sourcePostId && routeOwner.current.generation === routeGeneration
+    )
+    setJoiningPost({ postId: sourcePostId, routeGeneration })
     try {
       const result = await joinExploreGroup(sourcePostId)
-      if (activeGroupId.current !== sourcePostId) return
+      if (!ownsRoute()) return
       setGroup(result)
-      setJoinedTeam({ postId: sourcePostId, teamId: result.team_id })
+      setJoinedTeam({ postId: sourcePostId, routeGeneration, teamId: result.team_id })
       showToast('已加入组队', 'success')
     } catch {
-      if (activeGroupId.current !== sourcePostId) return
+      if (!ownsRoute()) return
       showToast('加入失败，请刷新状态后重试', 'error')
     } finally {
-      setJoiningPostId((current) => current === sourcePostId ? null : current)
+      setJoiningPost((current) => (
+        current?.postId === sourcePostId && current.routeGeneration === routeGeneration ? null : current
+      ))
     }
   }
 
@@ -177,12 +209,22 @@ export default function PostDetail() {
         </button>
         <JoinAction
           group={group}
-          joinedTeamId={joinedTeam?.postId === group.id ? joinedTeam.teamId : null}
-          teamLookupStatus={teamLookup?.postId === group.id ? teamLookup.status : 'loading'}
-          pending={joiningPostId === group.id}
+          joinedTeamId={
+            joinedTeam?.postId === group.id && joinedTeam.routeGeneration === routeOwner.current.generation
+              ? joinedTeam.teamId
+              : null
+          }
+          teamLookupStatus={
+            teamLookup?.postId === group.id && teamLookup.routeGeneration === routeOwner.current.generation
+              ? teamLookup.status
+              : 'loading'
+          }
+          pending={
+            joiningPost?.postId === group.id && joiningPost.routeGeneration === routeOwner.current.generation
+          }
           onApply={() => setShowApplication(true)}
           onDirectJoin={handleDirectJoin}
-          onRetryTeamLookup={() => void resolveJoinedTeam(group.id)}
+          onRetryTeamLookup={() => void resolveJoinedTeam(group.id, routeOwner.current.generation)}
         />
       </StickyActions>
 

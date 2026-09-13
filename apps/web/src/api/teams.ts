@@ -1,6 +1,11 @@
 import { get, patch } from './client'
 import { API_PATHS } from '@shared/constants'
-import type { Team, TaskItem } from '@shared/types'
+import type { PaginatedResponse, Team, TaskItem } from '@shared/types'
+
+interface MyTeamsParams {
+  page?: number
+  page_size?: number
+}
 
 /** 获取团队详情 */
 export function getTeamDetail(id: string, signal?: AbortSignal) {
@@ -13,6 +18,10 @@ export function updateTask(teamId: string, taskId: string, done: boolean) {
 }
 
 /** 获取我的团队 */
-export function getMyTeams() {
-  return get<Team[]>(API_PATHS.teams.myTeams)
+export function getMyTeams(params?: MyTeamsParams, signal?: AbortSignal) {
+  return get<PaginatedResponse<Team>>(
+    API_PATHS.teams.myTeams,
+    params as Record<string, unknown> | undefined,
+    signal,
+  )
 }

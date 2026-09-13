@@ -20,7 +20,12 @@ function deferred<T>() {
 
 function RouteChange() {
   const navigate = useNavigate()
-  return <button type="button" onClick={() => navigate('/teams/team-2')}>打开另一个团队</button>
+  return (
+    <>
+      <button type="button" onClick={() => navigate('/teams/team-2')}>打开另一个团队</button>
+      <button type="button" onClick={() => navigate('/teams/team-1')}>返回原团队</button>
+    </>
+  )
 }
 
 function renderTeam() {
@@ -108,5 +113,56 @@ describe('TeamDetail consistency', () => {
     expect(screen.getByText('当前团队策划')).toBeTruthy()
     expect(screen.queryByText('旧团队规划')).toBeNull()
     expect(screen.queryByText('团队规划已重新生成')).toBeNull()
+  })
+
+  it('does not let an old A plan commit or clear a fresh A plan after A to B to A navigation', async () => {
+    const oldPlan = deferred<Awaited<ReturnType<typeof generateTeamPlan>>>()
+    const freshPlan = deferred<Awaited<ReturnType<typeof generateTeamPlan>>>()
+    const teamB = { ...teamFixture, id: 'team-2', activity_name: '中间团队' }
+    const freshA = {
+      ...teamFixture,
+      activity_name: '重新进入的原团队',
+      division_of_labor: [{ role: '重访基线', responsibilities: '保留重访状态' }],
+    }
+    vi.mocked(getTeamDetail)
+      .mockResolvedValueOnce(teamFixture)
+      .mockResolvedValueOnce(teamB)
+      .mockResolvedValueOnce(freshA)
+    vi.mocked(generateTeamPlan).mockReturnValueOnce(oldPlan.promise).mockReturnValueOnce(freshPlan.promise)
+    renderTeam()
+
+    fireEvent.click(await screen.findByRole('button', { name: '重新生成规划' }))
+    fireEvent.click(screen.getByRole('button', { name: '打开另一个团队' }))
+    expect(await screen.findByRole('heading', { name: teamB.activity_name })).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: '返回原团队' }))
+    expect(await screen.findByRole('heading', { name: freshA.activity_name })).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: '重新生成规划' }))
+    expect(screen.getByRole('button', { name: '正在生成...' }).hasAttribute('disabled')).toBe(true)
+
+    await act(async () => {
+      oldPlan.resolve({
+        division_of_labor: [{ role: '旧访问规划', responsibilities: '不得写入重访页面' }],
+        meeting_agenda: [],
+        task_list: [],
+        risk_reminders: [],
+      })
+      await oldPlan.promise
+    })
+
+    expect(screen.getByText('重访基线')).toBeTruthy()
+    expect(screen.queryByText('旧访问规划')).toBeNull()
+    expect(screen.getByRole('button', { name: '正在生成...' }).hasAttribute('disabled')).toBe(true)
+    expect(screen.queryByText('团队规划已重新生成')).toBeNull()
+
+    await act(async () => {
+      freshPlan.resolve({
+        division_of_labor: [{ role: '新一轮团队规划', responsibilities: '只写入当前访问' }],
+        meeting_agenda: [],
+        task_list: [],
+        risk_reminders: [],
+      })
+      await freshPlan.promise
+    })
+    expect(await screen.findByText('新一轮团队规划')).toBeTruthy()
   })
 })

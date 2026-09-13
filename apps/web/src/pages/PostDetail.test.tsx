@@ -24,9 +24,21 @@ function deferred<T>() {
   return { promise, resolve }
 }
 
+function teamPage(
+  list: typeof teamFixture[],
+  { page = 1, pageSize = 100, pages = 1, total = list.length } = {},
+) {
+  return { list, total, page, page_size: pageSize, pages }
+}
+
 function RouteChange() {
   const navigate = useNavigate()
-  return <button type="button" onClick={() => navigate('/posts/group-2')}>打开另一个组队</button>
+  return (
+    <>
+      <button type="button" onClick={() => navigate('/posts/group-2')}>打开另一个组队</button>
+      <button type="button" onClick={() => navigate('/posts/group-1')}>返回原组队</button>
+    </>
+  )
 }
 
 function renderPost() {
@@ -44,7 +56,7 @@ beforeEach(() => {
   vi.resetAllMocks()
   vi.mocked(getExploreGroup).mockResolvedValue(groupDetailFixture)
   vi.mocked(setGroupFavorite).mockResolvedValue({ post_id: groupDetailFixture.id, bookmark: true })
-  vi.mocked(getMyTeams).mockResolvedValue([teamFixture])
+  vi.mocked(getMyTeams).mockResolvedValue(teamPage([teamFixture]))
   vi.mocked(joinExploreGroup).mockResolvedValue({
     ...groupDetailFixture,
     join_state: 'joined',
@@ -78,21 +90,28 @@ describe('PostDetail group experience', () => {
     expect(within(actions).queryByRole('button', { name: '直接加入' })).toBeNull()
   })
 
-  it('resolves a previously joined post to its exact team through the existing team API', async () => {
+  it('finds a previously joined post on a later bounded team page', async () => {
     vi.mocked(getExploreGroup).mockResolvedValue({ ...groupDetailFixture, join_state: 'joined' })
-    vi.mocked(getMyTeams).mockResolvedValue([
-      { ...teamFixture, id: 'unrelated-team', post_id: 'another-post' },
-      { ...teamFixture, id: 'matching-team', post_id: groupDetailFixture.id },
-    ])
+    vi.mocked(getMyTeams)
+      .mockResolvedValueOnce(teamPage(
+        [{ ...teamFixture, id: 'unrelated-team', post_id: 'another-post' }],
+        { page: 1, pages: 2, total: 101 },
+      ))
+      .mockResolvedValueOnce(teamPage(
+        [{ ...teamFixture, id: 'matching-team', post_id: groupDetailFixture.id }],
+        { page: 2, pages: 2, total: 101 },
+      ))
     renderPost()
 
     const teamLink = await screen.findByRole('link', { name: '进入团队' })
     expect(teamLink.getAttribute('href')).toBe('/teams/matching-team')
+    expect(getMyTeams).toHaveBeenNthCalledWith(1, { page: 1, page_size: 100 })
+    expect(getMyTeams).toHaveBeenNthCalledWith(2, { page: 2, page_size: 100 })
   })
 
   it('offers a retry only after a previously joined team is genuinely unresolved', async () => {
     vi.mocked(getExploreGroup).mockResolvedValue({ ...groupDetailFixture, join_state: 'joined' })
-    vi.mocked(getMyTeams).mockResolvedValue([])
+    vi.mocked(getMyTeams).mockResolvedValue(teamPage([]))
     renderPost()
 
     const retry = await screen.findByRole('button', { name: '重新查找团队' })
@@ -230,5 +249,75 @@ describe('PostDetail group experience', () => {
     expect(screen.getByRole('heading', { name: currentGroup.title })).toBeTruthy()
     expect(screen.getByRole('button', { name: '直接加入' }).hasAttribute('disabled')).toBe(false)
     expect(screen.queryByText('已加入组队')).toBeNull()
+  })
+
+  it('does not let an old A join commit or clear a fresh A join after A to B to A navigation', async () => {
+    const oldJoin = deferred<Awaited<ReturnType<typeof joinExploreGroup>>>()
+    const freshJoin = deferred<Awaited<ReturnType<typeof joinExploreGroup>>>()
+    const firstA = { ...groupDetailFixture, join_mode: 'direct' as const }
+    const groupB = { ...firstA, id: 'group-2', title: '中间组队' }
+    const freshA = { ...firstA, title: '重新进入的原组队' }
+    vi.mocked(getExploreGroup)
+      .mockResolvedValueOnce(firstA)
+      .mockResolvedValueOnce(groupB)
+      .mockResolvedValueOnce(freshA)
+    vi.mocked(joinExploreGroup).mockReturnValueOnce(oldJoin.promise).mockReturnValueOnce(freshJoin.promise)
+    renderPost()
+
+    fireEvent.click(await screen.findByRole('button', { name: '直接加入' }))
+    fireEvent.click(screen.getByRole('button', { name: '打开另一个组队' }))
+    expect(await screen.findByRole('heading', { name: groupB.title })).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: '返回原组队' }))
+    expect(await screen.findByRole('heading', { name: freshA.title })).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: '直接加入' }))
+    expect(screen.getByRole('button', { name: '加入中...' }).hasAttribute('disabled')).toBe(true)
+
+    await act(async () => {
+      oldJoin.resolve({ ...firstA, join_state: 'joined', team_id: 'old-team', member_id: 'old-member' })
+      await oldJoin.promise
+    })
+
+    expect(screen.getByRole('heading', { name: freshA.title })).toBeTruthy()
+    expect(screen.getByRole('button', { name: '加入中...' }).hasAttribute('disabled')).toBe(true)
+    expect(screen.queryByRole('link', { name: '进入团队' })).toBeNull()
+    expect(screen.queryByText('已加入组队')).toBeNull()
+
+    await act(async () => {
+      freshJoin.resolve({ ...freshA, join_state: 'joined', team_id: 'fresh-team', member_id: 'fresh-member' })
+      await freshJoin.promise
+    })
+    expect((await screen.findByRole('link', { name: '进入团队' })).getAttribute('href')).toBe('/teams/fresh-team')
+  })
+
+  it('does not reuse an old A team lookup when fresh A is still loading', async () => {
+    const oldLookup = deferred<Awaited<ReturnType<typeof getMyTeams>>>()
+    const freshARequest = deferred<typeof groupDetailFixture>()
+    const joinedA = { ...groupDetailFixture, join_state: 'joined' as const }
+    const groupB = { ...groupDetailFixture, id: 'group-2', title: '中间组队' }
+    const freshA = { ...joinedA, title: '重新加载的原组队' }
+    vi.mocked(getExploreGroup)
+      .mockResolvedValueOnce(joinedA)
+      .mockResolvedValueOnce(groupB)
+      .mockReturnValueOnce(freshARequest.promise)
+    vi.mocked(getMyTeams)
+      .mockReturnValueOnce(oldLookup.promise)
+      .mockResolvedValueOnce(teamPage([{ ...teamFixture, id: 'fresh-team' }]))
+    renderPost()
+
+    expect(await screen.findByText('正在查找团队...')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: '打开另一个组队' }))
+    expect(await screen.findByRole('heading', { name: groupB.title })).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: '返回原组队' }))
+    expect(await screen.findByRole('status', { name: '正在加载组队详情' })).toBeTruthy()
+
+    await act(async () => {
+      oldLookup.resolve(teamPage([{ ...teamFixture, id: 'old-team' }]))
+      await oldLookup.promise
+      freshARequest.resolve(freshA)
+      await freshARequest.promise
+    })
+
+    const teamLink = await screen.findByRole('link', { name: '进入团队' })
+    expect(teamLink.getAttribute('href')).toBe('/teams/fresh-team')
   })
 })

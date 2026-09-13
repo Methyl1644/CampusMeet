@@ -23,6 +23,7 @@ export default defineConfig({
       'src/components/home/HomeSidebar.test.tsx',
       'src/pages/Home.test.tsx',
       'src/api/explore.test.ts',
+      'src/api/teams.test.ts',
       'src/features/explore/exploreState.test.ts',
       'src/pages/Discover.test.tsx',
       'src/components/explore/ExploreCards.test.tsx',
