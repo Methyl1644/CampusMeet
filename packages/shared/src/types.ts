@@ -629,6 +629,7 @@ export type GrantStatus = 'pending' | 'active' | 'suspended' | 'revoked' | 'expi
 
 export interface IdentitySummary {
   campus_verified: boolean;
+  platform_role?: PlatformRole | null;
   organization_roles: Array<{
     organization_id: string;
     organization_name: string;
@@ -657,6 +658,49 @@ export interface PlatformRoleGrant {
   effective_at?: string | null;
   expires_at?: string | null;
   revoked_at?: string | null;
+}
+
+export interface ManagementPermissions {
+  campus_verified: boolean;
+  site_role: string;
+  can_publish_post: boolean;
+  can_publish_official_topic: boolean;
+  publisher_organization_ids: string[];
+}
+
+export interface ManagedOrganization {
+  organization_id: string;
+  organization_name: string;
+  role: 'owner';
+  expires_at?: string | null;
+}
+
+export interface OrganizationApplicationSummary {
+  application_id: string;
+  organization_name: string;
+  org_type: string;
+  school_scope?: string | null;
+  official_email?: string | null;
+  official_page?: string | null;
+  status: string;
+  review_reason?: string | null;
+  reviewed_at?: string | null;
+  expires_at?: string | null;
+  created_at?: string | null;
+}
+
+export interface OrganizationMemberSummary {
+  user_id: string;
+  role: OrganizationRole;
+  status: string;
+  effective_at?: string | null;
+  expires_at?: string | null;
+}
+
+export interface CollaboratorGrant extends ScopedGrant {
+  role: TopicRole;
+  topic_id?: string;
+  accepted_at?: string | null;
 }
 
 export interface Notification {

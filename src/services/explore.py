@@ -313,6 +313,11 @@ def _project_activity_cards(
     }
 
     responsible_by_topic: dict[int, list[dict[str, str]]] = defaultdict(list)
+    collaborator_badges = {
+        "manager": "活动负责人",
+        "editor": "活动组织者",
+        "coordinator": "活动协作成员",
+    }
     for collaborator, collaborator_user in session.execute(
         select(TopicCollaborator, User)
         .join(User, User.id == TopicCollaborator.user_id)
@@ -331,7 +336,7 @@ def _project_activity_cards(
                 "user_id": str(collaborator_user.id),
                 "nickname": collaborator_user.nickname,
                 "role": collaborator.role,
-                "badge": "活动负责人",
+                "badge": collaborator_badges.get(collaborator.role, "活动协作者"),
             }
         )
 

@@ -49,6 +49,22 @@ from utils.auth import verify_password, verify_token
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
+def _auth_success(data: dict[str, Any], message: str) -> dict[str, Any]:
+    user_payload = dict(data["user"])
+    session = get_session()
+    try:
+        user = session.get(User, int(user_payload["id"]))
+        if user:
+            user_payload["identity"] = identity_summary(session, user)
+    finally:
+        session.close()
+    return {
+        "code": 0,
+        "message": message,
+        "data": {"token": data["token"], "user": user_payload},
+    }
+
+
 def onboarding_user_query(user_id: int, *, for_update: bool = False):
     statement = select(User).where(User.id == user_id)
     return statement.with_for_update() if for_update else statement
@@ -80,7 +96,7 @@ def register(body: RegisterRequest, request: Request) -> dict[str, Any]:
         },
     )
     data = unwrap_data(raw)
-    return {"code": 0, "message": data.get("message", "ok"), "data": {"token": data["token"], "user": data["user"]}}
+    return _auth_success(data, data.get("message", "ok"))
 
 
 @router.post("/login")
@@ -94,7 +110,7 @@ def login(body: LoginRequest, request: Request) -> dict[str, Any]:
         },
     )
     data = unwrap_data(raw)
-    return {"code": 0, "message": "ok", "data": {"token": data["token"], "user": data["user"]}}
+    return _auth_success(data, "ok")
 
 
 @router.post("/verify-email")

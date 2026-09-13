@@ -3,6 +3,7 @@ import type { ReactNode } from 'react'
 import { motion, useReducedMotion } from 'motion/react'
 import { Send, X } from 'lucide-react'
 import { createApplication } from '@/api/applications'
+import { getApiErrorMessage } from '@/api/auth-feedback'
 import { useToast } from './Toast'
 
 interface ApplicationTarget {
@@ -125,8 +126,8 @@ export default function ApplicationModal({ post, onClose, onSuccess }: Applicati
       showToast('申请已提交，等待回复', 'success')
       onSuccess()
       onClose()
-    } catch {
-      showToast('提交失败', 'error')
+    } catch (error) {
+      showToast(getApiErrorMessage(error, '申请提交失败，请稍后重试'), 'error')
     } finally {
       setSubmitting(false)
     }

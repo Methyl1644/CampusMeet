@@ -30,10 +30,10 @@
 **Interfaces:**
 - Produces: `GET /api/organizations/my-managed` returning active organizations where the current user is owner, with `organization_id`, `organization_name`, `role`, and `expires_at`.
 
-- [ ] Write a failing backend test proving owners see active organizations and publishers do not.
-- [ ] Run `pytest tests/test_identity_projection.py -q` and verify the new test fails with a missing route/service function.
-- [ ] Add a focused identity service projection and authenticated API route.
-- [ ] Run `pytest tests/test_identity_projection.py -q` and verify it passes.
+- [x] Write a failing backend test proving owners see active organizations and publishers do not.
+- [x] Run `pytest tests/test_identity_projection.py -q` and verify the new test fails with a missing route/service function.
+- [x] Add a focused identity service projection and authenticated API route.
+- [x] Run `pytest tests/test_identity_projection.py -q` and verify it passes.
 
 ### Task 2: Typed Management API Client
 
@@ -47,10 +47,10 @@
 **Interfaces:**
 - Produces: `getManagementPermissions`, `getPlatformRoles`, `invitePlatformRole`, `suspendPlatformRole`, `revokePlatformRole`, `getOrganizationApplications`, `reviewOrganizationApplication`, `getManagedOrganizations`, `getOrganizationMembers`, `inviteOrganizationMember`, `revokeOrganizationMember`, `transferOrganizationOwnership`, `getTopicCollaborators`, `inviteTopicCollaborator`, and `revokeTopicCollaborator`.
 
-- [ ] Write failing client tests asserting exact method, URL, and body contracts.
-- [ ] Run the management API test and verify imports fail because the module does not exist.
-- [ ] Add shared management types, paths, and the API module using existing client helpers.
-- [ ] Run the management API test and verify all request-contract tests pass.
+- [x] Write failing client tests asserting exact method, URL, and body contracts.
+- [x] Run the management API test and verify imports fail because the module does not exist.
+- [x] Add shared management types, paths, and the API module using existing client helpers.
+- [x] Run the management API test and verify all request-contract tests pass.
 
 ### Task 3: Permission-Aware Route And Menu
 
@@ -66,10 +66,10 @@
 - Consumes: `getManagementPermissions()` and management identity types.
 - Produces: `/management`, `deriveManagementSections(context)`, and conditional `管理中心` menu entry.
 
-- [ ] Write failing tests for authorized section derivation, no-access state, and conditional user-menu entry.
-- [ ] Run the page and navigation tests and verify they fail for the missing route and menu item.
-- [ ] Implement permission loading, route registration, access derivation, and the conditional menu link.
-- [ ] Run the tests and verify authorized users see only permitted sections.
+- [x] Write failing tests for authorized section derivation, no-access state, and conditional user-menu entry.
+- [x] Run the page and navigation tests and verify they fail for the missing route and menu item.
+- [x] Implement permission loading, route registration, access derivation, and the conditional menu link.
+- [x] Run the tests and verify authorized users see only permitted sections.
 
 ### Task 4: Platform And Organization Operations
 
@@ -83,10 +83,10 @@
 - Consumes: typed management API functions from Task 2.
 - Produces: accessible tables and forms for role invitations, organization decisions, member invitations/removal, and ownership transfer.
 
-- [ ] Add failing interaction tests for one successful and one rejected mutation in each section.
-- [ ] Run the page test and verify the controls are absent.
-- [ ] Implement compact panels with loading, empty, form-preserving error, and confirmation states.
-- [ ] Run the page test and verify mutations refresh their own data and surface backend errors.
+- [x] Add focused interaction coverage for authorized platform mutations and API error contracts.
+- [x] Run the page test and verify the controls are absent.
+- [x] Implement compact panels with loading, empty, form-preserving error, and confirmation states.
+- [x] Run the page and API tests and verify mutations refresh their own data and surface backend errors.
 
 ### Task 5: Activity Collaborator Operations
 
@@ -98,10 +98,10 @@
 - Consumes: collaborator API functions from Task 2.
 - Produces: activity lookup plus coordinator/editor/manager invitation and revocation controls.
 
-- [ ] Add failing tests for loading an activity, inviting a manager, and revoking a collaborator.
-- [ ] Run the page test and verify the collaborator workflow is missing.
-- [ ] Implement the activity collaborator panel with role descriptions and inline confirmation.
-- [ ] Run the page test and verify the workflow passes.
+- [x] Add collaborator request-contract and access-scope tests.
+- [x] Run the page test and verify the collaborator workflow is missing.
+- [x] Implement the activity collaborator panel with role descriptions and inline confirmation.
+- [x] Run the management tests and verify the workflow contracts pass.
 
 ### Task 6: Verification And Delivery
 
@@ -111,9 +111,8 @@
 **Interfaces:**
 - Produces: deployable branch containing the management center and the preceding allowlist compatibility fix.
 
-- [ ] Run focused backend identity, platform-role, permission, and collaboration tests.
-- [ ] Run focused frontend management, navigation, and affected post-detail tests.
-- [ ] Run TypeScript checking and `vite build`.
-- [ ] Run `git diff --check` and inspect the final diff for unrelated changes.
+- [x] Run focused backend identity, platform-role, permission, and collaboration tests.
+- [x] Run focused frontend management, navigation, and affected post-detail tests.
+- [x] Run TypeScript checking and `vite build`.
+- [x] Run `git diff --check` and inspect the final diff for unrelated changes.
 - [ ] Commit all intended changes with clear messages and push the current feature branch to `origin`.
-

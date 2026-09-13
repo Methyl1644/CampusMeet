@@ -4,6 +4,7 @@ import {
   ChevronDown,
   CircleHelp,
   LogOut,
+  ShieldCheck,
   Settings,
   UserRound,
   UsersRound,
@@ -17,6 +18,7 @@ import {
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import type { User } from '@shared/types'
 import { useAuthStore } from '@/store/authStore'
+import { hasManagementAccess } from '@/features/management/managementAccess'
 
 interface UserMenuProps {
   user: User
@@ -36,6 +38,8 @@ const mobileLinks = [
   ...profileLinks,
 ]
 
+const managementLink = { to: '/management', label: '管理中心', icon: ShieldCheck }
+
 export default function UserMenu({ user, variant = 'desktop' }: UserMenuProps) {
   const [open, setOpen] = useState(false)
   const location = useLocation()
@@ -45,7 +49,10 @@ export default function UserMenu({ user, variant = 'desktop' }: UserMenuProps) {
   const triggerRef = useRef<HTMLButtonElement>(null)
   const itemRefs = useRef<Array<HTMLAnchorElement | HTMLButtonElement | null>>([])
   const focusItemRef = useRef<number | null>(null)
-  const menuLinks = variant === 'mobile' ? mobileLinks : profileLinks
+  const menuLinks = [
+    ...(variant === 'mobile' ? mobileLinks : profileLinks),
+    ...(hasManagementAccess(user.identity) ? [managementLink] : []),
+  ]
 
   const closeMenu = () => setOpen(false)
 

@@ -5,7 +5,7 @@ from typing import Any
 from fastapi import Header, HTTPException
 
 from services.auth_access import ACCESS_DENIED_MESSAGE, auth_email_is_allowed
-from services.auth_lifecycle import active_session
+from services.auth_lifecycle import active_session, promote_allowlisted_legacy_user
 from storage.database.db import get_session
 from storage.database.models import User
 from utils.auth import verify_token
@@ -80,12 +80,15 @@ def current_user_id(authorization: str | None = Header(default=None)) -> str:
         auth_session = active_session(session, str(payload["jti"]), user_id)
         if auth_session is None:
             raise HTTPException(status_code=401, detail="Invalid or revoked token")
+        needs_commit = promote_allowlisted_legacy_user(session, user)
         now = datetime.datetime.now(datetime.timezone.utc)
         last_seen = auth_session.last_seen_at
         if last_seen is None or (
             now - (last_seen if last_seen.tzinfo else last_seen.replace(tzinfo=datetime.timezone.utc))
         ).total_seconds() >= 300:
             auth_session.last_seen_at = now
+            needs_commit = True
+        if needs_commit:
             session.commit()
         return str(user_id)
     finally:

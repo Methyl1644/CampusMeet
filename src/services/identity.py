@@ -7,7 +7,7 @@ from typing import Any
 from sqlalchemy import desc, select
 from sqlalchemy.orm import Session
 
-from services.operators import has_platform_role
+from services.operators import active_platform_grants, has_platform_role
 from services.notifications import notify
 from storage.database.models import (
     AuditLog,
@@ -578,6 +578,17 @@ def _grant_is_active(status: str, expires_at: datetime.datetime | None) -> bool:
 
 
 def identity_summary(session: Session, user: User) -> dict[str, Any]:
+    platform_grants = active_platform_grants(session, user.id)
+    platform_role = None
+    if platform_grants:
+        role_priority = {"operator": 1, "senior_operator": 2}
+        platform_role = max(
+            (grant.role for grant in platform_grants),
+            key=role_priority.__getitem__,
+        )
+    elif user.site_role in {"operator", "senior_operator"}:
+        platform_role = user.site_role
+
     organization_roles: list[dict[str, Any]] = []
     memberships = session.execute(
         select(OrganizationMember).where(OrganizationMember.user_id == user.id)
@@ -633,10 +644,41 @@ def identity_summary(session: Session, user: User) -> dict[str, Any]:
 
     return {
         "campus_verified": user.auth_status in CAMPUS_VERIFIED_STATUSES,
+        "platform_role": platform_role,
         "organization_roles": organization_roles,
         "topic_roles": topic_roles,
         "post_roles": post_roles,
     }
+
+
+def managed_organizations(session: Session, user: User) -> list[dict[str, Any]]:
+    memberships = session.execute(
+        select(OrganizationMember).where(
+            OrganizationMember.user_id == user.id,
+            OrganizationMember.role == "owner",
+            OrganizationMember.status == "active",
+        )
+    ).scalars().all()
+    result: list[dict[str, Any]] = []
+    for membership in memberships:
+        organization = session.get(Organization, membership.organization_id)
+        if (
+            not organization
+            or not organization_is_active(organization)
+            or not _grant_is_active(membership.status, membership.expires_at)
+        ):
+            continue
+        result.append(
+            {
+                "organization_id": str(organization.id),
+                "organization_name": organization.name,
+                "role": membership.role,
+                "expires_at": membership.expires_at.isoformat()
+                if membership.expires_at
+                else None,
+            }
+        )
+    return sorted(result, key=lambda item: item["organization_name"].casefold())
 
 
 def topic_trust_projection(session: Session, topic: Topic) -> dict[str, Any]:
@@ -657,6 +699,11 @@ def topic_trust_projection(session: Session, topic: Topic) -> dict[str, Any]:
             )
 
     responsible_people: list[dict[str, str]] = []
+    role_badges = {
+        "manager": "活动负责人",
+        "editor": "活动组织者",
+        "coordinator": "活动协作成员",
+    }
     grants = session.execute(
         select(TopicCollaborator).where(TopicCollaborator.topic_id == topic.id)
     ).scalars().all()
@@ -671,7 +718,7 @@ def topic_trust_projection(session: Session, topic: Topic) -> dict[str, Any]:
                 "user_id": str(user.id),
                 "nickname": user.nickname,
                 "role": grant.role,
-                "badge": "活动负责人",
+                "badge": role_badges.get(grant.role, "活动协作者"),
             }
         )
     return {"trust_badges": badges, "responsible_people": responsible_people}

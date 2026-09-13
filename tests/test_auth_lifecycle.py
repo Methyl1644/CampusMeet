@@ -52,6 +52,25 @@ def test_issued_token_requires_an_active_server_session(monkeypatch):
     assert exc.value.status_code == 401
 
 
+def test_allowlisted_legacy_user_is_promoted_on_authenticated_access(monkeypatch):
+    factory = _factory()
+    monkeypatch.setenv("AUTH_ACCESS_MODE", "allowlist")
+    monkeypatch.setenv("AUTH_ALLOWED_EMAILS", "student@smail.nju.edu.cn")
+    monkeypatch.setattr(common, "get_session", factory)
+    with factory() as session:
+        user = session.get(User, 1)
+        user.auth_status = "unverified"
+        user.verified_email = None
+        token = auth_lifecycle.issue_access_token(session, user.id, ttl_seconds=3600)
+        session.commit()
+
+    assert common.current_user_id(f"Bearer {token}") == "1"
+    with factory() as session:
+        user = session.get(User, 1)
+        assert user.auth_status == "verified"
+        assert user.verified_email == "student@smail.nju.edu.cn"
+
+
 def test_password_change_revokes_every_existing_session():
     factory = _factory()
     with factory() as session:

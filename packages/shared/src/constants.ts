@@ -157,6 +157,7 @@ export const API_PATHS = {
   identity: {
     applications: '/api/organizations/applications',
     applicationQueue: '/api/operators/organization-applications',
+    managedOrganizations: '/api/organizations/my-managed',
     invitations: '/api/organizations/invitations/my',
     ownershipTransfers: '/api/organizations/ownership-transfers/my',
   },
@@ -164,6 +165,8 @@ export const API_PATHS = {
     roles: '/api/operators/roles',
     myRoles: '/api/operators/roles/my',
     invitations: '/api/operators/roles/invitations',
+    suspendRole: '/api/operators/roles/:id/suspend',
+    revokeRole: '/api/operators/roles/:id/revoke',
   },
   moderation: {
     reports: '/api/moderation/reports',

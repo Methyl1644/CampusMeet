@@ -17,7 +17,7 @@ from utils.auth import hash_password, verify_password, generate_verification_cod
 from utils.email_sender import send_verification_email, is_email
 from services.abuse_monitoring import check_and_record
 from services.auth_access import ACCESS_DENIED_MESSAGE, auth_email_is_allowed
-from services.auth_lifecycle import issue_access_token, validate_password
+from services.auth_lifecycle import issue_access_token, promote_allowlisted_legacy_user, validate_password
 from services.onboarding import onboarding_to_dict
 
 logger = logging.getLogger(__name__)
@@ -440,6 +440,7 @@ def login_user(
                 return json.dumps({"success": False, "message": "密码错误"}, ensure_ascii=False)
             user.failed_login_attempts = 0
             user.locked_until = None
+            promote_allowlisted_legacy_user(session, user)
             session.commit()
 
             token = issue_access_token(session, user.id)

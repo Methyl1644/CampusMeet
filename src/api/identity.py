@@ -24,6 +24,7 @@ from services.identity import (
     invitation_to_dict,
     is_operator,
     list_applications,
+    managed_organizations,
     ownership_transfer_to_dict,
     review_application,
     submit_application,
@@ -110,6 +111,17 @@ def my_organization_applications(
                 "pages": (total + page_size - 1) // page_size,
             }
         )
+    finally:
+        session.close()
+
+
+@router.get("/organizations/my-managed")
+def my_managed_organizations(
+    user_id: str = Depends(current_user_id),
+) -> dict[str, Any]:
+    session, user = _current_user(user_id)
+    try:
+        return api_ok(managed_organizations(session, user))
     finally:
         session.close()
 

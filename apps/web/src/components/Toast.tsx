@@ -22,7 +22,11 @@ export function ToastProvider({ children }: { children: ReactNode }) {
 
   const showToast = useCallback((message: string, type: ToastType = 'info') => {
     const id = ++toastId
-    setToasts((prev) => [...prev, { id, type, message }])
+    setToasts((prev) => (
+      prev.some((toast) => toast.type === type && toast.message === message)
+        ? prev
+        : [...prev, { id, type, message }]
+    ))
 
     const duration = type === 'error' ? 0 : type === 'success' ? 2000 : 3000
     if (duration > 0) {

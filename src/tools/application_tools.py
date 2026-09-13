@@ -4,6 +4,7 @@ import logging
 from dataclasses import asdict
 from langchain.tools import tool
 from sqlalchemy import select, desc
+from sqlalchemy.exc import IntegrityError
 from coze_coding_utils.log.write_log import request_context
 from coze_coding_utils.runtime_ctx.context import new_context
 from storage.database.db import get_session
@@ -27,6 +28,30 @@ from services.participation import ParticipationError, validate_application_join
 from tools.auth_tools import _user_brief
 
 logger = logging.getLogger(__name__)
+
+
+def _active_application(session, post_id: int, applicant_id: int) -> Application | None:
+    return session.scalar(
+        select(Application)
+        .where(
+            Application.post_id == post_id,
+            Application.applicant_id == applicant_id,
+            Application.status.in_({"pending", "accepted"}),
+        )
+        .order_by(Application.created_at.desc(), Application.id.desc())
+        .limit(1)
+    )
+
+
+def _existing_application_result(app: Application, user: User) -> str:
+    return json.dumps(
+        {
+            "success": True,
+            "application": _application_to_dict(app, user),
+            "message": "你已提交过申请，请等待发布者审核",
+        },
+        ensure_ascii=False,
+    )
 
 
 def _application_to_dict(app: Application, applicant: User | None = None) -> dict:
@@ -75,6 +100,9 @@ def create_application(
                 return json.dumps({"success": False, "message": "帖子不存在"}, ensure_ascii=False)
             if post.author_id == uid:
                 return json.dumps({"success": False, "message": "不能申请自己的帖子"}, ensure_ascii=False)
+            existing_application = _active_application(session, pid, uid)
+            if existing_application is not None:
+                return _existing_application_result(existing_application, user)
             try:
                 validate_application_join(session, post, user)
             except ParticipationError as exc:
@@ -174,7 +202,14 @@ def create_application(
                 status="pending",
             )
             session.add(app)
-            session.flush()
+            try:
+                session.flush()
+            except IntegrityError:
+                session.rollback()
+                existing_application = _active_application(session, pid, uid)
+                if existing_application is not None:
+                    return _existing_application_result(existing_application, user)
+                raise
             notify(
                 session,
                 user_id=post.author_id,
