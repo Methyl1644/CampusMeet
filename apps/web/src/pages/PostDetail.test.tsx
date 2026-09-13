@@ -5,9 +5,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { MemoryRouter, Route, Routes, useNavigate } from 'react-router-dom'
 import { createApplication } from '@/api/applications'
 import { getExploreGroup, joinExploreGroup, setGroupFavorite } from '@/api/explore'
+import { getMyTeams } from '@/api/teams'
 import { ToastProvider } from '@/components/Toast'
 import PostDetail from './PostDetail'
-import { groupDetailFixture } from './detailTestFixtures'
+import { groupDetailFixture, teamFixture } from './detailTestFixtures'
 
 vi.mock('@/api/applications', () => ({ createApplication: vi.fn() }))
 vi.mock('@/api/explore', () => ({
@@ -15,6 +16,7 @@ vi.mock('@/api/explore', () => ({
   joinExploreGroup: vi.fn(),
   setGroupFavorite: vi.fn(),
 }))
+vi.mock('@/api/teams', () => ({ getMyTeams: vi.fn() }))
 
 function deferred<T>() {
   let resolve!: (value: T) => void
@@ -42,6 +44,7 @@ beforeEach(() => {
   vi.resetAllMocks()
   vi.mocked(getExploreGroup).mockResolvedValue(groupDetailFixture)
   vi.mocked(setGroupFavorite).mockResolvedValue({ post_id: groupDetailFixture.id, bookmark: true })
+  vi.mocked(getMyTeams).mockResolvedValue([teamFixture])
   vi.mocked(joinExploreGroup).mockResolvedValue({
     ...groupDetailFixture,
     join_state: 'joined',
@@ -63,7 +66,6 @@ afterEach(() => cleanup())
 describe('PostDetail group experience', () => {
   it.each([
     ['owner', '管理组队'],
-    ['joined', '查看我的团队'],
     ['pending', '申请审核中'],
     ['rejected', '申请未通过'],
     ['closed', '暂不可加入'],
@@ -76,11 +78,57 @@ describe('PostDetail group experience', () => {
     expect(within(actions).queryByRole('button', { name: '直接加入' })).toBeNull()
   })
 
+  it('resolves a previously joined post to its exact team through the existing team API', async () => {
+    vi.mocked(getExploreGroup).mockResolvedValue({ ...groupDetailFixture, join_state: 'joined' })
+    vi.mocked(getMyTeams).mockResolvedValue([
+      { ...teamFixture, id: 'unrelated-team', post_id: 'another-post' },
+      { ...teamFixture, id: 'matching-team', post_id: groupDetailFixture.id },
+    ])
+    renderPost()
+
+    const teamLink = await screen.findByRole('link', { name: '进入团队' })
+    expect(teamLink.getAttribute('href')).toBe('/teams/matching-team')
+  })
+
+  it('offers a retry only after a previously joined team is genuinely unresolved', async () => {
+    vi.mocked(getExploreGroup).mockResolvedValue({ ...groupDetailFixture, join_state: 'joined' })
+    vi.mocked(getMyTeams).mockResolvedValue([])
+    renderPost()
+
+    const retry = await screen.findByRole('button', { name: '重新查找团队' })
+    expect(getMyTeams).toHaveBeenCalledTimes(1)
+    fireEvent.click(retry)
+    await waitFor(() => expect(getMyTeams).toHaveBeenCalledTimes(2))
+  })
+
   it('opens the existing application modal only for an available application group', async () => {
     renderPost()
     const button = await screen.findByRole('button', { name: '申请加入' })
     fireEvent.click(button)
     expect(screen.getByRole('dialog', { name: '申请加入' })).toBeTruthy()
+  })
+
+  it('submits an application with a stable unrestricted role when no roles are listed', async () => {
+    vi.mocked(getExploreGroup).mockResolvedValue({ ...groupDetailFixture, needed_roles: [] })
+    renderPost()
+    fireEvent.click(await screen.findByRole('button', { name: '申请加入' }))
+
+    expect(screen.getByRole('button', { name: '不限角色' }).getAttribute('aria-pressed')).toBe('true')
+    fireEvent.change(screen.getByLabelText(/相关经验/), { target: { value: '参加过校内项目' } })
+    fireEvent.change(screen.getByLabelText(/可投入时间/), { target: { value: '每周四小时' } })
+    fireEvent.change(screen.getByLabelText(/加入原因/), { target: { value: '希望共同完成作品' } })
+    fireEvent.click(screen.getByRole('button', { name: '提交申请' }))
+
+    await waitFor(() => expect(createApplication).toHaveBeenCalledWith({
+      post_id: groupDetailFixture.id,
+      role_wanted: '不限角色',
+      experience: '参加过校内项目',
+      available_time: '每周四小时',
+      reason: '希望共同完成作品',
+      questions: undefined,
+    }))
+    expect(screen.queryByRole('dialog', { name: '申请加入' })).toBeNull()
+    expect(screen.getByText('申请审核中')).toBeTruthy()
   })
 
   it('directly joins only an available direct group and links to the returned team', async () => {
@@ -155,10 +203,16 @@ describe('PostDetail group experience', () => {
     expect(screen.queryByText(groupDetailFixture.title)).toBeNull()
   })
 
-  it('does not let a direct-join response from the previous route replace the current group', async () => {
+  it('does not let a hung direct join own the next joinable post state or feedback', async () => {
     const joining = deferred<Awaited<ReturnType<typeof joinExploreGroup>>>()
     const directGroup = { ...groupDetailFixture, join_mode: 'direct' as const }
-    const currentGroup = { ...groupDetailFixture, id: 'group-2', title: '导航后的组队', join_state: 'joined' as const }
+    const currentGroup = {
+      ...groupDetailFixture,
+      id: 'group-2',
+      title: '导航后的组队',
+      join_state: 'available' as const,
+      join_mode: 'direct' as const,
+    }
     vi.mocked(getExploreGroup).mockResolvedValueOnce(directGroup).mockResolvedValueOnce(currentGroup)
     vi.mocked(joinExploreGroup).mockReturnValueOnce(joining.promise)
     renderPost()
@@ -166,6 +220,7 @@ describe('PostDetail group experience', () => {
     fireEvent.click(await screen.findByRole('button', { name: '直接加入' }))
     fireEvent.click(screen.getByRole('button', { name: '打开另一个组队' }))
     expect(await screen.findByRole('heading', { name: currentGroup.title })).toBeTruthy()
+    expect(screen.getByRole('button', { name: '直接加入' }).hasAttribute('disabled')).toBe(false)
 
     await act(async () => {
       joining.resolve({ ...directGroup, join_state: 'joined', team_id: 'old-team', member_id: 'old-member' })
@@ -173,6 +228,7 @@ describe('PostDetail group experience', () => {
     })
 
     expect(screen.getByRole('heading', { name: currentGroup.title })).toBeTruthy()
-    expect(screen.getByRole('link', { name: '查看我的团队' }).getAttribute('href')).toBe('/profile?view=teams')
+    expect(screen.getByRole('button', { name: '直接加入' }).hasAttribute('disabled')).toBe(false)
+    expect(screen.queryByText('已加入组队')).toBeNull()
   })
 })

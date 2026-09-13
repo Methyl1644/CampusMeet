@@ -77,4 +77,36 @@ describe('TeamDetail consistency', () => {
     await act(async () => { stale.resolve(teamFixture); await stale.promise })
     expect(screen.queryByText(teamFixture.activity_name)).toBeNull()
   })
+
+  it('keeps an older plan mutation from owning the next team state or feedback', async () => {
+    const oldPlan = deferred<Awaited<ReturnType<typeof generateTeamPlan>>>()
+    const current = {
+      ...teamFixture,
+      id: 'team-2',
+      activity_name: '当前团队工作台',
+      division_of_labor: [{ role: '当前团队策划', responsibilities: '保留当前团队规划' }],
+    }
+    vi.mocked(getTeamDetail).mockResolvedValueOnce(teamFixture).mockResolvedValueOnce(current)
+    vi.mocked(generateTeamPlan).mockReturnValueOnce(oldPlan.promise)
+    renderTeam()
+
+    fireEvent.click(await screen.findByRole('button', { name: '重新生成规划' }))
+    fireEvent.click(screen.getByRole('button', { name: '打开另一个团队' }))
+    expect(await screen.findByRole('heading', { name: current.activity_name })).toBeTruthy()
+    expect(screen.getByRole('button', { name: '重新生成规划' }).hasAttribute('disabled')).toBe(false)
+
+    await act(async () => {
+      oldPlan.resolve({
+        division_of_labor: [{ role: '旧团队规划', responsibilities: '不应写入新团队' }],
+        meeting_agenda: [],
+        task_list: [],
+        risk_reminders: [],
+      })
+      await oldPlan.promise
+    })
+
+    expect(screen.getByText('当前团队策划')).toBeTruthy()
+    expect(screen.queryByText('旧团队规划')).toBeNull()
+    expect(screen.queryByText('团队规划已重新生成')).toBeNull()
+  })
 })

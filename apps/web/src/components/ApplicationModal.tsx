@@ -30,8 +30,11 @@ const focusableSelector = [
   '[tabindex]:not([tabindex="-1"])',
 ].join(',')
 
+const unrestrictedRole = '不限角色'
+
 export default function ApplicationModal({ post, onClose, onSuccess }: ApplicationModalProps) {
-  const [roleWanted, setRoleWanted] = useState('')
+  const roleOptions = post.needed_roles.length > 0 ? post.needed_roles : [unrestrictedRole]
+  const [roleWanted, setRoleWanted] = useState(post.needed_roles.length > 0 ? '' : unrestrictedRole)
   const [experience, setExperience] = useState('')
   const [availableTime, setAvailableTime] = useState('')
   const [reason, setReason] = useState('')
@@ -180,7 +183,7 @@ export default function ApplicationModal({ post, onClose, onSuccess }: Applicati
                 <span className="sr-only">必填</span>
               </legend>
               <div className="mt-2 flex flex-wrap gap-2">
-                {post.needed_roles.map((role) => (
+                {roleOptions.map((role) => (
                   <button
                     key={role}
                     type="button"

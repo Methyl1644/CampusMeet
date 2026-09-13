@@ -1,7 +1,8 @@
-import { useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { ArrowLeft, CalendarClock, Heart, Link2, MapPin, RefreshCw, Share2, UsersRound } from 'lucide-react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { getExploreGroup, joinExploreGroup, setGroupFavorite } from '@/api/explore'
+import { getMyTeams } from '@/api/teams'
 import ApplicationModal from '@/components/ApplicationModal'
 import GroupHero from '@/components/details/GroupHero'
 import ParticipantPreview from '@/components/details/ParticipantPreview'
@@ -29,11 +30,38 @@ export default function PostDetail() {
   const { showToast } = useToast()
   const { data: group, setData: setGroup, loading, error, retry } = useDetailResource(id, getExploreGroup)
   const [favoritePending, setFavoritePending] = useState(false)
-  const [joinPending, setJoinPending] = useState(false)
+  const [joiningPostId, setJoiningPostId] = useState<string | null>(null)
   const [showApplication, setShowApplication] = useState(false)
   const [joinedTeam, setJoinedTeam] = useState<{ postId: string; teamId: string } | null>(null)
+  const [teamLookup, setTeamLookup] = useState<{ postId: string; status: 'loading' | 'unresolved' } | null>(null)
   const activeGroupId = useRef(id)
+  const teamLookupGeneration = useRef(0)
   activeGroupId.current = id
+
+  const resolveJoinedTeam = useCallback(async (postId: string) => {
+    const generation = ++teamLookupGeneration.current
+    setTeamLookup({ postId, status: 'loading' })
+    try {
+      const teams = await getMyTeams()
+      if (activeGroupId.current !== postId || teamLookupGeneration.current !== generation) return
+      const matchingTeam = teams.find((team) => team.post_id === postId)
+      if (matchingTeam) {
+        setJoinedTeam({ postId, teamId: matchingTeam.id })
+        setTeamLookup(null)
+      } else {
+        setTeamLookup({ postId, status: 'unresolved' })
+      }
+    } catch {
+      if (activeGroupId.current === postId && teamLookupGeneration.current === generation) {
+        setTeamLookup({ postId, status: 'unresolved' })
+      }
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!group || group.join_state !== 'joined' || joinedTeam?.postId === group.id) return
+    void resolveJoinedTeam(group.id)
+  }, [group, joinedTeam?.postId, resolveJoinedTeam])
 
   const handleFavorite = async () => {
     if (!group || favoritePending) return
@@ -53,19 +81,20 @@ export default function PostDetail() {
   }
 
   const handleDirectJoin = async () => {
-    if (!group || joinPending) return
-    setJoinPending(true)
+    if (!group || joiningPostId === group.id) return
+    const sourcePostId = group.id
+    setJoiningPostId(sourcePostId)
     try {
-      const result = await joinExploreGroup(group.id)
-      if (activeGroupId.current !== group.id) return
+      const result = await joinExploreGroup(sourcePostId)
+      if (activeGroupId.current !== sourcePostId) return
       setGroup(result)
-      setJoinedTeam({ postId: group.id, teamId: result.team_id })
+      setJoinedTeam({ postId: sourcePostId, teamId: result.team_id })
       showToast('已加入组队', 'success')
     } catch {
-      if (activeGroupId.current !== group.id) return
+      if (activeGroupId.current !== sourcePostId) return
       showToast('加入失败，请刷新状态后重试', 'error')
     } finally {
-      setJoinPending(false)
+      setJoiningPostId((current) => current === sourcePostId ? null : current)
     }
   }
 
@@ -146,7 +175,15 @@ export default function PostDetail() {
         <button type="button" aria-label="分享组队" title="分享组队" onClick={handleShare} className="btn-secondary min-h-11 px-3 sm:px-4">
           <Share2 aria-hidden="true" className="size-[18px]" /><span className="hidden sm:inline">分享</span>
         </button>
-        <JoinAction group={group} joinedTeamId={joinedTeam?.postId === group.id ? joinedTeam.teamId : null} pending={joinPending} onApply={() => setShowApplication(true)} onDirectJoin={handleDirectJoin} />
+        <JoinAction
+          group={group}
+          joinedTeamId={joinedTeam?.postId === group.id ? joinedTeam.teamId : null}
+          teamLookupStatus={teamLookup?.postId === group.id ? teamLookup.status : 'loading'}
+          pending={joiningPostId === group.id}
+          onApply={() => setShowApplication(true)}
+          onDirectJoin={handleDirectJoin}
+          onRetryTeamLookup={() => void resolveJoinedTeam(group.id)}
+        />
       </StickyActions>
 
       {showApplication && (
@@ -163,21 +200,27 @@ export default function PostDetail() {
 function JoinAction({
   group,
   joinedTeamId,
+  teamLookupStatus,
   pending,
   onApply,
   onDirectJoin,
+  onRetryTeamLookup,
 }: {
   group: ExploreGroupDetail
   joinedTeamId: string | null
+  teamLookupStatus: 'loading' | 'unresolved'
   pending: boolean
   onApply: () => void
   onDirectJoin: () => void
+  onRetryTeamLookup: () => void
 }) {
   if (group.join_state === 'owner') return <Link to="/profile?view=posts" className="btn-primary min-h-11">管理组队</Link>
   if (group.join_state === 'joined') {
-    return joinedTeamId
-      ? <Link to={`/teams/${joinedTeamId}`} className="btn-primary min-h-11">进入团队</Link>
-      : <Link to="/profile?view=teams" className="btn-primary min-h-11">查看我的团队</Link>
+    if (joinedTeamId) return <Link to={`/teams/${joinedTeamId}`} className="btn-primary min-h-11">进入团队</Link>
+    if (teamLookupStatus === 'unresolved') {
+      return <button type="button" onClick={onRetryTeamLookup} className="btn-primary min-h-11"><RefreshCw aria-hidden="true" className="size-4" />重新查找团队</button>
+    }
+    return <ActionState>正在查找团队...</ActionState>
   }
   if (group.join_state === 'pending') return <ActionState>申请审核中</ActionState>
   if (group.join_state === 'rejected') return <ActionState>申请未通过</ActionState>

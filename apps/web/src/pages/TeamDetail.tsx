@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import {
   AlertTriangle,
@@ -27,7 +27,9 @@ export default function TeamDetail() {
   const { showToast } = useToast()
 
   const { data: team, setData: setTeam, loading, error, retry } = useDetailResource(id ?? '', getTeamDetail)
-  const [generatingPlan, setGeneratingPlan] = useState(false)
+  const [generatingTeamId, setGeneratingTeamId] = useState<string | null>(null)
+  const activeTeamId = useRef(id)
+  activeTeamId.current = id
 
   const handleToggleTask = async (taskId: string, currentDone: boolean) => {
     if (!team) return
@@ -69,13 +71,15 @@ export default function TeamDetail() {
   )
 
   const handleGeneratePlan = async () => {
-    if (!team || generatingPlan) return
+    if (!team || generatingTeamId === team.id) return
+    const sourceTeamId = team.id
     const isRegeneration = hasTeamPlan
-    setGeneratingPlan(true)
+    setGeneratingTeamId(sourceTeamId)
     try {
-      const plan = await generateTeamPlan(team.id)
+      const plan = await generateTeamPlan(sourceTeamId)
+      if (activeTeamId.current !== sourceTeamId) return
       setTeam((current) =>
-        current
+        current?.id === sourceTeamId
           ? {
               ...current,
               division_of_labor: plan.division_of_labor,
@@ -87,9 +91,11 @@ export default function TeamDetail() {
       )
       showToast(isRegeneration ? '团队规划已重新生成' : '团队规划已生成', 'success')
     } catch {
-      showToast('规划生成失败，已保留当前内容，请稍后重试', 'error')
+      if (activeTeamId.current === sourceTeamId) {
+        showToast('规划生成失败，已保留当前内容，请稍后重试', 'error')
+      }
     } finally {
-      setGeneratingPlan(false)
+      setGeneratingTeamId((current) => current === sourceTeamId ? null : current)
     }
   }
 
@@ -113,6 +119,8 @@ export default function TeamDetail() {
       </div>
     )
   }
+
+  const generatingPlan = generatingTeamId === team.id
 
   return (
     <div data-testid="team-detail-page" className="mx-auto min-w-0 max-w-5xl overflow-x-clip pb-8">
