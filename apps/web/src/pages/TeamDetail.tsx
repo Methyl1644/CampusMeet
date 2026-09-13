@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import {
   AlertTriangle,
@@ -17,6 +17,7 @@ import { generateTeamPlan } from '@/api/agent'
 import { getTeamDetail, updateTask } from '@/api/teams'
 import type { Team } from '@shared/types'
 import Loading from '@/components/Loading'
+import { useDetailResource, useRouteGeneration } from '@/components/details/useDetailResource'
 import { Reveal } from '@/components/motion/Reveal'
 import { useToast } from '@/components/Toast'
 
@@ -25,57 +26,74 @@ export default function TeamDetail() {
   const navigate = useNavigate()
   const { showToast } = useToast()
 
-  const [team, setTeam] = useState<Team | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [generatingPlan, setGeneratingPlan] = useState(false)
-
-  useEffect(() => {
-    if (!id) return
-    let cancelled = false
-    const fetchTeam = async () => {
-      setLoading(true)
-      try {
-        const data = await getTeamDetail(id)
-        if (!cancelled) setTeam(data)
-      } catch {
-        if (!cancelled) showToast('加载失败', 'error')
-      } finally {
-        if (!cancelled) setLoading(false)
-      }
-    }
-    fetchTeam()
-    return () => { cancelled = true }
-  }, [id]) // eslint-disable-line react-hooks/exhaustive-deps
+  const { data: team, setData: setTeam, loading, error, retry } = useDetailResource(id ?? '', getTeamDetail)
+  const routeOwner = useRouteGeneration(id ?? '')
+  const [generatingPlanFor, setGeneratingPlanFor] = useState<{
+    teamId: string
+    routeGeneration: number
+  } | null>(null)
+  const taskMutationOwners = useRef(new Map<string, symbol>())
+  const [pendingTaskKeys, setPendingTaskKeys] = useState<Set<string>>(() => new Set())
 
   const handleToggleTask = async (taskId: string, currentDone: boolean) => {
     if (!team) return
-    setTeam({
-      ...team,
-      task_list: team.task_list.map((task) =>
+    const sourceTeamId = team.id
+    const routeGeneration = routeOwner.current.generation
+    const key = `${sourceTeamId}:${routeGeneration}:${taskId}`
+    if (taskMutationOwners.current.has(key)) return
+    const owner = Symbol(key)
+    taskMutationOwners.current.set(key, owner)
+    setPendingTaskKeys((current) => new Set(current).add(key))
+    const ownsMutation = () => (
+      taskMutationOwners.current.get(key) === owner
+      && routeOwner.current.key === sourceTeamId
+      && routeOwner.current.generation === routeGeneration
+    )
+    setTeam((current) => current?.id === sourceTeamId ? {
+      ...current,
+      task_list: current.task_list.map((task) =>
         task.id === taskId ? { ...task, done: !currentDone } : task,
       ),
-    })
+    } : current)
     try {
-      await updateTask(team.id, taskId, !currentDone)
-    } catch {
-      setTeam({
-        ...team,
-        task_list: team.task_list.map((task) =>
-          task.id === taskId ? { ...task, done: currentDone } : task,
+      const updated = await updateTask(sourceTeamId, taskId, !currentDone)
+      if (!ownsMutation()) return
+      setTeam((current) => current?.id === sourceTeamId ? {
+        ...current,
+        task_list: current.task_list.map((task) =>
+          task.id === taskId ? { ...task, ...updated } : task,
         ),
-      })
-      showToast('更新失败', 'error')
+      } : current)
+    } catch {
+      if (ownsMutation()) {
+        setTeam((current) => current?.id === sourceTeamId ? {
+          ...current,
+          task_list: current.task_list.map((task) =>
+            task.id === taskId ? { ...task, done: currentDone } : task,
+          ),
+        } : current)
+        showToast('更新失败', 'error')
+      }
+    } finally {
+      if (taskMutationOwners.current.get(key) === owner) {
+        taskMutationOwners.current.delete(key)
+        setPendingTaskKeys((current) => {
+          const next = new Set(current)
+          next.delete(key)
+          return next
+        })
+      }
     }
   }
 
   const handleToggleAgenda = (agendaId: string) => {
     if (!team) return
-    setTeam({
-      ...team,
-      meeting_agenda: team.meeting_agenda.map((agenda) =>
+    setTeam((current) => current?.id === team.id ? {
+      ...current,
+      meeting_agenda: current.meeting_agenda.map((agenda) =>
         agenda.id === agendaId ? { ...agenda, done: !agenda.done } : agenda,
       ),
-    })
+    } : current)
   }
 
   const hasTeamPlan = Boolean(
@@ -87,13 +105,23 @@ export default function TeamDetail() {
   )
 
   const handleGeneratePlan = async () => {
-    if (!team || generatingPlan) return
+    if (!team) return
+    const sourceTeamId = team.id
+    const routeGeneration = routeOwner.current.generation
+    if (
+      generatingPlanFor?.teamId === sourceTeamId &&
+      generatingPlanFor.routeGeneration === routeGeneration
+    ) return
+    const ownsRoute = () => (
+      routeOwner.current.key === sourceTeamId && routeOwner.current.generation === routeGeneration
+    )
     const isRegeneration = hasTeamPlan
-    setGeneratingPlan(true)
+    setGeneratingPlanFor({ teamId: sourceTeamId, routeGeneration })
     try {
-      const plan = await generateTeamPlan(team.id)
+      const plan = await generateTeamPlan(sourceTeamId)
+      if (!ownsRoute()) return
       setTeam((current) =>
-        current
+        current?.id === sourceTeamId
           ? {
               ...current,
               division_of_labor: plan.division_of_labor,
@@ -105,13 +133,28 @@ export default function TeamDetail() {
       )
       showToast(isRegeneration ? '团队规划已重新生成' : '团队规划已生成', 'success')
     } catch {
-      showToast('规划生成失败，已保留当前内容，请稍后重试', 'error')
+      if (ownsRoute()) {
+        showToast('规划生成失败，已保留当前内容，请稍后重试', 'error')
+      }
     } finally {
-      setGeneratingPlan(false)
+      setGeneratingPlanFor((current) => (
+        current?.teamId === sourceTeamId && current.routeGeneration === routeGeneration ? null : current
+      ))
     }
   }
 
   if (loading) return <Loading />
+  if (error) {
+    return (
+      <div role="alert" className="mx-auto max-w-xl border-y border-stone bg-paper px-5 py-12 text-center">
+        <p className="text-base font-semibold text-ink">团队加载失败</p>
+        <p className="mt-2 text-sm text-ink-muted">网络可能暂时不可用，请重试。</p>
+        <button type="button" onClick={retry} className="btn-primary mt-5 min-h-11">
+          <RefreshCw aria-hidden="true" size={16} />重新加载
+        </button>
+      </div>
+    )
+  }
   if (!team) {
     return (
       <div className="py-16 text-center">
@@ -121,8 +164,13 @@ export default function TeamDetail() {
     )
   }
 
+  const generatingPlan = (
+    generatingPlanFor?.teamId === team.id &&
+    generatingPlanFor.routeGeneration === routeOwner.current.generation
+  )
+
   return (
-    <div className="mx-auto max-w-5xl">
+    <div data-testid="team-detail-page" className="mx-auto min-w-0 max-w-5xl overflow-x-clip pb-8">
       <button
         onClick={() => navigate(-1)}
         className="mb-4 inline-flex items-center gap-1 text-sm font-medium text-ink-muted transition-colors hover:text-primary-700"
@@ -131,11 +179,11 @@ export default function TeamDetail() {
         返回
       </button>
 
-      <Reveal as="header" className="border-y border-stone bg-paper px-4 py-6 sm:px-7">
+      <Reveal as="header" className="border-y border-stone bg-paper px-4 py-6 sm:px-7 lg:py-8">
         <p className="section-label">团队工作台</p>
         <div className="mt-3 flex flex-wrap items-end justify-between gap-3">
           <div>
-            <h1 className="font-serif text-2xl font-semibold leading-9 text-ink sm:text-3xl">
+            <h1 className="break-words text-2xl font-bold leading-9 text-ink sm:text-3xl">
               {team.activity_name}
             </h1>
             <p className="mt-2 text-sm text-ink-muted">建立于 {team.created_at || '暂无'}</p>
@@ -252,6 +300,7 @@ export default function TeamDetail() {
                     key={task.id}
                     onClick={() => handleToggleTask(task.id, task.done)}
                     aria-pressed={task.done}
+                    disabled={pendingTaskKeys.has(`${team.id}:${routeOwner.current.generation}:${task.id}`)}
                     className="flex min-h-16 w-full items-center gap-3 px-1 py-2 text-left transition-colors hover:bg-paper focus-visible:bg-paper"
                   >
                     {task.done ? (

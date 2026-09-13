@@ -9,7 +9,7 @@ import type {
 } from '@shared/types'
 import type { VerificationCodeResponse } from './auth-feedback'
 
-export type VerificationCodePurpose = 'register' | 'login' | 'campus_verify' | 'reset_password'
+export type VerificationCodePurpose = 'register' | 'campus_verify' | 'reset_password'
 
 /** 发送验证码 */
 export function sendCode(account: string, purpose: VerificationCodePurpose = 'register') {
@@ -44,4 +44,15 @@ export function getProfile() {
 /** 更新用户资料 */
 export function updateProfile(data: Partial<Pick<User, 'nickname' | 'major' | 'grade' | 'skills'>>) {
   return patch<User>(API_PATHS.auth.profile, data)
+}
+
+export function changePassword(currentPassword: string, newPassword: string) {
+  return post<null>(API_PATHS.auth.changePassword, {
+    current_password: currentPassword,
+    new_password: newPassword,
+  })
+}
+
+export function deactivateAccount(currentPassword: string) {
+  return post<null>(API_PATHS.auth.deactivate, { current_password: currentPassword })
 }

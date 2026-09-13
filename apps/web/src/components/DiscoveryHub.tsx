@@ -1,407 +1,296 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import {
-  ArrowRight,
-  BadgeCheck,
-  Landmark,
-  Search,
-  UsersRound,
-  X,
-} from 'lucide-react'
+import { AlertCircle, ChevronLeft, ChevronRight, Search, X } from 'lucide-react'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
-import { useNavigate } from 'react-router-dom'
-
-import { getSearchSuggestions, getTopics } from '@/api/content'
-import { getPosts } from '@/api/posts'
-import EmptyState from '@/components/EmptyState'
-import Loading from '@/components/Loading'
-import { Reveal } from '@/components/motion/Reveal'
-import PostCard from '@/components/PostCard'
-import TopicCard from '@/components/TopicCard'
+import type { ExploreActivityCard, ExploreGroupCard, ExplorePage } from '@shared/types'
+import {
+  listExploreActivities,
+  listExploreGroups,
+  setActivityFavorite,
+  setGroupFavorite,
+} from '@/api/explore'
+import CategoryRail from '@/components/explore/CategoryRail'
+import ExploreFilters from '@/components/explore/ExploreFilters'
+import ExploreGrid from '@/components/explore/ExploreGrid'
+import ExploreSkeleton from '@/components/explore/ExploreSkeleton'
+import ExploreSwitcher from '@/components/explore/ExploreSwitcher'
 import { useToast } from '@/components/Toast'
-import type {
-  ContentChannel,
-  Post,
-  SearchDirectResult,
-  StandardTag,
-  Topic,
-} from '@shared/types'
+import { useExploreState, type ExploreView } from '@/features/explore/exploreState'
 
-const channels: Array<{ key: ContentChannel; title: string }> = [
-  { key: 'official', title: '官方赛事与项目' },
-  { key: 'organization', title: '认证组织活动' },
-  { key: 'casual', title: '同学自主组队' },
-]
+const PAGE_SIZE = 12
+const headings = {
+  activity: '发现值得认真准备的校园活动',
+  group: '找到此刻正缺你的队伍',
+} as const
+const descriptions = {
+  activity: '浏览校方与认证组织发布的正式活动，提前了解时间、范围与参与方式。',
+  group: '发现同学发起的招募与讨论，找到目标、时间和角色都合适的伙伴。',
+} as const
 
-const channelIcons = {
-  official: Landmark,
-  organization: BadgeCheck,
-  casual: UsersRound,
-} satisfies Record<ContentChannel, typeof Landmark>
+interface ResultsState {
+  activities: ExplorePage<ExploreActivityCard> | null
+  groups: ExplorePage<ExploreGroupCard> | null
+  loading: boolean
+  error: boolean
+}
+
+function emptyResults(): ResultsState {
+  return { activities: null, groups: null, loading: true, error: false }
+}
 
 export default function DiscoveryHub() {
-  const navigate = useNavigate()
+  const { state, activeState, setView, updateActiveState, replaceActivePage } = useExploreState()
   const { showToast } = useToast()
   const shouldReduceMotion = useReducedMotion()
-  const [channel, setChannel] = useState<ContentChannel>('official')
-  const [query, setQuery] = useState('')
-  const [selectedTags, setSelectedTags] = useState<StandardTag[]>([])
-  const [direct, setDirect] = useState<SearchDirectResult[]>([])
-  const [tagSuggestions, setTagSuggestions] = useState<StandardTag[]>([])
-  const [topics, setTopics] = useState<Topic[]>([])
-  const [posts, setPosts] = useState<Post[]>([])
-  const [loading, setLoading] = useState(true)
-  const [suggesting, setSuggesting] = useState(false)
-  const loadRequestId = useRef(0)
-  const requestId = useRef(0)
-
-  const load = useCallback(async (currentLoad: number) => {
-    setLoading(true)
-    try {
-      if (channel === 'casual') {
-        const response = await getPosts({
-          keyword: query || undefined,
-          tags: selectedTags.map((tag) => tag.tag_id),
-          kind: 'casual_invitation',
-          page: 1,
-          page_size: 30,
-        })
-        if (currentLoad === loadRequestId.current) {
-          setPosts(response.list)
-          setTopics([])
-        }
-      } else {
-        const response = await getTopics({
-          channel,
-          q: query || undefined,
-          tag_ids: selectedTags.map((tag) => tag.tag_id),
-          page: 1,
-          page_size: 30,
-        })
-        if (currentLoad === loadRequestId.current) {
-          setTopics(response.list)
-          setPosts([])
-        }
-      }
-    } catch {
-      if (currentLoad === loadRequestId.current) {
-        setTopics([])
-        setPosts([])
-        showToast('内容加载失败', 'error')
-      }
-    } finally {
-      if (currentLoad === loadRequestId.current) setLoading(false)
-    }
-  }, [channel, query, selectedTags, showToast])
+  const [results, setResults] = useState<ResultsState>(emptyResults)
+  const [retryGeneration, setRetryGeneration] = useState(0)
+  const [favoritePending, setFavoritePending] = useState<Set<string>>(() => new Set())
+  const loadGeneration = useRef(0)
 
   useEffect(() => {
-    const currentLoad = ++loadRequestId.current
-    const timer = window.setTimeout(() => load(currentLoad), 250)
-    return () => window.clearTimeout(timer)
-  }, [load])
+    const controller = new AbortController()
+    const generation = ++loadGeneration.current
+    const isCurrent = () => !controller.signal.aborted && generation === loadGeneration.current
+    setResults((current) => ({ ...current, loading: true, error: false }))
 
-  useEffect(() => {
-    const trimmed = query.trim()
-    if (!trimmed) {
-      setDirect([])
-      setTagSuggestions([])
-      setSuggesting(false)
-      return
-    }
-    const current = ++requestId.current
-    const timer = window.setTimeout(async () => {
-      setSuggesting(true)
+    const load = async () => {
       try {
-        const response = await getSearchSuggestions(trimmed, channel)
-        if (current === requestId.current) {
-          setDirect(response.direct)
-          setTagSuggestions(
-            response.tags.filter(
-              (tag) =>
-                !selectedTags.some(
-                  (selected) => selected.tag_id === tag.tag_id,
-                ),
-            ),
-          )
+        if (state.view === 'activity') {
+          const page = await listExploreActivities({
+            query: state.activity.query || undefined,
+            tagIds: state.activity.tagIds.length ? state.activity.tagIds : undefined,
+            date: state.activity.filters.date || undefined,
+            status: state.activity.filters.status || undefined,
+            type: state.activity.filters.type || undefined,
+            campus: state.activity.filters.campus || undefined,
+            page: state.activity.page,
+            pageSize: PAGE_SIZE,
+          }, controller.signal)
+          if (!isCurrent()) return
+          if (page.pages > 0 && state.activity.page > page.pages) {
+            replaceActivePage(page.pages)
+            return
+          }
+          if (!isCurrent()) return
+          setResults((current) => ({ ...current, activities: page, loading: false, error: false }))
+        } else {
+          const page = await listExploreGroups({
+            query: state.group.query || undefined,
+            tagIds: state.group.tagIds.length ? state.group.tagIds : undefined,
+            date: state.group.filters.date || undefined,
+            status: state.group.filters.status || undefined,
+            type: state.group.filters.type || undefined,
+            campus: state.group.filters.campus || undefined,
+            page: state.group.page,
+            pageSize: PAGE_SIZE,
+          }, controller.signal)
+          if (!isCurrent()) return
+          if (page.pages > 0 && state.group.page > page.pages) {
+            replaceActivePage(page.pages)
+            return
+          }
+          if (!isCurrent()) return
+          setResults((current) => ({ ...current, groups: page, loading: false, error: false }))
         }
       } catch {
-        if (current === requestId.current) {
-          setDirect([])
-          setTagSuggestions([])
-        }
-      } finally {
-        if (current === requestId.current) setSuggesting(false)
+        if (!isCurrent()) return
+        setResults((current) => ({ ...current, loading: false, error: true }))
       }
-    }, 180)
-    return () => window.clearTimeout(timer)
-  }, [channel, query, selectedTags])
+    }
+
+    void load()
+    return () => controller.abort()
+  }, [state.view, state.activity, state.group, retryGeneration, replaceActivePage])
+
+  const changeView = (view: ExploreView) => {
+    if (view !== state.view) setView(view)
+  }
+
+  const markFavoritePending = (key: string, pending: boolean) => {
+    setFavoritePending((current) => {
+      const next = new Set(current)
+      if (pending) next.add(key)
+      else next.delete(key)
+      return next
+    })
+  }
+
+  const favoriteActivity = useCallback(async (id: string, favorite: boolean) => {
+    const key = `activity:${id}`
+    const previous = results.activities?.list.find((item) => item.id === id)
+    if (!previous || favoritePending.has(key)) return
+    markFavoritePending(key, true)
+    setResults((current) => current.activities ? {
+      ...current,
+      activities: {
+        ...current.activities,
+        list: current.activities.list.map((item) => item.id === id ? {
+          ...item,
+          favorite,
+          followed: favorite,
+          follower_count: Math.max(0, item.follower_count + (favorite ? 1 : -1)),
+        } : item),
+      },
+    } : current)
+    try {
+      const updated = await setActivityFavorite(id, favorite)
+      setResults((current) => current.activities ? {
+        ...current,
+        activities: {
+          ...current.activities,
+          list: current.activities.list.map((item) => item.id === id ? {
+            ...item,
+            favorite: updated.favorite,
+            followed: updated.followed,
+            follower_count: updated.follower_count,
+          } : item),
+        },
+      } : current)
+    } catch {
+      setResults((current) => current.activities ? {
+        ...current,
+        activities: {
+          ...current.activities,
+          list: current.activities.list.map((item) => item.id === id ? {
+            ...item,
+            favorite: previous.favorite,
+            followed: previous.followed,
+            follower_count: previous.follower_count,
+          } : item),
+        },
+      } : current)
+      showToast('收藏失败，已恢复原状态', 'error')
+    } finally {
+      markFavoritePending(key, false)
+    }
+  }, [favoritePending, results.activities, showToast])
+
+  const favoriteGroup = useCallback(async (id: string, favorite: boolean) => {
+    const key = `group:${id}`
+    const previous = results.groups?.list.find((item) => item.id === id)
+    if (!previous || favoritePending.has(key)) return
+    markFavoritePending(key, true)
+    setResults((current) => current.groups ? {
+      ...current,
+      groups: { ...current.groups, list: current.groups.list.map((item) => item.id === id ? { ...item, bookmark: favorite } : item) },
+    } : current)
+    try {
+      const updated = await setGroupFavorite(id, favorite)
+      setResults((current) => current.groups ? {
+        ...current,
+        groups: { ...current.groups, list: current.groups.list.map((item) => item.id === id ? { ...item, bookmark: updated.bookmark } : item) },
+      } : current)
+    } catch {
+      setResults((current) => current.groups ? {
+        ...current,
+        groups: {
+          ...current.groups,
+          list: current.groups.list.map((item) => item.id === id ? {
+            ...item,
+            bookmark: previous.bookmark,
+          } : item),
+        },
+      } : current)
+      showToast('收藏失败，已恢复原状态', 'error')
+    } finally {
+      markFavoritePending(key, false)
+    }
+  }, [favoritePending, results.groups, showToast])
+
+  const page = state.view === 'activity' ? results.activities : results.groups
+  const noun = state.view === 'activity' ? '活动' : '组队'
+  const transition = { duration: shouldReduceMotion ? 0.1 : 0.2, ease: [0.22, 1, 0.36, 1] as const }
 
   return (
-    <div className="min-w-0 overflow-x-clip">
-      <Reveal
-        as="header"
-        className="grid grid-cols-[minmax(0,1fr)_64px] items-center gap-4 border-b border-stone pb-5 md:grid-cols-[minmax(0,1fr)_84px] md:pb-7"
-      >
-        <div className="min-w-0">
-          <p className="section-label">南京大学校内组队</p>
-          <h1 className="mt-3 text-2xl font-semibold leading-9 text-ink md:text-3xl">校园活动</h1>
-        </div>
-        <img
-          src="/campus-clocktower-badge.jpg"
-          alt="南京大学校园钟楼圆章"
-          className="aspect-square w-full rounded-card border border-stone object-cover shadow-panel"
-        />
-      </Reveal>
-
-      <nav
-        className="grid grid-cols-3 border-b border-stone"
-        role="tablist"
-        aria-label="内容频道"
-      >
-        {channels.map((item) => {
-          const Icon = channelIcons[item.key]
-          const active = channel === item.key
-
-          return (
-            <button
-              key={item.key}
-              type="button"
-              role="tab"
-              aria-selected={active}
-              onClick={() => {
-                setChannel(item.key)
-                setQuery('')
-                setSelectedTags([])
-              }}
-              className={`relative flex min-w-0 items-center justify-center gap-2 px-1 py-4 text-center transition-colors sm:px-3 md:min-h-20 ${
-                active
-                  ? 'text-ink'
-                  : 'text-ink-muted hover:text-primary-700'
-              }`}
-            >
-              <Icon
-                aria-hidden="true"
-                className={`hidden size-5 shrink-0 sm:block ${active ? 'text-primary-600' : ''}`}
-              />
-              <span className="min-w-0">
-                <span className="block text-xs font-semibold leading-5 sm:text-sm">
-                  {item.title}
-                </span>
-              </span>
-              {active && (
-                <motion.span
-                  layoutId="discovery-channel-underline"
-                  className="absolute inset-x-2 bottom-0 h-0.5 bg-primary-600 sm:inset-x-4"
-                  transition={
-                    shouldReduceMotion
-                      ? { duration: 0 }
-                      : { duration: 0.22, ease: [0.22, 1, 0.36, 1] }
-                  }
-                />
-              )}
-            </button>
-          )
-        })}
-      </nav>
-
-      <Reveal as="section" className="py-5 md:py-6" delay={0.04}>
-        <div className="relative mx-auto max-w-3xl">
-          <Search
-            className="pointer-events-none absolute left-4 top-3.5 size-4 text-ink-muted"
-            aria-hidden="true"
-          />
-          <input
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            className="input-base h-11 pl-11 pr-11 shadow-panel"
-            placeholder="搜索"
-            aria-label="搜索话题和标签"
-          />
-          {query && (
-            <button
-              type="button"
-              onClick={() => setQuery('')}
-              className="icon-button absolute right-0.5 top-0.5 size-10"
-              aria-label="清空搜索"
-              title="清空搜索"
-            >
-              <X aria-hidden="true" className="size-4" />
-            </button>
-          )}
-
-          <AnimatePresence>
-            {query &&
-              (suggesting ||
-                direct.length > 0 ||
-                tagSuggestions.length > 0) && (
-                <motion.div
-                  className="absolute left-0 right-0 top-12 z-30 overflow-hidden rounded-card border border-stone bg-paper shadow-lg"
-                  initial={
-                    shouldReduceMotion
-                      ? false
-                      : { opacity: 0, scale: 0.98, y: -4 }
-                  }
-                  animate={{ opacity: 1, scale: 1, y: 0 }}
-                  exit={
-                    shouldReduceMotion
-                      ? { opacity: 0 }
-                      : { opacity: 0, scale: 0.98, y: -4 }
-                  }
-                  transition={{ duration: shouldReduceMotion ? 0 : 0.16 }}
-                >
-                  {suggesting ? (
-                    <p className="px-4 py-3 text-sm text-ink-muted">
-                      正在查找...
-                    </p>
-                  ) : (
-                    <>
-                      {direct.length > 0 && (
-                        <div className="border-b border-stone py-1">
-                          <p className="px-4 pb-1 pt-2 text-xs font-semibold text-campus-green">
-                            话题直达
-                          </p>
-                          {direct.map((item) => (
-                            <button
-                              type="button"
-                              key={`${item.entity_type}-${item.entity_id}`}
-                              onClick={() =>
-                                navigate(`/topics/${item.entity_id}`)
-                              }
-                              className="flex w-full items-center justify-between gap-3 px-4 py-2.5 text-left transition-colors hover:bg-primary-50"
-                            >
-                              <span className="min-w-0">
-                                <span className="block truncate text-sm font-semibold text-ink">
-                                  {item.title}
-                                </span>
-                                <span className="block truncate text-xs text-ink-muted">
-                                  {item.subtitle}
-                                </span>
-                              </span>
-                              <ArrowRight
-                                aria-hidden="true"
-                                className="size-4 shrink-0 text-primary-600"
-                              />
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                      {tagSuggestions.length > 0 && (
-                        <div className="py-1">
-                          <p className="px-4 pb-1 pt-2 text-xs font-semibold text-ink-muted">
-                            标准标签
-                          </p>
-                          {tagSuggestions.map((tag) => (
-                            <button
-                              type="button"
-                              key={tag.tag_id}
-                              onClick={() => {
-                                setSelectedTags((currentTags) => [
-                                  ...currentTags,
-                                  tag,
-                                ])
-                                setQuery('')
-                              }}
-                              className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm transition-colors hover:bg-primary-50"
-                            >
-                              <span
-                                className="size-2.5 shrink-0 rounded-full border border-black/10"
-                                style={{ backgroundColor: tag.display_color }}
-                              />
-                              <span className="font-medium text-ink">
-                                {tag.canonical_name}
-                              </span>
-                              {tag.matched_alias && (
-                                <span className="min-w-0 truncate text-xs text-ink-muted">
-                                  由“{tag.matched_alias}”匹配
-                                </span>
-                              )}
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </>
-                  )}
-                </motion.div>
-              )}
-          </AnimatePresence>
-        </div>
-
-        {selectedTags.length > 0 && (
-          <div
-            className="mx-auto mt-3 flex max-w-3xl flex-wrap items-center gap-2"
-            aria-label="已选择标签"
+    <div className="min-w-0">
+      <header className="border-b border-stone pb-5 md:pb-6">
+        <ExploreSwitcher view={state.view} onChange={changeView} />
+        <AnimatePresence mode="wait" initial={false}>
+          <motion.div
+            key={state.view}
+            initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, y: -4 }}
+            transition={transition}
+            className="mt-6 max-w-3xl"
           >
-            {selectedTags.map((tag) => (
-              <span key={tag.tag_id} className="tag-chip">
-                <span
-                  className="size-2 shrink-0 rounded-full border border-black/10"
-                  style={{ backgroundColor: tag.display_color }}
-                />
-                {tag.canonical_name}
-                <button
-                  type="button"
-                  onClick={() =>
-                    setSelectedTags((items) =>
-                      items.filter((item) => item.tag_id !== tag.tag_id),
-                    )
-                  }
-                  className="ml-0.5 inline-flex size-5 items-center justify-center rounded-full text-primary-700 transition-colors hover:bg-primary-200"
-                  aria-label={`移除${tag.canonical_name}`}
-                  title={`移除${tag.canonical_name}`}
-                >
-                  <X aria-hidden="true" className="size-3.5" />
-                </button>
-              </span>
-            ))}
-          </div>
-        )}
-      </Reveal>
+            <h1 className="text-2xl font-bold leading-9 text-ink sm:text-3xl">{headings[state.view]}</h1>
+            <p className="mt-2 text-sm leading-6 text-ink-muted">{descriptions[state.view]}</p>
+          </motion.div>
+        </AnimatePresence>
 
-      <AnimatePresence mode="wait" initial={false}>
-        <motion.section
-          key={channel}
-          aria-live="polite"
-          initial={shouldReduceMotion ? false : { opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, y: -4 }}
-          transition={{ duration: shouldReduceMotion ? 0 : 0.22 }}
-        >
-          {loading ? (
-            <Loading />
-          ) : channel === 'casual' ? (
-            posts.length > 0 ? (
-              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                {posts.map((post, index) => (
-                  <Reveal
-                    key={post.id}
-                    as="article"
-                    className="h-full min-w-0"
-                    delay={Math.min(index * 0.035, 0.35)}
-                  >
-                    <PostCard post={post} />
-                  </Reveal>
-                ))}
-              </div>
-            ) : (
-              <EmptyState title="暂无匹配内容" />
-            )
-          ) : topics.length > 0 ? (
-            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-              {topics.map((topic, index) => (
-                <Reveal
-                  key={topic.id}
-                  as="article"
-                  className="h-full min-w-0"
-                  delay={Math.min(index * 0.035, 0.35)}
-                >
-                  <TopicCard topic={topic} />
-                </Reveal>
-              ))}
-            </div>
-          ) : (
-            <EmptyState title="暂无匹配话题" />
+        <div className="relative mt-5 max-w-3xl">
+          <Search aria-hidden="true" className="pointer-events-none absolute left-4 top-3.5 size-4 text-ink-muted" />
+          <input
+            type="search"
+            value={activeState.query}
+            onChange={(event) => updateActiveState({ query: event.target.value })}
+            aria-label={`搜索${noun}`}
+            placeholder={state.view === 'activity' ? '搜索活动标题或简介' : '搜索组队标题或描述'}
+            className="input-base h-11 pl-11 pr-11"
+          />
+          {activeState.query && (
+            <button type="button" onClick={() => updateActiveState({ query: '' })} className="icon-button absolute right-0.5 top-0.5" aria-label="清空搜索" title="清空搜索"><X aria-hidden="true" className="size-4" /></button>
           )}
-        </motion.section>
-      </AnimatePresence>
+        </div>
+
+        <ExploreFilters view={state.view} state={activeState} onChange={updateActiveState} />
+        <CategoryRail view={state.view} selectedTagIds={activeState.tagIds} onChange={(tagIds) => updateActiveState({ tagIds })} />
+      </header>
+
+      <section className="pt-5" aria-labelledby="explore-result-count">
+        <div className="mb-4 flex min-h-7 items-center justify-between gap-4">
+          <p id="explore-result-count" className="text-sm font-semibold text-ink">{page && !results.loading && !results.error ? `共 ${page.total} 个${noun}` : `探索${noun}`}</p>
+          <span className="text-xs text-ink-muted">最新发布</span>
+        </div>
+        <AnimatePresence mode="wait" initial={false}>
+          <motion.div
+            id="explore-results"
+            role="tabpanel"
+            aria-labelledby={`explore-${state.view}-tab`}
+            tabIndex={0}
+            key={`${state.view}-${results.loading ? 'loading' : results.error ? 'error' : 'ready'}-${activeState.page}`}
+            initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, y: -4 }}
+            transition={transition}
+          >
+            {results.loading ? (
+              <ExploreSkeleton view={state.view} />
+            ) : results.error ? (
+              <div role="alert" className="flex min-h-56 flex-col items-center justify-center border-y border-stone px-4 py-12 text-center">
+                <AlertCircle aria-hidden="true" className="size-8 text-red-700" />
+                <h2 className="mt-3 text-base font-bold text-ink">{noun}加载失败</h2>
+                <p className="mt-1 text-sm text-ink-muted">请检查网络后重新加载。</p>
+                <button type="button" onClick={() => setRetryGeneration((value) => value + 1)} className="btn-primary mt-4">重新加载</button>
+              </div>
+            ) : page && page.list.length > 0 ? (
+              <>
+                <ExploreGrid
+                  view={state.view}
+                  activities={results.activities?.list ?? []}
+                  groups={results.groups?.list ?? []}
+                  favoritePending={favoritePending}
+                  onActivityFavorite={(id, favorite) => void favoriteActivity(id, favorite)}
+                  onGroupFavorite={(id, favorite) => void favoriteGroup(id, favorite)}
+                />
+                {page.pages > 1 && (
+                  <nav aria-label={`${noun}分页`} className="mt-7 flex min-h-11 items-center justify-center gap-4 border-t border-stone pt-6">
+                    <button type="button" aria-label="上一页" disabled={page.page <= 1} onClick={() => updateActiveState({ page: page.page - 1 })} className="btn-secondary size-10 p-0"><ChevronLeft aria-hidden="true" className="size-4" /></button>
+                    <span className="min-w-24 text-center text-sm font-medium text-ink">第 {page.page} / {page.pages} 页</span>
+                    <button type="button" aria-label="下一页" disabled={page.page >= page.pages} onClick={() => updateActiveState({ page: page.page + 1 })} className="btn-secondary size-10 p-0"><ChevronRight aria-hidden="true" className="size-4" /></button>
+                  </nav>
+                )}
+              </>
+            ) : (
+              <div className="flex min-h-56 flex-col items-center justify-center border-y border-stone px-4 py-12 text-center">
+                <Search aria-hidden="true" className="size-8 text-ink-muted" />
+                <h2 className="mt-3 text-base font-bold text-ink">没有找到符合条件的{noun}</h2>
+                <p className="mt-1 text-sm text-ink-muted">试试清空搜索或调整筛选条件。</p>
+              </div>
+            )}
+          </motion.div>
+        </AnimatePresence>
+      </section>
     </div>
   )
 }

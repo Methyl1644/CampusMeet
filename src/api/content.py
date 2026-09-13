@@ -1,6 +1,6 @@
 import datetime
 import json
-from typing import Any
+from typing import Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import desc, func, select
@@ -13,19 +13,27 @@ from api.schemas.content import (
     TopicPostModerationRequest,
     TopicUpdateRequest,
 )
+from api.schemas.explore import ExploreGroupListResponse
 from services.content import (
     create_topic,
     seed_content_catalog,
     suggest_content,
     tag_suggestions,
     topic_to_dict,
+    topics_to_dict,
     user_permissions,
     validate_tag_ids,
 )
 from services.content_moderation import ModerationContext, moderate_content
 from services.collaboration_lifecycle import PUBLIC_POST_STATUSES
+from services.explore import list_related_posts
 from services.moderation_cases import has_active_restriction
 from services.permissions import can_manage_topic
+from services.participation import (
+    ParticipationError,
+    commit_post_participation,
+    set_post_status,
+)
 from services.operators import has_platform_role
 from services.tag_governance import review_tag_proposal, submit_tag_proposal
 from storage.database.db import get_session
@@ -43,7 +51,7 @@ from storage.database.models import (
     TopicTag,
     User,
 )
-from tools.post_tools import _post_to_dict
+from tools.post_tools import _batch_post_to_dicts, _post_to_dict
 
 router = APIRouter(tags=["content"])
 
@@ -273,11 +281,16 @@ def list_topics(
         if selected_tags:
             query = query.join(TopicTag, TopicTag.topic_id == Topic.id).where(TopicTag.tag_id.in_(selected_tags))
         query = query.distinct().order_by(desc(Topic.updated_at))
-        total = len(session.execute(query).scalars().all())
+        total = int(
+            session.scalar(
+                select(func.count()).select_from(query.order_by(None).subquery())
+            )
+            or 0
+        )
         topics = session.execute(query.offset((page - 1) * page_size).limit(page_size)).scalars().all()
         return api_ok(
             {
-                "list": [topic_to_dict(session, topic, int(user_id)) for topic in topics],
+                "list": topics_to_dict(session, topics, int(user_id)),
                 "total": total,
                 "page": page,
                 "page_size": page_size,
@@ -321,7 +334,35 @@ def topic_posts(topic_id: int, user_id: str = Depends(current_user_id)) -> dict[
                 select(User).where(User.id.in_({post.author_id for post in posts}))
             ).scalars().all()
         } if posts else {}
-        return api_ok([_post_to_dict(post, authors.get(post.author_id), session) for post in posts])
+        return api_ok(_batch_post_to_dicts(session, posts, authors, int(user_id)))
+    finally:
+        session.close()
+
+
+@router.get(
+    "/topics/{topic_id}/related-posts",
+    response_model=ExploreGroupListResponse,
+)
+def related_posts(
+    topic_id: int,
+    purpose: Literal["team_recruitment", "official_signup", "discussion"] | None = None,
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=20, ge=1, le=20),
+    user_id: str = Depends(current_user_id),
+) -> dict[str, Any]:
+    session, user = _current_user(user_id)
+    try:
+        result = list_related_posts(
+            session,
+            topic_id,
+            user.id,
+            purpose=purpose or "",
+            page=page,
+            page_size=page_size,
+        )
+        if result is None:
+            raise HTTPException(status_code=404, detail="活动不存在")
+        return api_ok(result)
     finally:
         session.close()
 
@@ -440,7 +481,14 @@ def moderate_topic_post(
         status = str(body.get("status") or "")
         if status not in {"recruiting", "closed", "hidden"}:
             raise HTTPException(status_code=400, detail="帖子状态不正确")
-        post.status = status
+        try:
+            set_post_status(session, post, status, actor=actor)
+        except ParticipationError as exc:
+            session.rollback()
+            raise HTTPException(
+                status_code=409,
+                detail={"code": exc.code, "message": exc.message},
+            ) from exc
         session.add(
             AuditLog(
                 user_id=actor.id,
@@ -453,9 +501,18 @@ def moderate_topic_post(
                 ),
             )
         )
-        session.commit()
+        try:
+            commit_post_participation(session, post)
+        except ParticipationError as exc:
+            raise HTTPException(
+                status_code=409,
+                detail={"code": exc.code, "message": exc.message},
+            ) from exc
         author = session.get(User, post.author_id)
-        return api_ok(_post_to_dict(post, author, session), "帖子状态已更新")
+        return api_ok(
+            _post_to_dict(post, author, session, viewer_id=actor.id),
+            "帖子状态已更新",
+        )
     finally:
         session.close()
 

@@ -7,7 +7,7 @@ import os
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
-from services.collaboration_lifecycle import deadline_has_passed
+from services.participation import deadline_has_passed, set_post_status
 from services.notifications import notify
 from services.uploads import get_upload_storage
 from storage.database.db import get_session
@@ -181,7 +181,7 @@ def run_maintenance(
 
     for post in session.scalars(select(Post).where(Post.status == "recruiting")):
         if deadline_has_passed(post, now=current):
-            post.status = "closed"
+            set_post_status(session, post, "closed")
             post.closed_at = current
             result["posts_closed"] += 1
 

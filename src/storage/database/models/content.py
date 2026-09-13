@@ -1,10 +1,16 @@
 import datetime
 
-from sqlalchemy import BigInteger, Boolean, DateTime, Float, ForeignKey, Integer, Text, UniqueConstraint, func
+from sqlalchemy import BigInteger, Boolean, CheckConstraint, DateTime, Float, ForeignKey, Index, Integer, Text, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from storage.database.shared.model import Base
 from storage.database.shared.types import BIGINT_PRIMARY_KEY
+
+
+SQLITE_TOPIC_CAPACITY_CHECK = (
+    "capacity IS NULL OR (typeof(capacity) = 'integer' AND capacity > 0)"
+)
+POSTGRESQL_TOPIC_CAPACITY_CHECK = "capacity IS NULL OR capacity > 0"
 
 
 class Tag(Base):
@@ -101,6 +107,18 @@ class Topic(Base):
     __tablename__ = "topics"
     __table_args__ = (
         UniqueConstraint("organizer_key", "canonical_event_key", "edition", name="uq_topic_event_edition"),
+        CheckConstraint(
+            "participation_mode IN ('open_team', 'official_signup', 'information_only')",
+            name="ck_topics_participation_mode",
+        ),
+        CheckConstraint(
+            SQLITE_TOPIC_CAPACITY_CHECK,
+            name="ck_topics_capacity_positive",
+        ).ddl_if(dialect="sqlite"),
+        CheckConstraint(
+            POSTGRESQL_TOPIC_CAPACITY_CHECK,
+            name="ck_topics_capacity_positive",
+        ).ddl_if(dialect="postgresql"),
     )
 
     id: Mapped[int] = mapped_column(BIGINT_PRIMARY_KEY, primary_key=True, autoincrement=True)
@@ -116,6 +134,15 @@ class Topic(Base):
     source_url: Mapped[str | None] = mapped_column(Text)
     source_status: Mapped[str] = mapped_column(Text, nullable=False, default="verified")
     cover_url: Mapped[str | None] = mapped_column(Text)
+    location_name: Mapped[str | None] = mapped_column(Text)
+    campus_scope: Mapped[str | None] = mapped_column(Text)
+    capacity: Mapped[int | None] = mapped_column(Integer)
+    participation_mode: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+        default="open_team",
+        server_default="open_team",
+    )
     registration_deadline: Mapped[datetime.datetime | None] = mapped_column(DateTime(timezone=True))
     activity_start_at: Mapped[datetime.datetime | None] = mapped_column(DateTime(timezone=True))
     activity_end_at: Mapped[datetime.datetime | None] = mapped_column(DateTime(timezone=True))
@@ -186,6 +213,9 @@ class PostTag(Base):
 
 class TopicFollow(Base):
     __tablename__ = "topic_follows"
+    __table_args__ = (
+        Index("ix_topic_follows_user_created", "user_id", "created_at", "topic_id"),
+    )
 
     topic_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("topics.id"), primary_key=True)
     user_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("users.id"), primary_key=True)

@@ -1,0 +1,54 @@
+.publish-experience { max-width: 800px; margin: 0 auto; }
+.publish-experience button:disabled { opacity: .45; cursor: not-allowed; }
+.publish-icon { display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; flex-shrink: 0; border-radius: 50%; color: #686271; }
+.publish-icon:hover { background: #f2eff8; }
+.publish-purpose { padding: 9px 18px; border-radius: 24px; font-size: 14px; font-weight: 600; color: #28252f; }
+.publish-purpose.is-active { background: #e9def8; }
+.publish-context { display: flex; gap: 12px; font-size: 14px; padding: 12px 16px; border-left: 3px solid #9b83c6; background: #faf8fd; overflow-wrap: anywhere; }
+.publish-context span { flex-shrink: 0; color: #716978; }
+.publish-restore { display: flex; flex-wrap: wrap; gap: 16px; background: #eef6f3; padding: 12px 16px; font-size: 14px; }
+.publish-restore button,.publish-feedback button { font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
+.publish-composer { display: flex; align-items: flex-end; gap: 12px; margin: 4px 24px 8px; border: 1px solid #d8d1e3; border-radius: 18px; padding: 10px 12px 10px 16px; background: #fff; }
+.publish-composer:focus-within { border-color: #9277b2; box-shadow: 0 0 0 2px #e9def855; }
+.publish-composer textarea { min-width: 0; flex: 1; resize: none; border: 0; outline: none; background: transparent; padding: 4px 0; font-size: 15px; line-height: 1.7; }
+.publish-send { width: 40px; height: 40px; border-radius: 50%; background: #d9c6f0; color: #272330; flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; }
+.publish-feedback { margin: 12px 24px 0; padding: 12px; border-left: 3px solid #dba1a1; background: #fff5f5; font-size: 14px; overflow-wrap: anywhere; }
+.publish-review-fields { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 20px; }
+.publish-field-wide { grid-column: 1/-1; }
+.publish-field-label { display: block; font-size: 14px; font-weight: 600; margin-bottom: 8px; }
+.publish-review-fields input:not([type=checkbox]),.publish-review-fields textarea { width: 100%; min-width: 0; padding: 10px 12px; border: 1px solid #ded9e5; border-radius: 8px; background: #fff; font-size: 15px; }
+.publish-review-fields [readonly] { background: #f7f7f8 !important; color: #666; }
+.publish-review-fields [aria-invalid=true] { border-color: #c08686 !important; }
+.publish-review-fields input[type=checkbox] { accent-color: #80619f; }
+.publish-tag { display: inline-flex; align-items: center; gap: 6px; padding: 5px 9px; font-size: 12px; border: 1px solid #d7cee4; border-radius: 6px; background: #f5f1fa; }
+.publish-tag.is-inherited { background: #edf5ef; border-color: #d2e2d7; }
+.publish-tag.is-candidate { background: #fff; color: #6d6675; border-style: dashed; }
+.publish-cover { width: 200px; max-width: 100%; aspect-ratio: 16/9; object-fit: contain; border-radius: 8px; background: #f5f5f5; }
+.publish-cover-picker { display: inline-flex; align-items: center; gap: 8px; padding: 14px 18px; border: 1px dashed #c9c1d4; border-radius: 8px; font-size: 14px; cursor: pointer; }
+.publish-cover-picker:focus-within { outline: 2px solid #9277b2; outline-offset: 2px; }
+.publish-cover-picker.is-disabled { opacity: .5; pointer-events: none; }
+@media (max-width: 640px) { .publish-composer { margin-left: 16px; margin-right: 16px; } .publish-review-fields { grid-template-columns: minmax(0,1fr); } }
+.publish-experience h1,.publish-experience h2 { font-family: 'Noto Sans SC','Microsoft YaHei',sans-serif; letter-spacing: 0; }
+.publish-dialog { position: relative; border: 1.5px solid #ded5ed; border-radius: 28px; background: #fff; box-shadow: 0 5px 22px #35334406; overflow: hidden; }
+.publish-dialog-content { min-height: 360px; position: relative; }
+.publish-messages { height: 340px; overflow-y: auto; padding: 24px; scrollbar-gutter: stable; }
+.publish-bubble { max-width: 88%; border-radius: 18px; padding: 13px 17px; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 15px; line-height: 1.8; }
+.publish-bubble-assistant { background: #f2eff8; color: #292732; border-bottom-left-radius: 5px; }
+.publish-bubble-user { background: #e5f1f8; color: #293744; margin-left: auto; border-bottom-right-radius: 5px; }
+.publish-plant-border { width: 100%; height: 56px; display: block; pointer-events: none; }
+.campus-growth { width: min(360px,88%); margin: 16px auto 0; }
+.growth-part { transition: opacity .65s ease,transform .65s ease,y .65s ease,height .65s ease; }
+.whale-overlay { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 10px; padding: 24px; background: #fffffff0; opacity: 0; pointer-events: none; transition: opacity .18s ease; z-index: 2; text-align: center; }
+@supports (backdrop-filter: blur(3px)) { .whale-overlay { background: #ffffffad; backdrop-filter: blur(3px); } }
+.whale-overlay.is-visible { opacity: 1; pointer-events: auto; }
+.whale { width: 100%; height: auto; overflow: visible; }
+.whale-animated .whale-body { animation: whale-breathe 2.4s ease-in-out infinite; transform-origin: 80px 124px; }
+.whale-animated .whale-spout { animation: whale-spray 2.4s ease-in-out infinite; transform-origin: 74px 53px; }
+.whale-animated .whale-drop { animation: whale-drops 2.4s ease-in-out infinite; }
+@keyframes whale-breathe { 0%,100% { transform: translateY(0) scale(1); } 35% { transform: translateY(2px) scale(1.015,.97); } 65% { transform: translateY(-2px) scale(1); } }
+@keyframes whale-spray { 0%,20%,100% { transform: scale(.15); opacity: 0; } 45%,65% { transform: scale(1); opacity: 1; } 90% { transform: scale(.85) translateY(6px); opacity: 0; } }
+@keyframes whale-drops { 0%,50% { transform: translateY(-3px); } 90%,100% { transform: translateY(14px); } }
+.publish-review { animation: publish-enter .22s ease-out; }
+@keyframes publish-enter { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: none; } }
+@media (max-width: 640px) { .publish-dialog { border-radius: 24px; } .publish-messages { height: 310px; padding: 16px; } .publish-bubble { max-width: 93%; } .publish-dialog-content { min-height: 330px; } .campus-growth { width: min(300px,88%); } }
+@media (prefers-reduced-motion: reduce) { .publish-experience *, .whale * { animation: none !important; transition: none !important; scroll-behavior: auto !important; } .whale-overlay { backdrop-filter: none; background: #fff; } }

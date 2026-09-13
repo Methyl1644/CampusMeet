@@ -8,10 +8,16 @@ from coze_coding_utils.log.write_log import request_context
 from coze_coding_utils.runtime_ctx.context import new_context
 from storage.database.db import get_session
 from storage.database.models.user import User
-from storage.database.models.team import Team, TeamMember
+from storage.database.models.team import (
+    TEAM_TASK_CAPACITY_MESSAGE,
+    TEAM_TASK_LIMIT,
+    Team,
+    TeamMember,
+    normalize_team_task_list,
+)
 from storage.database.models.post import Post
 from storage.database.models.content import AuditLog
-from services.collaboration_lifecycle import deadline_has_passed
+from services.participation import synchronize_post_membership
 from tools.auth_tools import _user_brief
 
 logger = logging.getLogger(__name__)
@@ -232,6 +238,11 @@ def create_team_task(
             return json.dumps({"success": False, "message": "团队已归档，不能再创建任务"}, ensure_ascii=False)
         if not _member(session, tid, uid):
             return json.dumps({"success": False, "message": "无权操作此团队"}, ensure_ascii=False)
+        if len(team.task_list or []) >= TEAM_TASK_LIMIT:
+            return json.dumps(
+                {"success": False, "message": f"任务数量已达上限（{TEAM_TASK_LIMIT} 个）"},
+                ensure_ascii=False,
+            )
         normalized_title = title.strip()[:120]
         if not normalized_title:
             return json.dumps({"success": False, "message": "请填写任务名称"}, ensure_ascii=False)
@@ -244,12 +255,34 @@ def create_team_task(
             "assignee_id": str(resolved_assignee) if resolved_assignee is not None else None,
             "due_at": due_at.strip()[:40] or None,
             "done": False,
-            "created_by": str(uid),
         }
-        team.task_list = [*(team.task_list or []), task]
+        bounded_tasks = normalize_team_task_list([*(team.task_list or []), task])
+        persisted_task = next(
+            (item for item in bounded_tasks if item.get("id") == task["id"]),
+            None,
+        )
+        if persisted_task is None:
+            return json.dumps(
+                {"success": False, "message": TEAM_TASK_CAPACITY_MESSAGE},
+                ensure_ascii=False,
+            )
+        team.task_list = bounded_tasks
         _team_audit(session, uid, "team.task_create", team, {"task_id": task["id"]})
         session.commit()
-        return json.dumps({"success": True, "task": task, "team": _team_to_dict(team)}, ensure_ascii=False)
+        session.refresh(team)
+        persisted_task = next(
+            (item for item in (team.task_list or []) if item.get("id") == task["id"]),
+            None,
+        )
+        if persisted_task is None:
+            return json.dumps(
+                {"success": False, "message": TEAM_TASK_CAPACITY_MESSAGE},
+                ensure_ascii=False,
+            )
+        return json.dumps(
+            {"success": True, "task": persisted_task, "team": _team_to_dict(team)},
+            ensure_ascii=False,
+        )
     finally:
         session.close()
 
@@ -313,15 +346,9 @@ def _remove_member_record(session, team: Team, member: TeamMember, actor_id: int
         item for item in (team.contact_info or []) if str(item.get("user_id")) != str(target_id)
     ]
     session.flush()
-    remaining = int(
-        session.scalar(select(func.count()).select_from(TeamMember).where(TeamMember.team_id == team.id))
-        or 0
-    )
     post = session.get(Post, team.post_id)
     if post:
-        post.current_members = remaining
-        if remaining < post.target_members and post.status == "full":
-            post.status = "closed" if deadline_has_passed(post) else "recruiting"
+        synchronize_post_membership(session, post, team)
     _team_audit(session, actor_id, "team.member_remove", team, {"target_user_id": target_id})
 
 

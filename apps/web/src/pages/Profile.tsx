@@ -4,17 +4,18 @@ import { AlertCircle, CheckCircle, Clock, Edit3, FileText, LogOut, Shield, Users
 import { getProfile, updateProfile } from '@/api/auth'
 import { getMyPosts } from '@/api/posts'
 import { getMyApplications } from '@/api/applications'
-import { getMyTeams } from '@/api/teams'
+import { getMyTeams, type MyTeamSummary } from '@/api/teams'
 import { useAuthStore } from '@/store/authStore'
 import { useToast } from '@/components/Toast'
 import { COMMON_SKILLS } from '@shared/constants'
-import type { Application, Post, Team, User } from '@shared/types'
+import type { Application, Post, User } from '@shared/types'
 import Loading from '@/components/Loading'
 import EmptyState from '@/components/EmptyState'
 import StatusBadge from '@/components/StatusBadge'
 import { Reveal } from '@/components/motion/Reveal'
 
 type Tab = 'posts' | 'applications' | 'teams'
+const profileTeamPageSize = 20
 
 export default function Profile() {
   const navigate = useNavigate()
@@ -27,7 +28,12 @@ export default function Profile() {
   const [activeTab, setActiveTab] = useState<Tab>('posts')
   const [posts, setPosts] = useState<Post[]>([])
   const [applications, setApplications] = useState<Application[]>([])
-  const [teams, setTeams] = useState<Team[]>([])
+  const [teams, setTeams] = useState<MyTeamSummary[]>([])
+  const [teamTotal, setTeamTotal] = useState(0)
+  const [teamPage, setTeamPage] = useState(1)
+  const [teamPages, setTeamPages] = useState(1)
+  const [teamPageSize, setTeamPageSize] = useState(profileTeamPageSize)
+  const [loadingMoreTeams, setLoadingMoreTeams] = useState(false)
 
   const [editNickname, setEditNickname] = useState('')
   const [editMajor, setEditMajor] = useState('')
@@ -42,12 +48,16 @@ export default function Profile() {
           getProfile(),
           getMyPosts(),
           getMyApplications(),
-          getMyTeams(),
+          getMyTeams({ page: 1, page_size: profileTeamPageSize }),
         ])
         setProfile(profileData)
         setPosts(postsData)
         setApplications(appsData)
-        setTeams(teamsData)
+        setTeams(teamsData.list)
+        setTeamTotal(teamsData.total)
+        setTeamPage(teamsData.page)
+        setTeamPages(teamsData.pages)
+        setTeamPageSize(teamsData.page_size)
       } catch {
         showToast('加载失败', 'error')
       } finally {
@@ -92,6 +102,26 @@ export default function Profile() {
   const handleLogout = () => {
     logout()
     navigate('/login')
+  }
+
+  const handleLoadMoreTeams = async () => {
+    if (loadingMoreTeams || teamPage >= teamPages) return
+    setLoadingMoreTeams(true)
+    try {
+      const nextPage = await getMyTeams({ page: teamPage + 1, page_size: teamPageSize })
+      setTeams((current) => {
+        const knownIds = new Set(current.map((team) => team.id))
+        return [...current, ...nextPage.list.filter((team) => !knownIds.has(team.id))]
+      })
+      setTeamTotal(nextPage.total)
+      setTeamPage(nextPage.page)
+      setTeamPages(nextPage.pages)
+      setTeamPageSize(nextPage.page_size)
+    } catch {
+      showToast('更多团队加载失败，请重试', 'error')
+    } finally {
+      setLoadingMoreTeams(false)
+    }
   }
 
   if (loading) return <Loading />
@@ -228,7 +258,7 @@ export default function Profile() {
         <h2 id="profile-stats-title" className="sr-only">个人数据</h2>
         <StatSummary icon={FileText} label="我的帖子" value={posts.length} />
         <StatSummary icon={Users} label="我的申请" value={applications.length} />
-        <StatSummary icon={CheckCircle} label="我的团队" value={teams.length} />
+        <StatSummary icon={CheckCircle} label="我的团队" value={teamTotal} />
       </Reveal>
 
       <Reveal as="section" delay={0.06} className="mt-7">
@@ -305,13 +335,30 @@ export default function Profile() {
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-sm font-semibold text-ink">{team.activity_name}</p>
                         <p className="mt-1 text-xs text-ink-muted">
-                          {team.members.length} 人 · {team.created_at || '暂无'}
+                          {team.my_role ? `我的角色：${team.my_role}` : '角色待确认'} · {team.created_at || '暂无'}
                         </p>
                       </div>
                       <Users aria-hidden="true" size={17} className="shrink-0 text-campus-green" />
                     </button>
                   </Reveal>
                 ))}
+              </div>
+            )}
+            {teams.length > 0 && (
+              <div className="flex min-h-12 flex-wrap items-center justify-between gap-3 border-b border-stone px-1 py-2">
+                <span className="text-xs text-ink-muted" aria-live="polite">
+                  已显示 {teams.length} / 共 {teamTotal} 个团队
+                </span>
+                {teamPage < teamPages && (
+                  <button
+                    type="button"
+                    onClick={handleLoadMoreTeams}
+                    disabled={loadingMoreTeams}
+                    className="btn-secondary min-h-9 px-3 text-xs"
+                  >
+                    {loadingMoreTeams ? '加载中...' : '加载更多团队'}
+                  </button>
+                )}
               </div>
             )}
           </div>

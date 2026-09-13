@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+from fastapi.testclient import TestClient
+
+from api import notifications as notifications_api
+from api.common import current_user_id
 from main import app
 
 
@@ -28,14 +32,32 @@ def test_backend_management_lists_expose_page_and_page_size_query_parameters():
         assert {"page", "page_size"} <= query_names, path
 
 
-def test_notification_read_all_static_route_precedes_dynamic_read_route():
-    paths = [
-        route.path
-        for route in app.routes
-        if "POST" in getattr(route, "methods", set())
-        and route.path.startswith("/api/notifications/")
-    ]
+def test_notification_read_all_static_route_precedes_dynamic_read_route(monkeypatch):
+    paths = list(app.openapi()["paths"])
 
     assert paths.index("/api/notifications/read-all") < paths.index(
         "/api/notifications/{notification_id}/read"
     )
+
+    class SessionStub:
+        def commit(self):
+            return None
+
+        def close(self):
+            return None
+
+    monkeypatch.setattr(notifications_api, "get_session", SessionStub)
+    monkeypatch.setattr(
+        notifications_api,
+        "mark_all_read",
+        lambda session, user_id: 0,
+    )
+    app.dependency_overrides[current_user_id] = lambda: "1"
+    try:
+        with TestClient(app) as client:
+            response = client.post("/api/notifications/read-all")
+    finally:
+        app.dependency_overrides.pop(current_user_id, None)
+
+    assert response.status_code == 200
+    assert response.json()["data"] == {"updated": 0}

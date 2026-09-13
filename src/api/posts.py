@@ -3,15 +3,25 @@ import logging
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import select
 
 from api.agent import classify_review, store_tag_proposals
 from api.common import api_ok, current_user_id, invoke_tool, parse_tool_result
 from api.schemas.collaboration import PostCreateRequest, PostUpdateRequest
 from services.content import validate_tag_ids
+from services.publish_context import publish_context, missing_fields, inherited_tag_ids, merge_tag_ids
 from services.content_moderation import ModerationContext, moderate_content
+from services.deadlines import parse_deadline_at
 from services.moderation_cases import has_active_restriction
-from services.collaboration_lifecycle import transition_post
+from services.collaboration_lifecycle import PUBLIC_POST_STATUSES, transition_post
+from services.explore import project_group_cards
 from services.permissions import can_manage_post
+from services.participation import (
+    ParticipationError,
+    commit_post_participation,
+    join_post_directly,
+    validate_post_participation,
+)
 from storage.database.db import get_session
 from storage.database.models import AuditLog, Post, PostTag, User
 from tools.post_tools import _post_to_dict, create_post, get_my_posts, get_post_detail, list_posts
@@ -21,6 +31,14 @@ router = APIRouter(prefix="/posts", tags=["posts"])
 logger = logging.getLogger(__name__)
 MAIN_CATEGORIES = {"竞赛与项目", "学习与科研", "体育与健身", "旅行与户外", "校园生活", "拼团与AA"}
 RISK_LEVELS = {"low": 0, "medium": 1, "high": 2}
+
+
+def _participation_http_error(exc: ParticipationError) -> HTTPException:
+    status_code = 403 if exc.code == "participation.official_signup_forbidden" else 409
+    return HTTPException(
+        status_code=status_code,
+        detail={"code": exc.code, "message": exc.message},
+    )
 
 
 def _classification_review(title: str, description: str, user_id: str) -> dict[str, Any]:
@@ -105,6 +123,7 @@ def posts(
                 "sort": sort,
                 "kind": kind,
                 "topic_id": topic_id,
+                "user_id": user_id,
             },
         )
     )
@@ -126,13 +145,35 @@ def my_posts(
 
 @router.get("/{post_id}")
 def post_detail(post_id: str, user_id: str = Depends(current_user_id)) -> dict[str, Any]:
-    return parse_tool_result(invoke_tool(get_post_detail, {"post_id": post_id}), "post")
+    return parse_tool_result(
+        invoke_tool(get_post_detail, {"post_id": post_id, "user_id": user_id}),
+        "post",
+    )
 
 
 @router.post("")
 def create(body: PostCreateRequest, user_id: str = Depends(current_user_id)) -> dict[str, Any]:
     if isinstance(body, PostCreateRequest):
         body = body.model_dump(exclude_none=True)
+    if body.get("client_request_id"):
+        with get_session() as session:
+            existing = session.scalar(select(Post).where(Post.author_id == int(user_id), Post.client_request_id == body["client_request_id"]))
+            if existing:
+                return api_ok(_post_to_dict(existing, session.get(User, int(user_id)), session, viewer_id=int(user_id)))
+    if body.get("publish_context_revision"):
+        with get_session() as session:
+            context = publish_context(session, session.get(User, int(user_id)), body.get("kind", "casual_invitation"), str(body.get("topic_id") or ""))
+            if context["revision"] != body["publish_context_revision"]:
+                raise HTTPException(409, "活动发布规则已更新，请重新加载后核对")
+            if body.get("purpose", "team_recruitment") not in context["allowed_purposes"]:
+                raise HTTPException(403, "当前用途不可发布")
+            if context["activity"]:
+                body["activity_name"] = context["activity"]["title"]
+            missing = missing_fields(body, {"needed_roles": {"status": "none"}}, context["kind"], body.get("purpose", "team_recruitment"))
+            if body.get("purpose") == "official_signup" and body.get("target_members", 0) > context["max_members"]:
+                missing.append("target_members")
+            if missing:
+                raise HTTPException(400, "请补全发布资料：" + ", ".join(missing))
     title = body.get("title") or body.get("activity_name") or "Team post"
     description = body.get("description", "")
     _moderate_post(body, user_id, title=title, description=description)
@@ -180,8 +221,17 @@ def create(body: PostCreateRequest, user_id: str = Depends(current_user_id)) -> 
             "tag_ids": ",".join(selected_tag_ids),
             "suggested_tag_ids": ",".join(dict.fromkeys(suggested_tag_ids)),
             "review_risk_level": resolved_risk_level,
+            "purpose": body.get("purpose", "team_recruitment"),
+            "join_mode": body.get("join_mode") or "",
+            "client_request_id": body.get("client_request_id") or "",
+            "cover_upload_id": body.get("cover_upload_id") or "",
         },
     )
+    raw_payload = json.loads(raw) if isinstance(raw, str) else raw
+    if raw_payload.get("success") is False and raw_payload.get("error_code"):
+        code = str(raw_payload["error_code"])
+        if code.startswith("participation."):
+            raise _participation_http_error(ParticipationError(code))
     result = parse_tool_result(raw, "post")
     concepts = review.get("unknown_concepts") if isinstance(review.get("unknown_concepts"), list) else []
     if concepts:
@@ -220,12 +270,19 @@ def update(post_id: int, body: PostUpdateRequest, user_id: str = Depends(current
             "school_scope",
             "deadline",
             "tag_ids",
+            "purpose",
+            "join_mode",
         }
         requested_content = content_fields.intersection(body)
         if requested_content and not can_manage_post(session, user, post, "edit_post"):
             raise HTTPException(status_code=403, detail="你没有编辑该帖子的权限")
         if not requested_content:
             raise HTTPException(status_code=400, detail="没有需要更新的内容")
+
+        try:
+            participation = validate_post_participation(session, user, body, existing=post)
+        except ParticipationError as exc:
+            raise _participation_http_error(exc) from exc
 
         changed: dict[str, Any] = {}
         text_limits = {
@@ -244,14 +301,17 @@ def update(post_id: int, body: PostUpdateRequest, user_id: str = Depends(current
             if field in {"title", "main_category", "activity_name"} and not value:
                 raise HTTPException(status_code=400, detail=f"{field} 不能为空")
             setattr(post, field, value or None)
+            if field == "deadline":
+                post.deadline_at = parse_deadline_at(value)
             changed[field] = value
         if "target_members" in body:
             try:
                 target_members = int(body.get("target_members"))
             except (TypeError, ValueError) as exc:
                 raise HTTPException(status_code=400, detail="目标人数不正确") from exc
-            if target_members < 1 or target_members > 100:
-                raise HTTPException(status_code=400, detail="目标人数应在 1 到 100 之间")
+            limit = 10000 if participation.purpose == "official_signup" else 100
+            if target_members < 1 or target_members > limit:
+                raise HTTPException(status_code=400, detail=f"目标人数应在 1 到 {limit} 之间")
             post.target_members = target_members
             changed["target_members"] = target_members
         if "needed_roles" in body:
@@ -264,7 +324,10 @@ def update(post_id: int, body: PostUpdateRequest, user_id: str = Depends(current
             raw_tag_ids = body.get("tag_ids")
             if not isinstance(raw_tag_ids, list):
                 raise HTTPException(status_code=400, detail="标签格式不正确")
-            tag_ids = list(dict.fromkeys(str(item).strip() for item in raw_tag_ids if str(item).strip()))[:8]
+            try:
+                tag_ids = merge_tag_ids(inherited_tag_ids(session, post.topic_id), [str(item).strip() for item in raw_tag_ids if str(item).strip()])
+            except ValueError as exc:
+                raise HTTPException(400, str(exc)) from exc
             invalid = validate_tag_ids(session, tag_ids)
             if invalid:
                 raise HTTPException(status_code=400, detail=f"包含未收录的标签：{', '.join(invalid)}")
@@ -272,6 +335,13 @@ def update(post_id: int, body: PostUpdateRequest, user_id: str = Depends(current
             session.add_all(PostTag(post_id=post.id, tag_id=tag_id, source="user") for tag_id in tag_ids)
             post.tags = tag_ids
             changed["tag_ids"] = tag_ids
+        if "purpose" in body or "join_mode" in body:
+            post.purpose = participation.purpose
+            post.join_mode = participation.join_mode
+            if "purpose" in body:
+                changed["purpose"] = str(participation.purpose)
+            if "join_mode" in body:
+                changed["join_mode"] = str(participation.join_mode)
         _moderate_post(
             {
                 "activity_name": post.activity_name,
@@ -309,9 +379,47 @@ def update(post_id: int, body: PostUpdateRequest, user_id: str = Depends(current
                 detail=json.dumps({"fields": sorted(changed)}, ensure_ascii=False),
             )
         )
-        session.commit()
+        try:
+            commit_post_participation(session, post)
+        except ParticipationError as exc:
+            raise _participation_http_error(exc) from exc
         author = session.get(User, post.author_id)
-        return api_ok(_post_to_dict(post, author, session), "帖子已更新")
+        return api_ok(
+            _post_to_dict(post, author, session, viewer_id=user.id),
+            "帖子已更新",
+        )
+    finally:
+        session.close()
+
+
+@router.post("/{post_id}/join")
+def join(post_id: int, user_id: str = Depends(current_user_id)) -> dict[str, Any]:
+    session = get_session()
+    try:
+        user = session.get(User, int(user_id))
+        if user is None:
+            raise HTTPException(status_code=401, detail="登录状态已失效")
+        post = session.scalar(
+            select(Post).where(
+                Post.id == post_id,
+                Post.status.in_(PUBLIC_POST_STATUSES),
+            )
+        )
+        if post is None:
+            raise HTTPException(status_code=404, detail="组队不存在")
+        try:
+            membership = join_post_directly(session, post, user)
+            session.commit()
+        except ParticipationError as exc:
+            session.rollback()
+            raise _participation_http_error(exc) from exc
+        current_post = session.get(Post, post_id)
+        if current_post is None:
+            raise HTTPException(status_code=404, detail="组队不存在")
+        projection = project_group_cards(session, [current_post], user.id)[0]
+        projection["team_id"] = str(membership.team_id)
+        projection["member_id"] = str(membership.id)
+        return api_ok(projection, "已加入组队")
     finally:
         session.close()
 
@@ -327,7 +435,10 @@ def _transition(post_id: int, user_id: str, action: str) -> dict[str, Any]:
             raise HTTPException(status_code=404, detail="帖子不存在")
         try:
             transition_post(session, actor, post, action)
-            session.commit()
+            commit_post_participation(session, post)
+        except ParticipationError as exc:
+            session.rollback()
+            raise _participation_http_error(exc) from exc
         except PermissionError as exc:
             session.rollback()
             raise HTTPException(status_code=403, detail=str(exc)) from exc
@@ -335,7 +446,10 @@ def _transition(post_id: int, user_id: str, action: str) -> dict[str, Any]:
             session.rollback()
             raise HTTPException(status_code=409, detail=str(exc)) from exc
         author = session.get(User, post.author_id)
-        return api_ok(_post_to_dict(post, author, session), "帖子状态已更新")
+        return api_ok(
+            _post_to_dict(post, author, session, viewer_id=actor.id),
+            "帖子状态已更新",
+        )
     finally:
         session.close()
 

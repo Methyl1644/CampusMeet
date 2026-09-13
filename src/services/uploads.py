@@ -16,6 +16,12 @@ from storage.s3.s3_storage import S3SyncStorage
 
 
 UPLOAD_POLICIES = {
+    "post_cover": {
+        "mimes": {"image/jpeg": {".jpg", ".jpeg"}, "image/png": {".png"}, "image/webp": {".webp"}},
+        "max_size": 10 * 1024 * 1024,
+        "prefix": "public/post-covers",
+        "private": False,
+    },
     "avatar": {
         "mimes": {"image/jpeg": {".jpg", ".jpeg"}, "image/png": {".png"}, "image/webp": {".webp"}},
         "max_size": 5 * 1024 * 1024,
@@ -69,6 +75,21 @@ class S3UploadStorage:
 
     def delete(self, *, key: str) -> None:
         self.storage.delete_file(file_key=key)
+
+
+def attach_new_post_cover(session, actor, post, upload_id: str) -> None:
+    record = session.scalar(select(UploadRecord).where(UploadRecord.id == upload_id).with_for_update())
+    if record is None or record.owner_id != actor.id or record.purpose != "post_cover" or record.private:
+        raise ValueError("请使用自己上传的帖子封面")
+    if record.status != "completed":
+        raise ValueError("封面未完成上传或已用于其他帖子")
+    base = os.getenv("OBJECT_STORAGE_PUBLIC_BASE_URL", "").strip().rstrip("/")
+    if not base.startswith("https://"):
+        raise ValueError("封面存储服务尚未配置，请暂时移除封面后发布")
+    post.cover_url = f"{base}/{record.object_key}"
+    record.status = "attached"
+    record.attached_to_type = "post_cover"
+    record.attached_to_id = str(post.id)
 
 
 def get_upload_storage() -> S3UploadStorage:

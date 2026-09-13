@@ -73,76 +73,44 @@ def test_repeated_campus_email_code_request_reuses_active_code(monkeypatch, tmp_
     assert "过于频繁" not in second["message"]
 
 
-def test_login_code_cannot_be_used_to_register(monkeypatch, tmp_path):
+def test_registration_defers_profile_collection(monkeypatch, tmp_path):
     db = _fresh_sqlite_database(monkeypatch, tmp_path)
 
     import tools.auth_tools as auth_tools
 
     monkeypatch.setattr(auth_tools, "get_session", db.get_session)
-    login_code = json.loads(
+    account = "new@smail.nju.edu.cn"
+    code = json.loads(
         auth_tools.register_auth_send_code.invoke(
-            {"account": "student@smail.nju.edu.cn", "purpose": "login"}
+            {"account": account, "purpose": "register"}
         )
     )["code"]
     result = json.loads(
         auth_tools.register_user.invoke(
             {
-                "account": "student@smail.nju.edu.cn",
-                "code": login_code,
-                "password": "TestPassword2026",
-                "nickname": "测试用户",
-                "major": "计算机",
-                "grade": "大一",
-                "skills": "Python",
+                "account": account,
+                "code": code,
+                "password": "Password2026",
             }
+        )
+    )
+
+    assert result["success"] is True
+    assert result["user"]["onboarding_completed"] is False
+    assert result["user"]["nickname"] == "new"
+
+
+def test_login_requires_password(monkeypatch, tmp_path):
+    import tools.auth_tools as auth_tools
+
+    result = json.loads(
+        auth_tools.login_user.invoke(
+            {"account": "new@smail.nju.edu.cn", "password": ""}
         )
     )
 
     assert result["success"] is False
-    assert result["message"] == "验证码无效或已过期"
-
-
-def test_registered_user_can_login_with_a_login_code(monkeypatch, tmp_path):
-    db = _fresh_sqlite_database(monkeypatch, tmp_path)
-
-    import tools.auth_tools as auth_tools
-
-    monkeypatch.setattr(auth_tools, "get_session", db.get_session)
-    account = "teacher@nju.edu.cn"
-    register_code = json.loads(
-        auth_tools.register_auth_send_code.invoke(
-            {"account": account, "purpose": "register"}
-        )
-    )["code"]
-    registered = json.loads(
-        auth_tools.register_user.invoke(
-            {
-                "account": account,
-                "code": register_code,
-                "password": "TestPassword2026",
-                "nickname": "测试用户",
-                "major": "计算机",
-                "grade": "大一",
-                "skills": "Python",
-            }
-        )
-    )
-    assert registered["success"] is True
-
-    login_code = json.loads(
-        auth_tools.register_auth_send_code.invoke(
-            {"account": account, "purpose": "login"}
-        )
-    )["code"]
-    logged_in = json.loads(
-        auth_tools.login_user.invoke(
-            {"account": account, "password": "", "code": login_code}
-        )
-    )
-
-    assert logged_in["success"] is True
-    assert logged_in["user"]["email"] == account
-    assert logged_in["token"]
+    assert result["message"] == "请输入密码"
 
 
 def test_password_login_is_temporarily_locked_after_repeated_failures(monkeypatch, tmp_path):
@@ -162,24 +130,20 @@ def test_password_login_is_temporarily_locked_after_repeated_failures(monkeypatc
             "account": account,
             "code": register_code,
             "password": "TestPassword2026",
-            "nickname": "测试用户",
-            "major": "计算机",
-            "grade": "大一",
-            "skills": "Python",
         }
     )
 
     for _ in range(auth_tools.MAX_PASSWORD_ATTEMPTS):
         failed = json.loads(
             auth_tools.login_user.invoke(
-                {"account": account, "password": "WrongPassword2026", "code": ""}
+                {"account": account, "password": "WrongPassword2026"}
             )
         )
         assert failed["success"] is False
 
     locked = json.loads(
         auth_tools.login_user.invoke(
-            {"account": account, "password": "TestPassword2026", "code": ""}
+            {"account": account, "password": "TestPassword2026"}
         )
     )
     assert locked == {"success": False, "message": "登录尝试过多，请稍后再试"}
@@ -203,10 +167,6 @@ def test_registration_requires_a_real_password(monkeypatch, tmp_path):
                 "account": account,
                 "code": code,
                 "password": "",
-                "nickname": "测试用户",
-                "major": "计算机",
-                "grade": "大一",
-                "skills": "Python",
             }
         )
     )
@@ -294,10 +254,6 @@ def test_verification_code_expires_after_repeated_wrong_attempts(monkeypatch, tm
     payload = {
         "account": account,
         "password": "TestPassword2026",
-        "nickname": "测试用户",
-        "major": "计算机",
-        "grade": "大一",
-        "skills": "Python",
     }
     for _ in range(auth_tools.MAX_CODE_ATTEMPTS):
         result = json.loads(auth_tools.register_user.invoke({**payload, "code": "000000"}))
@@ -408,10 +364,6 @@ def test_campus_registration_is_verified_immediately(monkeypatch, tmp_path):
                 "account": account,
                 "code": code,
                 "password": "TestPassword2026",
-                "nickname": "测试用户",
-                "major": "计算机",
-                "grade": "大一",
-                "skills": "Python",
             }
         )
     )
@@ -436,10 +388,6 @@ def test_registration_rejects_non_campus_account_before_code_validation(
                 "account": "outsider@example.com",
                 "code": "123456",
                 "password": "TestPassword2026",
-                "nickname": "测试用户",
-                "major": "计算机",
-                "grade": "大一",
-                "skills": "Python",
             }
         )
     )

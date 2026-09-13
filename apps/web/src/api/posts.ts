@@ -1,6 +1,6 @@
 import { get, post } from './client'
 import { API_PATHS } from '@shared/constants'
-import type { Post, PaginatedResponse } from '@shared/types'
+import type { Post, PaginatedResponse, PostPurpose } from '@shared/types'
 
 /** 帖子列表查询参数 */
 export interface PostListParams {
@@ -30,7 +30,7 @@ export function getPostDetail(id: string) {
 }
 
 /** 创建帖子 */
-export function createPost(data: Partial<Post>) {
+export function createPost(data: Partial<Post> & { purpose?: PostPurpose; client_request_id?: string; cover_upload_id?: string; publish_context_revision?: string }) {
   return post<Post>(API_PATHS.posts.create, data)
 }
 

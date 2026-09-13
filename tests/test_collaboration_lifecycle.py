@@ -3,12 +3,15 @@ from __future__ import annotations
 import datetime
 import json
 
+import pytest
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import sessionmaker
 
 from api import applications as applications_api
 from api import content as content_api
 from api import posts as posts_api
+from jobs.maintenance import run_maintenance
+from services.participation import deadline_has_passed
 from storage.database.models import Application, AuditLog, Conversation, Post, Topic, User
 from storage.database.shared.model import Base
 from tools import application_tools
@@ -83,6 +86,42 @@ def test_full_or_expired_post_rejects_new_application(monkeypatch):
     assert "截止" in expired["message"]
     with expired_factory() as session:
         assert session.scalars(select(Application)).all() == []
+
+
+@pytest.mark.parametrize(
+    "deadline",
+    [
+        "明天下午截止",
+        "next Friday",
+        "2026-09-13T12:30:00",
+        "2026-02-30",
+    ],
+)
+def test_unknown_legacy_deadlines_remain_open_for_maintenance_reopen_and_join(
+    monkeypatch,
+    deadline,
+):
+    factory = _factory(deadline=deadline)
+    now = datetime.datetime(2026, 9, 13, 12, tzinfo=datetime.timezone.utc)
+
+    with factory() as session:
+        post = session.get(Post, 1)
+        assert post.deadline_at is None
+        assert deadline_has_passed(post, now=now) is False
+        maintenance = run_maintenance(session, now=now)
+        assert maintenance["posts_closed"] == 0
+        assert post.status == "recruiting"
+        post.status = "closed"
+        session.commit()
+
+    monkeypatch.setattr(posts_api, "get_session", factory)
+    assert posts_api.reopen_post(1, "1")["data"]["status"] == "recruiting"
+
+    monkeypatch.setattr(application_tools, "get_session", factory)
+    joined = json.loads(
+        application_tools.create_application.invoke(_application_payload())
+    )
+    assert joined["success"] is True
 
 
 def test_pending_application_can_be_withdrawn_and_transition_is_audited(monkeypatch):

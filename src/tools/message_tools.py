@@ -11,8 +11,6 @@ from storage.database.db import get_session
 from storage.database.models.user import User
 from storage.database.models.post import Post
 from storage.database.models.conversation import Conversation, Message
-from storage.database.models.application import Application
-from storage.database.models.team import Team, TeamMember
 from services.content_moderation import ModerationContext, moderate_content
 from services.abuse_monitoring import check_and_record
 from services.moderation_cases import (
@@ -22,6 +20,7 @@ from services.moderation_cases import (
     users_are_blocked,
 )
 from services.notifications import notify
+from services.participation import ParticipationError, confirm_team_participation
 from tools.auth_tools import _user_brief
 
 logger = logging.getLogger(__name__)
@@ -324,20 +323,20 @@ def confirm_team(user_id: str, conversation_id: str) -> str:
         try:
             uid = int(user_id)
             cid = int(conversation_id)
-            conv = session.execute(select(Conversation).where(Conversation.id == cid)).scalar_one_or_none()
-            if not conv:
-                return json.dumps({"success": False, "message": "会话不存在"}, ensure_ascii=False)
-            if conv.post_author_id != uid and conv.applicant_id != uid:
-                return json.dumps({"success": False, "message": "无权操作"}, ensure_ascii=False)
-            if conv.status == "closed":
-                return json.dumps({"success": False, "message": "会话已关闭"}, ensure_ascii=False)
+            try:
+                result = confirm_team_participation(session, cid, uid)
+            except ParticipationError as exc:
+                session.rollback()
+                return json.dumps(
+                    {"success": False, "error_code": exc.code, "message": exc.message},
+                    ensure_ascii=False,
+                )
+            except (PermissionError, ValueError) as exc:
+                session.rollback()
+                return json.dumps({"success": False, "message": str(exc)}, ensure_ascii=False)
 
-            if uid == conv.post_author_id:
-                conv.author_confirmed = True
-            else:
-                conv.applicant_confirmed = True
-
-            if not (conv.author_confirmed and conv.applicant_confirmed):
+            conv = result.conversation
+            if result.waiting_for_other:
                 other_user_id = (
                     conv.applicant_id if uid == conv.post_author_id else conv.post_author_id
                 )
@@ -361,133 +360,9 @@ def confirm_team(user_id: str, conversation_id: str) -> str:
                     },
                     ensure_ascii=False,
                 )
-
-            post = session.execute(select(Post).where(Post.id == conv.post_id)).scalar_one_or_none()
-            if not post:
-                return json.dumps({"success": False, "message": "帖子不存在"}, ensure_ascii=False)
-
-            # 创建团队
-            author = session.execute(select(User).where(User.id == conv.post_author_id)).scalar_one_or_none()
-            applicant = session.execute(select(User).where(User.id == conv.applicant_id)).scalar_one_or_none()
-            if not author or not applicant:
-                return json.dumps({"success": False, "message": "用户信息不完整"}, ensure_ascii=False)
-
-            # 同一帖子只建立一个团队，后续双方确认的申请者加入已有团队。
-            existing_team = session.execute(
-                select(Team).where(Team.post_id == conv.post_id)
-            ).scalar_one_or_none()
-            if existing_team:
-                if existing_team.owner_id is None:
-                    existing_team.owner_id = author.id
-                member_ids = set(
-                    session.execute(
-                        select(TeamMember.user_id).where(
-                            TeamMember.team_id == existing_team.id
-                        )
-                    ).scalars()
-                )
-                contact_info = list(existing_team.contact_info or [])
-                contact_ids = {str(item.get("user_id")) for item in contact_info}
-                for participant in (author, applicant):
-                    if participant.id not in member_ids:
-                        session.add(
-                            TeamMember(
-                                team_id=existing_team.id,
-                                user_id=participant.id,
-                                suggested_role="",
-                                member_role="owner" if participant.id == existing_team.owner_id else "member",
-                            )
-                        )
-                        member_ids.add(participant.id)
-                        participant.team_count = (participant.team_count or 0) + 1
-                    if str(participant.id) not in contact_ids:
-                        contact_info.append(
-                            {
-                                "user_id": str(participant.id),
-                                "nickname": participant.nickname,
-                                "phone": participant.phone,
-                                "wechat": participant.wechat,
-                            }
-                        )
-                        contact_ids.add(str(participant.id))
-                existing_team.contact_info = contact_info
-                conv.status = "team_confirmed"
-                conv.contact_unlocked = True
-                post.current_members = len(member_ids)
-                post.status = (
-                    "full" if post.current_members >= post.target_members else "recruiting"
-                )
-                for participant_id in (author.id, applicant.id):
-                    notify(
-                        session,
-                        user_id=participant_id,
-                        event_type="team.confirmed",
-                        title="组队已确认",
-                        body=f"「{post.title}」组队已完成，联系方式已解锁",
-                        target_type="team",
-                        target_id=str(existing_team.id),
-                        dedupe_key=f"conversation:{conv.id}:team:{existing_team.id}:user:{participant_id}",
-                    )
-                session.commit()
-                return json.dumps({
-                    "success": True,
-                    "team_id": str(existing_team.id),
-                    "message": "组队确认完成，联系方式已解锁",
-                    "contact_unlocked": True,
-                }, ensure_ascii=False)
-
-            # 创建新团队
-            import datetime
-            team = Team(
-                post_id=conv.post_id,
-                owner_id=author.id,
-                activity_name=post.activity_name,
-                division_of_labor=[],
-                meeting_agenda=[],
-                task_list=[],
-                risk_reminders=[],
-                contact_info=[
-                    {
-                        "user_id": str(author.id),
-                        "nickname": author.nickname,
-                        "phone": author.phone,
-                        "wechat": author.wechat,
-                    },
-                    {
-                        "user_id": str(applicant.id),
-                        "nickname": applicant.nickname,
-                        "phone": applicant.phone,
-                        "wechat": applicant.wechat,
-                    },
-                ],
-            )
-            session.add(team)
-            session.flush()
-
-            # 添加团队成员
-            app_role = ""
-            if conv.application_id:
-                app = session.execute(select(Application).where(Application.id == conv.application_id)).scalar_one_or_none()
-                app_role = app.role_wanted if app else ""
-            for u, role in [(author, ""), (applicant, app_role)]:
-                tm = TeamMember(
-                    team_id=team.id,
-                    user_id=u.id,
-                    suggested_role=role,
-                    member_role="owner" if u.id == author.id else "member",
-                )
-                session.add(tm)
-
-            conv.status = "team_confirmed"
-            conv.contact_unlocked = True
-            post.current_members = 2
-            post.status = "full" if post.current_members >= post.target_members else "recruiting"
-
-            # 更新用户团队数
-            author.team_count = (author.team_count or 0) + 1
-            applicant.team_count = (applicant.team_count or 0) + 1
-
-            for participant_id in (author.id, applicant.id):
+            post = result.post
+            team = result.team
+            for participant_id in (conv.post_author_id, conv.applicant_id):
                 notify(
                     session,
                     user_id=participant_id,
@@ -503,7 +378,7 @@ def confirm_team(user_id: str, conversation_id: str) -> str:
             return json.dumps({
                 "success": True,
                 "team_id": str(team.id),
-                "message": "组队成功！联系方式已解锁，团队已创建",
+                "message": "组队确认完成，联系方式已解锁",
                 "contact_unlocked": True,
             }, ensure_ascii=False)
         finally:

@@ -6,6 +6,7 @@ from sqlalchemy import create_engine, select
 from sqlalchemy.orm import sessionmaker
 
 from storage.database.models import Conversation, Message, Post, Team, TeamMember, User
+from storage.database.models.team import normalize_team_task_list
 from storage.database.shared.model import Base
 from tools import message_tools, team_tools
 
@@ -104,6 +105,10 @@ def test_team_members_can_create_complete_and_delete_tasks(monkeypatch):
     )
     assert created["success"] is True
     task_id = created["task"]["id"]
+    with factory() as session:
+        persisted_tasks = session.get(Team, 1).task_list
+    assert created["task"] == persisted_tasks[-1]
+    assert created["team"]["task_list"] == persisted_tasks
 
     completed = json.loads(
         team_tools.update_team_task.invoke(
@@ -119,6 +124,62 @@ def test_team_members_can_create_complete_and_delete_tasks(monkeypatch):
     )
     assert deleted["success"] is True
     assert deleted["team"]["task_list"] == []
+
+
+def test_team_task_creation_refuses_to_grow_persisted_json_past_the_limit(monkeypatch):
+    factory = _factory()
+    monkeypatch.setattr(team_tools, "get_session", factory)
+    with factory() as session:
+        team = session.get(Team, 1)
+        team.task_list = [
+            {"id": f"task-{index}", "title": f"任务 {index}", "done": False}
+            for index in range(12)
+        ]
+        session.commit()
+
+    result = json.loads(
+        team_tools.create_team_task.invoke(
+            {"user_id": "1", "team_id": "1", "title": "不应写入的第十三个任务"}
+        )
+    )
+
+    assert result["success"] is False
+    assert "上限" in result["message"]
+    with factory() as session:
+        assert len(session.get(Team, 1).task_list) == 12
+
+
+def test_team_task_creation_rejects_when_byte_capacity_would_drop_the_candidate(monkeypatch):
+    factory = _factory()
+    monkeypatch.setattr(team_tools, "get_session", factory)
+    supplementary_title = "🚀" * 120
+    saturated = normalize_team_task_list(
+        [
+            {"id": f"large-{index}", "title": supplementary_title, "done": False}
+            for index in range(12)
+        ]
+    )
+    assert len(saturated) < 12
+    assert normalize_team_task_list(
+        [*saturated, {"id": "candidate", "title": supplementary_title, "done": False}]
+    ) == saturated
+    with factory() as session:
+        team = session.get(Team, 1)
+        team.task_list = saturated
+        session.commit()
+
+    result = json.loads(
+        team_tools.create_team_task.invoke(
+            {"user_id": "1", "team_id": "1", "title": supplementary_title}
+        )
+    )
+
+    assert result == {
+        "success": False,
+        "message": "任务存储空间已满，请先删除或缩短现有任务",
+    }
+    with factory() as session:
+        assert session.get(Team, 1).task_list == saturated
 
 
 def test_owner_transfer_then_member_leave_updates_capacity(monkeypatch):

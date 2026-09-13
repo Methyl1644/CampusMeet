@@ -14,6 +14,7 @@ from api.schemas.agent import (
     TeamPlanRequest,
 )
 from services.content import tag_suggestions
+from services.publish_context import publish_context, reconcile_draft, missing_fields
 from services.content_moderation import ModerationContext, ModerationDecision, moderate_content
 from services.permissions import can_manage_post
 from services.tag_governance import sanitize_unknown_concepts, submit_tag_proposal
@@ -185,19 +186,40 @@ def post_draft(body: PostDraftAgentRequest, user_id: str = Depends(current_user_
 
     session = get_session()
     try:
-        _require_verified_user(session, user_id)
+        actor = _require_verified_user(session, user_id)
         kind = str(body.get("kind") or "casual_invitation")
         if kind not in {"topic_team", "casual_invitation"}:
             raise HTTPException(status_code=400, detail="帖子类型不正确")
         topic_id = str(body.get("topic_id") or "")
-        if kind == "topic_team" and (not topic_id or not session.get(Topic, int(topic_id))):
+        if kind == "topic_team" and (not topic_id.isdigit() or not session.get(Topic, int(topic_id))):
             raise HTTPException(status_code=400, detail="正规赛事组队帖必须关联有效话题")
         if kind == "casual_invitation" and topic_id:
             raise HTTPException(status_code=400, detail="日常邀约不能关联正式话题")
         suggested = _candidate_tags(session, message)
+        context = publish_context(session, actor, kind, topic_id) if body.get("purpose") else None
+        if context and body["purpose"] not in context["allowed_purposes"]:
+            raise HTTPException(403, "当前活动不允许以此用途发布")
+        if context and body.get("publish_context_revision") not in (None, context["revision"]):
+            raise HTTPException(409, "活动发布规则已更新，请重新加载")
     finally:
         session.close()
     draft = body.get("draft") or ""
+    next_required = None
+    if context:
+        previous_draft = {**context["defaults"], **previous_draft}
+        if context["activity"]:
+            previous_draft["activity_name"] = context["activity"]["title"]
+        if body["purpose"] == "team_recruitment" and not previous_draft.get("description"):
+            previous_draft["description"] = message.strip()
+        pending = missing_fields(previous_draft, field_states, kind, body["purpose"])
+        next_required = pending[0] if pending else None
+        field_states = dict(field_states)
+        for key, value in previous_draft.items():
+            if key in pending:
+                field_states[key] = {"value": value, "status": "pending"}
+            elif key not in field_states or key == "activity_name" and context["activity"]:
+                field_states[key] = {"value": value, "status": "none" if key == "needed_roles" and not value else "confirmed"}
+        draft = previous_draft
     skills = body.get("user_skills") or ""
     raw = invoke_tool(
         ai_post_draft,
@@ -206,12 +228,16 @@ def post_draft(body: PostDraftAgentRequest, user_id: str = Depends(current_user_
             "draft": draft if isinstance(draft, str) else json.dumps(draft, ensure_ascii=False),
             "user_skills": ",".join(skills) if isinstance(skills, list) else str(skills),
             "kind": kind,
-            "field_states": json.dumps(body.get("field_states") or {}, ensure_ascii=False),
+            "field_states": json.dumps(field_states, ensure_ascii=False),
             "candidate_tags": json.dumps(suggested, ensure_ascii=False),
             "topic_id": topic_id,
         },
-    )
-    result = parse_tool_result(raw)
+    ) if next_required != "description" else None
+    # Description is free-form: preserve the user's wording without another model call.
+    if next_required == "description":
+        result = api_ok({"draft": {**previous_draft, "description": message.strip()}, "field_states": {**field_states, "description": {"value": message.strip(), "status": "confirmed"}}, "reply": "", "candidate_tags": suggested})
+    else:
+        result = parse_tool_result(raw)
     data = result.get("data") if isinstance(result.get("data"), dict) else {}
     output_decision = moderate_content(
         str(data.get("reply") or ""),
@@ -223,6 +249,8 @@ def post_draft(body: PostDraftAgentRequest, user_id: str = Depends(current_user_
     )
     if output_decision.action != "allow":
         return _moderation_response(output_decision, previous_draft, field_states)
+    if context:
+        result["data"] = reconcile_draft(data, previous_draft, context, body["purpose"], field_states)
     return result
 
 

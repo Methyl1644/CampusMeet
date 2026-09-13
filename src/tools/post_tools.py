@@ -3,6 +3,7 @@ import json
 import logging
 from langchain.tools import tool
 from sqlalchemy import select, desc, asc, or_, func
+from sqlalchemy.exc import IntegrityError
 from coze_coding_utils.log.write_log import request_context
 from coze_coding_utils.runtime_ctx.context import new_context
 from storage.database.db import get_session
@@ -10,16 +11,32 @@ from storage.database.models.user import User
 from storage.database.models.post import Post
 from storage.database.models.content import PostTag, Topic
 from services.content import validate_tag_ids
+from services.publish_context import inherited_tag_ids, merge_tag_ids
+from services.notifications import notify
+from services.uploads import attach_new_post_cover
+from services.deadlines import parse_deadline_at
 from services.abuse_monitoring import check_and_record
 from services.collaboration_lifecycle import PUBLIC_POST_STATUSES
 from services.moderation_cases import has_active_restriction
+from services.participation import (
+    ParticipationError,
+    commit_post_participation,
+    flush_post_participation,
+    validate_post_participation,
+)
 from utils.security import screen_post_content
 from tools.auth_tools import _user_brief
 
 logger = logging.getLogger(__name__)
 
 
-def _post_to_dict(post: Post, author: User | None = None, session=None) -> dict:
+def _post_to_dict(
+    post: Post,
+    author: User | None = None,
+    session=None,
+    *,
+    viewer_id: int | None = None,
+) -> dict:
     """将 Post 对象转为字典"""
     data = {
         "id": str(post.id),
@@ -27,10 +44,13 @@ def _post_to_dict(post: Post, author: User | None = None, session=None) -> dict:
         "description": post.description,
         "source_type": post.source_type,
         "kind": post.kind,
+        "purpose": post.purpose,
+        "join_mode": post.join_mode,
         "topic_id": str(post.topic_id) if post.topic_id is not None else None,
         "main_category": post.main_category,
         "tags": post.tags or [],
         "activity_name": post.activity_name,
+        "cover_url": post.cover_url,
         "current_members": post.current_members,
         "target_members": post.target_members,
         "needed_roles": post.needed_roles or [],
@@ -42,13 +62,70 @@ def _post_to_dict(post: Post, author: User | None = None, session=None) -> dict:
         "author_id": str(post.author_id),
         "created_at": post.created_at.isoformat() if post.created_at else None,
     }
+    from services.explore import group_placeholder_key
+
+    data["cover_placeholder_key"] = group_placeholder_key(post)
     if author:
         data["author"] = _user_brief(author)
     if session is not None:
-        from services.identity import post_trust_projection
-
-        data.update(post_trust_projection(session, post))
+        projection = _batch_post_to_dicts(
+            session,
+            [post],
+            {author.id: author} if author else {},
+            viewer_id if viewer_id is not None else (author.id if author else None),
+        )[0]
+        for key in ("bookmark", "join_state", "member_preview", "linked_activity", "collaborators"):
+            data[key] = projection[key]
     return data
+
+
+def _batch_post_to_dicts(
+    session,
+    posts: list[Post],
+    authors: dict[int, User] | None = None,
+    user_id: int | None = None,
+) -> list[dict]:
+    from services.explore import project_group_cards
+
+    authors = authors or {}
+    projections = project_group_cards(session, posts, user_id)
+    result = []
+    for post, projection in zip(posts, projections):
+        data = {
+            "id": str(post.id),
+            "title": post.title,
+            "description": post.description,
+            "source_type": post.source_type,
+            "kind": post.kind,
+            "purpose": post.purpose,
+            "join_mode": post.join_mode,
+            "topic_id": str(post.topic_id) if post.topic_id is not None else None,
+            "main_category": post.main_category,
+            "tags": post.tags or [],
+            "activity_name": post.activity_name,
+            "cover_url": post.cover_url,
+            "cover_placeholder_key": projection["cover_placeholder_key"],
+            "current_members": post.current_members,
+            "target_members": post.target_members,
+            "needed_roles": post.needed_roles or [],
+            "weekly_hours": post.weekly_hours,
+            "school_scope": post.school_scope,
+            "deadline": post.deadline,
+            "risk_level": post.risk_level,
+            "status": post.status,
+            "author_id": str(post.author_id),
+            "created_at": post.created_at.isoformat() if post.created_at else None,
+            "bookmark": projection["bookmark"],
+            "join_state": projection["join_state"],
+            "member_preview": projection["member_preview"],
+            "linked_activity": projection["linked_activity"],
+            "collaborators": projection["collaborators"],
+        }
+        author = authors.get(post.author_id)
+        if author:
+            data["author"] = _user_brief(author)
+        result.append(data)
+    return result
 
 
 @tool
@@ -68,6 +145,10 @@ def create_post(
     tag_ids: str = "",
     suggested_tag_ids: str = "",
     review_risk_level: str = "low",
+    purpose: str = "team_recruitment",
+    join_mode: str = "",
+    client_request_id: str = "",
+    cover_upload_id: str = "",
 ) -> str:
     """创建组队帖。user_id 为用户ID，title 为标题，description 为描述，main_category 为主分类，activity_name 为活动名称，target_members 为目标人数，needed_roles 为所需角色(逗号分隔)，weekly_hours 为每周时长，school_scope 为学校范围，deadline 为截止日期。"""
     ctx = request_context.get() or new_context(method="create_post")
@@ -80,6 +161,12 @@ def create_post(
                 return json.dumps({"success": False, "message": "用户不存在"}, ensure_ascii=False)
             if user.auth_status == "unverified":
                 return json.dumps({"success": False, "message": "请先完成校园邮箱认证"}, ensure_ascii=False)
+            if user.account_status != "active":
+                return json.dumps({"success": False, "message": "账号不可用"}, ensure_ascii=False)
+            if client_request_id:
+                existing = session.scalar(select(Post).where(Post.author_id == uid, Post.client_request_id == client_request_id))
+                if existing:
+                    return json.dumps({"success": True, "post": _post_to_dict(existing, user, session)}, ensure_ascii=False)
             if has_active_restriction(session, uid, "posting"):
                 return json.dumps(
                     {"success": False, "message": "当前账号处于发布限制期，暂时不能发布帖子"},
@@ -123,8 +210,27 @@ def create_post(
                 topic = session.get(Topic, resolved_topic_id)
                 if not topic or topic.status != "active":
                     return json.dumps({"success": False, "message": "关联话题不存在或不可用"}, ensure_ascii=False)
+                activity_name = topic.title
             elif resolved_topic_id is not None:
                 return json.dumps({"success": False, "message": "日常邀约不能关联正式话题"}, ensure_ascii=False)
+
+            try:
+                participation_payload = {
+                    "topic_id": resolved_topic_id,
+                    "purpose": purpose,
+                }
+                if join_mode:
+                    participation_payload["join_mode"] = join_mode
+                participation = validate_post_participation(
+                    session,
+                    user,
+                    participation_payload,
+                )
+            except ParticipationError as exc:
+                return json.dumps(
+                    {"success": False, "error_code": exc.code, "message": exc.message},
+                    ensure_ascii=False,
+                )
 
             user_tag_ids = list(dict.fromkeys(item.strip() for item in tag_ids.split(",") if item.strip()))[:8]
             user_tag_id_set = set(user_tag_ids)
@@ -135,7 +241,8 @@ def create_post(
                     if item.strip() and item.strip() not in user_tag_id_set
                 )
             )
-            selected_tag_ids = (user_tag_ids + ai_tag_ids)[:8]
+            inherited = inherited_tag_ids(session, resolved_topic_id)
+            selected_tag_ids = merge_tag_ids(inherited, user_tag_ids, ai_tag_ids)
             invalid_tag_ids = validate_tag_ids(session, selected_tag_ids)
             if invalid_tag_ids:
                 return json.dumps(
@@ -156,10 +263,13 @@ def create_post(
                     ensure_ascii=False,
                 )
             post = Post(
+                client_request_id=client_request_id or None,
                 title=title,
                 description=description,
                 source_type="user",
                 kind=kind,
+                purpose=participation.purpose,
+                join_mode=participation.join_mode,
                 topic_id=resolved_topic_id,
                 main_category=main_category,
                 activity_name=activity_name,
@@ -168,17 +278,20 @@ def create_post(
                 weekly_hours=weekly_hours or None,
                 school_scope=school_scope or None,
                 deadline=deadline or None,
+                deadline_at=parse_deadline_at(deadline),
                 risk_level=resolved_risk_level,
                 status="recruiting",
                 author_id=uid,
             )
             session.add(post)
-            session.flush()
+            flush_post_participation(session, post)
+            if cover_upload_id:
+                attach_new_post_cover(session, user, post, cover_upload_id)
             session.add_all(
                 PostTag(
                     post_id=post.id,
                     tag_id=tag_id,
-                    source="user" if tag_id in user_tag_id_set else "ai",
+                    source="user" if tag_id in user_tag_id_set or tag_id in inherited else "ai",
                 )
                 for tag_id in selected_tag_ids
             )
@@ -186,7 +299,9 @@ def create_post(
 
             # 更新用户发帖数
             user.post_count = (user.post_count or 0) + 1
-            session.commit()
+            notify(session, user_id=uid, event_type="post.published", title="帖子发布成功", body=post.title,
+                   target_type="post", target_id=str(post.id), dedupe_key=f"post.published:{post.id}")
+            commit_post_participation(session, post)
 
             return json.dumps({
                 "success": True,
@@ -197,6 +312,18 @@ def create_post(
             }, ensure_ascii=False)
         finally:
             session.close()
+    except IntegrityError:
+        if client_request_id:
+            with get_session() as retry_session:
+                existing = retry_session.scalar(select(Post).where(Post.author_id == int(user_id), Post.client_request_id == client_request_id))
+                if existing:
+                    return json.dumps({"success": True, "post": _post_to_dict(existing, retry_session.get(User, int(user_id)), retry_session)}, ensure_ascii=False)
+        return json.dumps({"success": False, "message": "发布冲突，请刷新后重试"}, ensure_ascii=False)
+    except ParticipationError as e:
+        return json.dumps(
+            {"success": False, "error_code": e.code, "message": e.message},
+            ensure_ascii=False,
+        )
     except Exception as e:
         logger.error(f"create_post error: {e}")
         return json.dumps({"success": False, "message": f"发布失败: {str(e)}"}, ensure_ascii=False)
@@ -213,6 +340,7 @@ def list_posts(
     sort: str = "latest",
     kind: str = "",
     topic_id: str = "",
+    user_id: str = "",
 ) -> str:
     """浏览帖子列表。tab 为标签页(recommend/recruiting/official/hot)，page 为页码，page_size 为每页数量，category 为主分类筛选，tags 为标签筛选(逗号分隔)，keyword 为搜索关键词，sort 为排序方式(latest/hot/deadline)。"""
     ctx = request_context.get() or new_context(method="list_posts")
@@ -274,7 +402,12 @@ def list_posts(
                 author_results = session.execute(select(User).where(User.id.in_(author_ids))).scalars().all()
                 authors = {a.id: a for a in author_results}
 
-            posts = [_post_to_dict(p, authors.get(p.author_id), session) for p in results]
+            posts = _batch_post_to_dicts(
+                session,
+                results,
+                authors,
+                int(user_id) if user_id else None,
+            )
             return json.dumps({
                 "success": True,
                 "list": posts,
@@ -290,7 +423,7 @@ def list_posts(
 
 
 @tool
-def get_post_detail(post_id: str) -> str:
+def get_post_detail(post_id: str, user_id: str = "") -> str:
     """获取帖子详情。post_id 为帖子ID。"""
     ctx = request_context.get() or new_context(method="get_post_detail")
     try:
@@ -309,7 +442,12 @@ def get_post_detail(post_id: str) -> str:
             author = session.execute(select(User).where(User.id == post.author_id)).scalar_one_or_none()
             return json.dumps({
                 "success": True,
-                "post": _post_to_dict(post, author, session),
+                "post": _batch_post_to_dicts(
+                    session,
+                    [post],
+                    {author.id: author} if author else {},
+                    int(user_id) if user_id else None,
+                )[0],
             }, ensure_ascii=False)
         finally:
             session.close()
@@ -337,7 +475,7 @@ def get_my_posts(user_id: str, page: int = 1, page_size: int = 20) -> str:
                 .offset((page - 1) * page_size)
                 .limit(page_size)
             ).scalars().all()
-            posts = [_post_to_dict(p, session=session) for p in results]
+            posts = _batch_post_to_dicts(session, results, user_id=uid)
             return json.dumps(
                 {
                     "success": True,

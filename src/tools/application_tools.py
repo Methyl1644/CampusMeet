@@ -21,8 +21,9 @@ from services.moderation_cases import (
     users_are_blocked,
 )
 from services.permissions import can_manage_post
-from services.collaboration_lifecycle import application_availability_error, withdraw_application as withdraw_record
+from services.collaboration_lifecycle import withdraw_application as withdraw_record
 from services.notifications import notify
+from services.participation import ParticipationError, validate_application_join
 from tools.auth_tools import _user_brief
 
 logger = logging.getLogger(__name__)
@@ -72,13 +73,15 @@ def create_application(
             post = session.execute(select(Post).where(Post.id == pid)).scalar_one_or_none()
             if not post:
                 return json.dumps({"success": False, "message": "帖子不存在"}, ensure_ascii=False)
-            if post.status != "recruiting":
-                return json.dumps({"success": False, "message": "该帖子已停止招募"}, ensure_ascii=False)
             if post.author_id == uid:
                 return json.dumps({"success": False, "message": "不能申请自己的帖子"}, ensure_ascii=False)
-            availability_error = application_availability_error(post)
-            if availability_error:
-                return json.dumps({"success": False, "message": availability_error}, ensure_ascii=False)
+            try:
+                validate_application_join(session, post, user)
+            except ParticipationError as exc:
+                return json.dumps(
+                    {"success": False, "error_code": exc.code, "message": exc.message},
+                    ensure_ascii=False,
+                )
             if has_active_restriction(session, uid, "applications"):
                 return json.dumps(
                     {"success": False, "message": "当前账号处于申请限制期，暂时不能提交申请"},
@@ -289,9 +292,16 @@ def accept_application(user_id: str, application_id: str) -> str:
                         )
                 return json.dumps({"success": False, "message": "该申请已处理"}, ensure_ascii=False)
 
-            availability_error = application_availability_error(post)
-            if availability_error:
-                return json.dumps({"success": False, "message": availability_error}, ensure_ascii=False)
+            applicant = session.get(User, app.applicant_id)
+            if applicant is None:
+                return json.dumps({"success": False, "message": "申请者不存在"}, ensure_ascii=False)
+            try:
+                validate_application_join(session, post, applicant)
+            except ParticipationError as exc:
+                return json.dumps(
+                    {"success": False, "error_code": exc.code, "message": exc.message},
+                    ensure_ascii=False,
+                )
             if users_are_blocked(session, post.author_id, app.applicant_id):
                 return json.dumps({"success": False, "message": "双方存在屏蔽关系，无法接受申请"}, ensure_ascii=False)
 

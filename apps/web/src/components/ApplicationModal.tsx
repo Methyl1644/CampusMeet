@@ -2,12 +2,17 @@ import { useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { motion, useReducedMotion } from 'motion/react'
 import { Send, X } from 'lucide-react'
-import type { Post } from '@shared/types'
 import { createApplication } from '@/api/applications'
 import { useToast } from './Toast'
 
+interface ApplicationTarget {
+  id: string
+  title: string
+  needed_roles: string[]
+}
+
 interface ApplicationModalProps {
-  post: Post
+  post: ApplicationTarget
   onClose: () => void
   onSuccess: () => void
 }
@@ -25,8 +30,11 @@ const focusableSelector = [
   '[tabindex]:not([tabindex="-1"])',
 ].join(',')
 
+const unrestrictedRole = '不限角色'
+
 export default function ApplicationModal({ post, onClose, onSuccess }: ApplicationModalProps) {
-  const [roleWanted, setRoleWanted] = useState('')
+  const roleOptions = post.needed_roles.length > 0 ? post.needed_roles : [unrestrictedRole]
+  const [roleWanted, setRoleWanted] = useState(post.needed_roles.length > 0 ? '' : unrestrictedRole)
   const [experience, setExperience] = useState('')
   const [availableTime, setAvailableTime] = useState('')
   const [reason, setReason] = useState('')
@@ -175,7 +183,7 @@ export default function ApplicationModal({ post, onClose, onSuccess }: Applicati
                 <span className="sr-only">必填</span>
               </legend>
               <div className="mt-2 flex flex-wrap gap-2">
-                {post.needed_roles.map((role) => (
+                {roleOptions.map((role) => (
                   <button
                     key={role}
                     type="button"

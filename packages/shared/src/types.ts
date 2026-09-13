@@ -51,6 +51,245 @@ export interface Topic {
   status: string;
 }
 
+export type HomeWarningSection =
+  | 'deadline_reminder'
+  | 'recommended_topics'
+  | 'attending_topics'
+  | 'followed_topics'
+  | 'joined_groups'
+  | 'group_timeline'
+  | 'unread';
+
+export interface HomeProfile {
+  id: string;
+  nickname: string;
+  avatar: string | null;
+  major: string | null;
+  grade: string | null;
+}
+
+export type HomeTrustBadge =
+  | { kind: 'platform_official'; label: string }
+  | { kind: 'verified_organization'; label: string; organization_name: string };
+
+export interface HomeResponsiblePerson {
+  user_id: string;
+  nickname: string;
+  role: string;
+  badge: string;
+}
+
+export interface HomeTag {
+  tag_id: string;
+  canonical_name: string;
+  category: string;
+  display_color: string;
+}
+
+export interface HomeTopic {
+  id: string;
+  channel: Exclude<ContentChannel, 'casual'>;
+  title: string;
+  short_title: string;
+  organizer: string;
+  edition: string;
+  summary: string;
+  content: string;
+  source_url: string | null;
+  source_status: string;
+  cover_url: string | null;
+  follower_count: number;
+  followed: boolean;
+  tags: HomeTag[];
+  status: 'active';
+  trust_badges: HomeTrustBadge[];
+  responsible_people: HomeResponsiblePerson[];
+  registration_deadline: string | null;
+  activity_start_at: string | null;
+  activity_end_at: string | null;
+}
+
+export interface RecommendedHomeTopic extends HomeTopic {
+  recommendation_reason: string;
+}
+
+export interface HomeDeadlineReminder extends HomeTopic {
+  days_remaining: number;
+}
+
+export interface HomeJoinedGroup {
+  id: string;
+  post_id: string;
+  activity_name: string;
+  member_role: 'owner' | 'member';
+  created_at: string;
+  current_members: number;
+  target_members: number;
+}
+
+export interface HomeTimelineItem {
+  team_id: string;
+  team_name: string;
+  task_id: string;
+  title: string;
+  due_at: string | null;
+  done: boolean;
+}
+
+export interface HomeFeed {
+  profile: HomeProfile;
+  deadline_reminder: HomeDeadlineReminder | null;
+  recommended_topics: RecommendedHomeTopic[];
+  attending_topics: HomeTopic[];
+  followed_topics: HomeTopic[];
+  joined_groups: HomeJoinedGroup[];
+  group_timeline: HomeTimelineItem[];
+  unread: {
+    messages: number;
+    notifications: number;
+  };
+  warnings: HomeWarningSection[];
+}
+
+export type ParticipationMode = 'open_team' | 'official_signup' | 'information_only';
+export type PostPurpose = 'team_recruitment' | 'official_signup' | 'discussion';
+export type JoinMode = 'application' | 'direct' | 'none';
+export type JoinState = 'owner' | 'joined' | 'pending' | 'rejected' | 'available' | 'closed';
+
+export interface ExploreTag {
+  tag_id: string;
+  canonical_name: string;
+  category: string;
+  display_color: string;
+}
+
+export interface ExploreUserSummary {
+  id: string;
+  nickname: string;
+  avatar: string | null;
+  major: string | null;
+  grade: string | null;
+}
+
+export type ExploreTrustBadge =
+  | { kind: 'platform_official'; label: string }
+  | { kind: 'verified_organization'; label: string; organization_name: string };
+
+export interface ExploreResponsiblePerson {
+  user_id: string;
+  nickname: string;
+  role: string;
+  badge: string;
+}
+
+export interface ExploreLinkedActivity {
+  id: string;
+  title: string;
+  short_title: string;
+  organizer: string;
+  cover_url: string | null;
+  cover_placeholder_key: string;
+  registration_deadline: string | null;
+  activity_start_at: string | null;
+  participation_mode: ParticipationMode;
+  status: string;
+}
+
+export interface ExploreGroupCard {
+  id: string;
+  title: string;
+  description: string | null;
+  source_type: string;
+  kind: 'topic_team' | 'casual_invitation';
+  purpose: PostPurpose;
+  join_mode: JoinMode;
+  topic_id: string | null;
+  main_category: string;
+  activity_name: string;
+  cover_url: string | null;
+  cover_placeholder_key: string;
+  current_members: number;
+  target_members: number;
+  needed_roles: string[];
+  weekly_hours: string | null;
+  school_scope: string | null;
+  deadline: string | null;
+  risk_level: string;
+  status: 'recruiting' | 'full' | 'closed';
+  author_id: string;
+  author: ExploreUserSummary | null;
+  bookmark: boolean;
+  join_state: JoinState;
+  member_preview: ExploreUserSummary[];
+  linked_activity: ExploreLinkedActivity | null;
+  tags: ExploreTag[];
+  collaborators: ExploreResponsiblePerson[];
+  created_at: string | null;
+}
+
+export interface ExploreGroupDetail extends ExploreGroupCard {}
+
+export interface ExploreActivityCard {
+  id: string;
+  channel: 'official' | 'organization';
+  title: string;
+  short_title: string;
+  organizer: string;
+  edition: string;
+  summary: string;
+  content: string;
+  source_url: string | null;
+  source_status: string;
+  cover_url: string | null;
+  cover_placeholder_key: string;
+  location_name: string | null;
+  campus_scope: string | null;
+  capacity: number | null;
+  registration_deadline: string | null;
+  activity_start_at: string | null;
+  activity_end_at: string | null;
+  follower_count: number;
+  participant_count: number;
+  participant_preview: ExploreUserSummary[];
+  participation_mode: ParticipationMode;
+  favorite: boolean;
+  followed: boolean;
+  participation_state: JoinState;
+  tags: ExploreTag[];
+  status: 'active';
+  trust_badges: ExploreTrustBadge[];
+  responsible_people: ExploreResponsiblePerson[];
+}
+
+export interface ExploreActivityDetail extends ExploreActivityCard {
+  related_groups: ExploreGroupCard[];
+}
+
+export interface ExplorePage<T> {
+  list: T[];
+  total: number;
+  page: number;
+  page_size: number;
+  pages: number;
+}
+
+export interface TopicFavoriteState {
+  topic_id: string;
+  favorite: boolean;
+  followed: boolean;
+  follower_count: number;
+}
+
+export interface PostFavoriteState {
+  post_id: string;
+  bookmark: boolean;
+}
+
+export interface DirectJoinResult extends ExploreGroupCard {
+  team_id: string;
+  member_id: string;
+}
+
 export interface SearchDirectResult {
   entity_type: 'topic' | 'post';
   entity_id: string;
@@ -63,6 +302,32 @@ export interface SearchDirectResult {
 /** 用户认证状态 */
 export type AuthStatus = 'unverified' | 'verified' | 'campus_verified' | 'organization';
 export type AccountStatus = 'active' | 'deactivated' | 'deletion_requested' | 'deleted';
+
+export type WeeklyHours =
+  | ''
+  | '每周 1-3 小时'
+  | '每周 4-6 小时'
+  | '每周 7-10 小时'
+  | '每周 10 小时以上';
+
+export interface OnboardingAvailability {
+  weekday_daytime?: boolean;
+  weekday_evening?: boolean;
+  weekend_daytime?: boolean;
+  weekend_evening?: boolean;
+  weekly_hours?: WeeklyHours;
+}
+
+export interface ProfileVisibility {
+  major: boolean;
+  grade: boolean;
+  interests: boolean;
+  skills: boolean;
+  availability: boolean;
+  contact: boolean;
+  activities?: boolean;
+  groups?: boolean;
+}
 
 /** 帖子结构 */
 export interface Post {
@@ -105,6 +370,13 @@ export interface User extends UserBrief {
   email: string;
   phone?: string;
   skills: string[];
+  onboarding_step: number;
+  onboarding_completed: boolean;
+  bio?: string | null;
+  interests: string[];
+  looking_for: string[];
+  availability: OnboardingAvailability;
+  profile_visibility: ProfileVisibility;
   verified_email?: string;
   post_count?: number;
   team_count?: number;
@@ -112,11 +384,41 @@ export interface User extends UserBrief {
   identity?: IdentitySummary;
 }
 
+/** 首次资料引导草稿 */
+export interface OnboardingDraft {
+  onboarding_step: number;
+  onboarding_completed: boolean;
+  nickname: string;
+  avatar?: string;
+  major: string;
+  grade: string;
+  interests: string[];
+  looking_for: string[];
+  skills: string[];
+  availability: OnboardingAvailability;
+  bio?: string;
+  profile_visibility: ProfileVisibility;
+}
+
+/** 首次资料引导保存请求 */
+export interface OnboardingUpdate {
+  step: number;
+  nickname?: string;
+  avatar?: string;
+  major?: string;
+  grade?: string;
+  interests?: string[];
+  looking_for?: string[];
+  skills?: string[];
+  availability?: OnboardingAvailability;
+  bio?: string;
+  profile_visibility?: ProfileVisibility;
+}
+
 /** 登录/注册请求 */
 export interface LoginRequest {
-  account: string; // 手机号或邮箱
-  code?: string;   // 验证码
-  password?: string;
+  account: string;
+  password: string;
 }
 
 export interface PasswordResetRequest {
@@ -128,11 +430,7 @@ export interface PasswordResetRequest {
 export interface RegisterRequest {
   account: string;
   code: string;
-  password?: string;
-  nickname: string;
-  major: string;
-  grade: string;
-  skills: string[];
+  password: string;
 }
 
 /** 认证响应 */
@@ -162,6 +460,8 @@ export interface ChatMessage {
 
 /** 发帖 AI 请求 */
 export interface PostDraftRequest {
+  purpose?: PostPurpose;
+  publish_context_revision?: string;
   message: string;
   draft?: PostDraft;
   user_skills?: string[];
@@ -171,10 +471,12 @@ export interface PostDraftRequest {
 }
 
 export interface PostDraftResponse {
+  blocked?: boolean;
+  required_fields?: string[];
   reply: string;
   draft: PostDraft;
   is_complete: boolean;
-  field_states?: Record<string, { value: string | number | null; status: FieldStatus }>;
+  field_states?: Record<string, { value: string | number | string[] | null; status: FieldStatus }>;
   suggested_tag_ids?: string[];
   candidate_tags?: StandardTag[];
   next_field?: string | null;
@@ -368,6 +670,63 @@ export interface Notification {
   created_at: string;
 }
 
+export type MyActivityView = 'attending' | 'saved' | 'past';
+export type MyGroupView = 'joined' | 'pending' | 'saved' | 'archived';
+
+export interface NotificationPreferences {
+  applications: boolean;
+  teams: boolean;
+  moderation: boolean;
+  deadlines: boolean;
+  messages: boolean;
+}
+
+export interface PublicProfile {
+  id: string;
+  nickname: string;
+  avatar: string | null;
+  bio: string | null;
+  looking_for: string[];
+  major?: string;
+  grade?: string;
+  interests?: string[];
+  skills?: string[];
+  availability?: OnboardingAvailability;
+  contact?: { wechat?: string };
+  activities?: ExploreActivityCard[];
+  groups?: ExploreGroupCard[];
+  is_owner: boolean;
+}
+
+export interface PersonalSettings {
+  nickname: string;
+  avatar: string | null;
+  bio: string | null;
+  major: string | null;
+  grade: string | null;
+  interests: string[];
+  looking_for: string[];
+  skills: string[];
+  availability: OnboardingAvailability;
+  profile_visibility: ProfileVisibility;
+  notification_preferences: NotificationPreferences;
+  wechat?: string | null;
+}
+
+export interface PersonalSettingsUpdate {
+  nickname?: string;
+  avatar?: string | null;
+  bio?: string;
+  major?: string;
+  grade?: string;
+  interests?: string[];
+  looking_for?: string[];
+  skills?: string[];
+  availability?: OnboardingAvailability;
+  profile_visibility?: Partial<ProfileVisibility>;
+  notification_preferences?: Partial<NotificationPreferences>;
+}
+
 export interface Report {
   id: string;
   target_type: 'user' | 'post' | 'topic' | 'message';
@@ -395,7 +754,7 @@ export interface Appeal {
 
 export interface UploadTicket {
   upload_id: string;
-  purpose: 'avatar' | 'topic_cover' | 'organization_evidence';
+  purpose: 'avatar' | 'topic_cover' | 'post_cover' | 'organization_evidence';
   expires_at: string;
   upload: {
     url: string;

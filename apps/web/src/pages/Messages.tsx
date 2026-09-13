@@ -6,8 +6,11 @@ import type { Conversation, Message } from '@shared/types'
 import Loading from '@/components/Loading'
 import EmptyState from '@/components/EmptyState'
 import { useToast } from '@/components/Toast'
+import { useNavigate, useParams } from 'react-router-dom'
 
 export default function Messages() {
+  const { conversationId } = useParams()
+  const navigate = useNavigate()
   const { showToast } = useToast()
   const shouldReduceMotion = useReducedMotion()
 
@@ -27,6 +30,13 @@ export default function Messages() {
       try {
         const data = await getConversations()
         setConversations(data)
+        if (conversationId) {
+          const selected = data.find((item) => item.id === conversationId)
+          if (selected) {
+            setActiveConv(selected)
+            setMobileChatOpen(true)
+          }
+        }
       } catch {
         showToast('加载会话失败', 'error')
       } finally {
@@ -34,7 +44,7 @@ export default function Messages() {
       }
     }
     fetchConversations()
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [conversationId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!activeConv) return
@@ -90,6 +100,7 @@ export default function Messages() {
       showToast('对话已结束', 'info')
       setActiveConv(null)
       setMobileChatOpen(false)
+      navigate('/messages', { replace: true })
       const data = await getConversations()
       setConversations(data)
     } catch {
@@ -100,6 +111,7 @@ export default function Messages() {
   const openConversation = (conv: Conversation) => {
     setActiveConv(conv)
     setMobileChatOpen(true)
+    navigate(`/messages/${conv.id}`)
   }
 
   if (loading) return <Loading />
@@ -159,7 +171,7 @@ export default function Messages() {
               <div className="flex min-w-0 items-start gap-2">
                 <button
                   type="button"
-                  onClick={() => setMobileChatOpen(false)}
+                  onClick={() => { setMobileChatOpen(false); navigate('/messages') }}
                   className="icon-button -ml-2 -mt-1 md:hidden"
                   aria-label="返回会话列表"
                   title="返回会话列表"
