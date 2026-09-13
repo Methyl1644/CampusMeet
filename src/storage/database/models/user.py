@@ -1,5 +1,5 @@
 import datetime
-from sqlalchemy import CheckConstraint, DateTime, Integer, JSON, Text, func, text
+from sqlalchemy import CheckConstraint, DateTime, Integer, JSON, Text, func, literal_column
 from sqlalchemy.orm import Mapped, mapped_column
 from storage.database.shared.model import Base
 from storage.database.shared.types import BIGINT_PRIMARY_KEY
@@ -82,7 +82,7 @@ class User(Base):
         JSON,
         nullable=False,
         default=default_notification_preferences,
-        server_default=text(
+        server_default=literal_column(
             "'{\"applications\":true,\"teams\":true,\"moderation\":true,"
             "\"deadlines\":true,\"messages\":true}'"
         ),

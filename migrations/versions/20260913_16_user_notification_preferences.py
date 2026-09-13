@@ -30,6 +30,7 @@ DEFAULT_JSON = json.dumps(
     ensure_ascii=True,
     separators=(",", ":"),
 )
+DEFAULT_SERVER_DEFAULT = sa.literal_column(f"'{DEFAULT_JSON}'")
 
 
 def _tables() -> set[str]:
@@ -97,7 +98,7 @@ def upgrade() -> None:
             "notification_preferences",
             existing_type=sa.JSON(),
             nullable=False,
-            server_default=sa.text(f"'{DEFAULT_JSON}'"),
+            server_default=DEFAULT_SERVER_DEFAULT,
         )
         batch_op.create_check_constraint(CONSTRAINT_NAME, check_sql)
 
