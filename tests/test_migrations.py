@@ -11,6 +11,8 @@ import sqlalchemy as sa
 from alembic import command
 from alembic.config import Config
 from sqlalchemy import create_engine, inspect, text
+from sqlalchemy.dialects import postgresql
+from sqlalchemy.schema import CreateTable
 from sqlalchemy.sql.dml import Update
 from sqlalchemy.sql.selectable import Select
 from sqlalchemy.exc import IntegrityError
@@ -847,6 +849,27 @@ def test_notification_preferences_migration_round_trips_and_sanitizes_legacy_row
     command.upgrade(config, "20260913_16")
     with engine.connect() as connection:
         assert connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one() == "20260913_16"
+
+
+def test_notification_preferences_postgresql_default_is_valid_json():
+    migration = _load_migration(
+        "migration_notification_preferences_postgresql",
+        "20260913_16_user_notification_preferences.py",
+    )
+    table = sa.Table(
+        "notification_default_probe",
+        sa.MetaData(),
+        sa.Column(
+            "preferences",
+            sa.JSON(),
+            server_default=migration.DEFAULT_SERVER_DEFAULT,
+        ),
+    )
+
+    ddl = str(CreateTable(table).compile(dialect=postgresql.dialect()))
+
+    assert "NULL" not in ddl
+    assert f"DEFAULT '{migration.DEFAULT_JSON}'" in ddl
 
 
 def _create_phase_two_participation_schema(engine, *, dirty_fields: bool = False) -> None:
