@@ -248,10 +248,15 @@ export function useExploreState() {
   }, [setSearch])
 
   const updateActiveState = useCallback((update: ExploreViewStateUpdate) => {
+    const replace = update.page === undefined
+      || update.query !== undefined
+      || update.tagIds !== undefined
+      || update.filters !== undefined
+      || update.sort !== undefined
     setSearch((currentSearch) => {
       const next = updateExploreState(readExploreState(currentSearch), update)
       return writeExploreState(next.view, next)
-    })
+    }, { replace })
   }, [setSearch])
 
   return {

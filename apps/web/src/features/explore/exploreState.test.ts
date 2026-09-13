@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { act, renderHook } from '@testing-library/react'
-import { MemoryRouter, useLocation } from 'react-router-dom'
+import { MemoryRouter, useLocation, useNavigate } from 'react-router-dom'
 import { createElement, type PropsWithChildren } from 'react'
 import { describe, expect, it } from 'vitest'
 import {
@@ -15,7 +15,11 @@ function wrapper({ children }: PropsWithChildren) {
   return createElement(
     MemoryRouter,
     {
-      initialEntries: ['/discover?activity_q=robotics&activity_page=4&group_q=debate&group_page=7'],
+      initialEntries: [
+        '/home',
+        '/discover?activity_q=robotics&activity_page=4&group_q=debate&group_page=7',
+      ],
+      initialIndex: 1,
       future: { v7_startTransition: true, v7_relativeSplatPath: true },
     },
     children,
@@ -130,5 +134,45 @@ describe('Explore URL state', () => {
     expect(result.current.state.group.query).toBe('music')
     expect(result.current.state.group.page).toBe(1)
     expect(readExploreState(new URLSearchParams(result.current.search))).toEqual(result.current.state)
+  })
+
+  it('replaces transient search criteria so Back leaves Explore instead of replaying filters', () => {
+    const { result } = renderHook(() => {
+      const explore = useExploreState()
+      const location = useLocation()
+      const navigate = useNavigate()
+      return { ...explore, location, navigate }
+    }, { wrapper })
+
+    act(() => result.current.updateActiveState({ query: 'robot' }))
+    act(() => result.current.updateActiveState({ filters: { campus: 'Xianlin' } }))
+
+    expect(result.current.state.activity.page).toBe(1)
+    expect(result.current.state.group.page).toBe(7)
+    expect(result.current.location.pathname).toBe('/discover')
+
+    act(() => result.current.navigate(-1))
+
+    expect(result.current.location.pathname).toBe('/home')
+  })
+
+  it('keeps deliberate view and page navigation in browser history', () => {
+    const { result } = renderHook(() => {
+      const explore = useExploreState()
+      const location = useLocation()
+      const navigate = useNavigate()
+      return { ...explore, location, navigate }
+    }, { wrapper })
+
+    act(() => result.current.setView('group'))
+    act(() => result.current.updateActiveState({ page: 3 }))
+    expect(result.current.state.group.page).toBe(3)
+
+    act(() => result.current.navigate(-1))
+    expect(result.current.state.view).toBe('group')
+    expect(result.current.state.group.page).toBe(7)
+
+    act(() => result.current.navigate(-1))
+    expect(result.current.state.view).toBe('activity')
   })
 })
