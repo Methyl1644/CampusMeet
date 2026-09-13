@@ -34,8 +34,8 @@ client.interceptors.response.use(
 )
 
 /** GET 请求 */
-export async function get<T>(url: string, params?: Record<string, unknown>): Promise<T> {
-  const res = await client.get<ApiResponse<T>>(url, { params })
+export async function get<T>(url: string, params?: Record<string, unknown>, signal?: AbortSignal): Promise<T> {
+  const res = await client.get<ApiResponse<T>>(url, { params, signal })
   return res.data.data
 }
 

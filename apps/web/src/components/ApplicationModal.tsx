@@ -2,12 +2,17 @@ import { useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { motion, useReducedMotion } from 'motion/react'
 import { Send, X } from 'lucide-react'
-import type { Post } from '@shared/types'
 import { createApplication } from '@/api/applications'
 import { useToast } from './Toast'
 
+interface ApplicationTarget {
+  id: string
+  title: string
+  needed_roles: string[]
+}
+
 interface ApplicationModalProps {
-  post: Post
+  post: ApplicationTarget
   onClose: () => void
   onSuccess: () => void
 }

@@ -3,8 +3,8 @@ import { API_PATHS } from '@shared/constants'
 import type { Team, TaskItem } from '@shared/types'
 
 /** 获取团队详情 */
-export function getTeamDetail(id: string) {
-  return get<Team>(API_PATHS.teams.detail.replace(':id', id))
+export function getTeamDetail(id: string, signal?: AbortSignal) {
+  return get<Team>(API_PATHS.teams.detail.replace(':id', id), undefined, signal)
 }
 
 /** 更新任务状态 */

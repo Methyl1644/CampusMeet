@@ -1,0 +1,178 @@
+// @vitest-environment jsdom
+
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { MemoryRouter, Route, Routes, useNavigate } from 'react-router-dom'
+import { createApplication } from '@/api/applications'
+import { getExploreGroup, joinExploreGroup, setGroupFavorite } from '@/api/explore'
+import { ToastProvider } from '@/components/Toast'
+import PostDetail from './PostDetail'
+import { groupDetailFixture } from './detailTestFixtures'
+
+vi.mock('@/api/applications', () => ({ createApplication: vi.fn() }))
+vi.mock('@/api/explore', () => ({
+  getExploreGroup: vi.fn(),
+  joinExploreGroup: vi.fn(),
+  setGroupFavorite: vi.fn(),
+}))
+
+function deferred<T>() {
+  let resolve!: (value: T) => void
+  const promise = new Promise<T>((resolvePromise) => { resolve = resolvePromise })
+  return { promise, resolve }
+}
+
+function RouteChange() {
+  const navigate = useNavigate()
+  return <button type="button" onClick={() => navigate('/posts/group-2')}>打开另一个组队</button>
+}
+
+function renderPost() {
+  return render(
+    <MemoryRouter initialEntries={['/posts/group-1']} future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+      <ToastProvider>
+        <RouteChange />
+        <Routes><Route path="/posts/:id" element={<PostDetail />} /></Routes>
+      </ToastProvider>
+    </MemoryRouter>,
+  )
+}
+
+beforeEach(() => {
+  vi.resetAllMocks()
+  vi.mocked(getExploreGroup).mockResolvedValue(groupDetailFixture)
+  vi.mocked(setGroupFavorite).mockResolvedValue({ post_id: groupDetailFixture.id, bookmark: true })
+  vi.mocked(joinExploreGroup).mockResolvedValue({
+    ...groupDetailFixture,
+    join_state: 'joined',
+    team_id: 'team-1',
+    member_id: 'member-1',
+  })
+  vi.mocked(createApplication).mockResolvedValue({
+    id: 'application-1',
+    post_id: groupDetailFixture.id,
+    applicant: { id: 'viewer-1', nickname: '周宁', auth_status: 'campus_verified' },
+    role_wanted: '前端开发', experience: '有项目经验', available_time: '', reason: '希望一起参赛',
+    status: 'pending', created_at: '2026-09-13T08:00:00+08:00',
+  })
+  Object.defineProperty(navigator, 'share', { configurable: true, value: vi.fn().mockResolvedValue(undefined) })
+})
+
+afterEach(() => cleanup())
+
+describe('PostDetail group experience', () => {
+  it.each([
+    ['owner', '管理组队'],
+    ['joined', '查看我的团队'],
+    ['pending', '申请审核中'],
+    ['rejected', '申请未通过'],
+    ['closed', '暂不可加入'],
+  ] as const)('renders the backend %s join state without recomputing eligibility', async (joinState, actionName) => {
+    vi.mocked(getExploreGroup).mockResolvedValue({ ...groupDetailFixture, join_state: joinState })
+    renderPost()
+    const actions = await screen.findByRole('region', { name: '组队操作' })
+    expect(within(actions).getByText(actionName)).toBeTruthy()
+    expect(within(actions).queryByRole('button', { name: '申请加入' })).toBeNull()
+    expect(within(actions).queryByRole('button', { name: '直接加入' })).toBeNull()
+  })
+
+  it('opens the existing application modal only for an available application group', async () => {
+    renderPost()
+    const button = await screen.findByRole('button', { name: '申请加入' })
+    fireEvent.click(button)
+    expect(screen.getByRole('dialog', { name: '申请加入' })).toBeTruthy()
+  })
+
+  it('directly joins only an available direct group and links to the returned team', async () => {
+    vi.mocked(getExploreGroup).mockResolvedValue({ ...groupDetailFixture, join_mode: 'direct' })
+    renderPost()
+    fireEvent.click(await screen.findByRole('button', { name: '直接加入' }))
+    const teamLink = await screen.findByRole('link', { name: '进入团队' })
+    expect(teamLink.getAttribute('href')).toBe('/teams/team-1')
+  })
+
+  it('keeps available none groups informational and never exposes a join command', async () => {
+    vi.mocked(getExploreGroup).mockResolvedValue({ ...groupDetailFixture, join_mode: 'none' })
+    renderPost()
+    const actions = await screen.findByRole('region', { name: '组队操作' })
+    expect(within(actions).getByText('仅供交流')).toBeTruthy()
+    expect(within(actions).queryByRole('button', { name: /加入/ })).toBeNull()
+  })
+
+  it('shows full separately from a generally closed group after the backend closes joining', async () => {
+    vi.mocked(getExploreGroup).mockResolvedValue({ ...groupDetailFixture, join_state: 'closed', status: 'full' })
+    renderPost()
+    expect(await screen.findByText('人数已满')).toBeTruthy()
+  })
+
+  it('renders purpose, linked activity, complete description, bounded members, and resilient cover', async () => {
+    const members = Array.from({ length: 10 }, (_, index) => ({
+      id: `member-${index}`, nickname: `成员${index}`, avatar: null, major: null, grade: null,
+    }))
+    const tail = '最后一段不会被折叠。'
+    vi.mocked(getExploreGroup).mockResolvedValue({
+      ...groupDetailFixture,
+      cover_url: '/broken.jpg',
+      description: `${'详细组队说明。'.repeat(70)}${tail}`,
+      member_preview: members,
+    })
+    renderPost()
+    expect(await screen.findByText('招募队友')).toBeTruthy()
+    expect(screen.getByRole('link', { name: /关联活动/ }).getAttribute('href')).toBe('/topics/activity-1')
+    expect(screen.getByText(tail, { exact: false })).toBeTruthy()
+    expect(screen.getAllByRole('listitem', { name: /成员/ })).toHaveLength(8)
+    const media = screen.getByTestId('group-detail-media')
+    fireEvent.error(within(media).getByRole('img', { name: `${groupDetailFixture.title}封面` }))
+    expect(within(media).getByRole('img', { name: '组队封面占位图' })).toBeTruthy()
+  })
+
+  it('provides favorite/share controls and matching page padding for the safe-area bar', async () => {
+    renderPost()
+    const actions = await screen.findByRole('region', { name: '组队操作' })
+    fireEvent.click(within(actions).getByRole('button', { name: '收藏组队' }))
+    await waitFor(() => expect(within(actions).getByRole('button', { name: '取消收藏组队' })).toBeTruthy())
+    fireEvent.click(within(actions).getByRole('button', { name: '分享组队' }))
+    expect(navigator.share).toHaveBeenCalled()
+    expect(actions.getAttribute('data-mobile-safe-area')).toBe('true')
+    expect(screen.getByTestId('group-detail-page').className).toContain('pb-[calc(')
+  })
+
+  it('retries a failed detail request and ignores an older successful route response', async () => {
+    vi.mocked(getExploreGroup).mockRejectedValueOnce(new Error('offline')).mockResolvedValueOnce(groupDetailFixture)
+    renderPost()
+    expect((await screen.findByRole('alert')).textContent).toContain('组队加载失败')
+    fireEvent.click(screen.getByRole('button', { name: '重新加载' }))
+    expect(await screen.findByRole('heading', { name: groupDetailFixture.title })).toBeTruthy()
+
+    cleanup()
+    const stale = deferred<typeof groupDetailFixture>()
+    const current = { ...groupDetailFixture, id: 'group-2', title: '当前组队详情' }
+    vi.mocked(getExploreGroup).mockReturnValueOnce(stale.promise).mockResolvedValueOnce(current)
+    renderPost()
+    fireEvent.click(screen.getByRole('button', { name: '打开另一个组队' }))
+    expect(await screen.findByRole('heading', { name: current.title })).toBeTruthy()
+    await act(async () => { stale.resolve(groupDetailFixture); await stale.promise })
+    expect(screen.queryByText(groupDetailFixture.title)).toBeNull()
+  })
+
+  it('does not let a direct-join response from the previous route replace the current group', async () => {
+    const joining = deferred<Awaited<ReturnType<typeof joinExploreGroup>>>()
+    const directGroup = { ...groupDetailFixture, join_mode: 'direct' as const }
+    const currentGroup = { ...groupDetailFixture, id: 'group-2', title: '导航后的组队', join_state: 'joined' as const }
+    vi.mocked(getExploreGroup).mockResolvedValueOnce(directGroup).mockResolvedValueOnce(currentGroup)
+    vi.mocked(joinExploreGroup).mockReturnValueOnce(joining.promise)
+    renderPost()
+
+    fireEvent.click(await screen.findByRole('button', { name: '直接加入' }))
+    fireEvent.click(screen.getByRole('button', { name: '打开另一个组队' }))
+    expect(await screen.findByRole('heading', { name: currentGroup.title })).toBeTruthy()
+
+    await act(async () => {
+      joining.resolve({ ...directGroup, join_state: 'joined', team_id: 'old-team', member_id: 'old-member' })
+      await joining.promise
+    })
+
+    expect(screen.getByRole('heading', { name: currentGroup.title })).toBeTruthy()
+    expect(screen.getByRole('link', { name: '查看我的团队' }).getAttribute('href')).toBe('/profile?view=teams')
+  })
+})
