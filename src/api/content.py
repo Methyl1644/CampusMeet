@@ -1,6 +1,6 @@
 import datetime
 import json
-from typing import Any
+from typing import Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import desc, func, select
@@ -13,6 +13,7 @@ from api.schemas.content import (
     TopicPostModerationRequest,
     TopicUpdateRequest,
 )
+from api.schemas.explore import ExploreGroupListResponse
 from services.content import (
     create_topic,
     seed_content_catalog,
@@ -25,6 +26,7 @@ from services.content import (
 )
 from services.content_moderation import ModerationContext, moderate_content
 from services.collaboration_lifecycle import PUBLIC_POST_STATUSES
+from services.explore import list_related_posts
 from services.moderation_cases import has_active_restriction
 from services.permissions import can_manage_topic
 from services.participation import (
@@ -333,6 +335,34 @@ def topic_posts(topic_id: int, user_id: str = Depends(current_user_id)) -> dict[
             ).scalars().all()
         } if posts else {}
         return api_ok(_batch_post_to_dicts(session, posts, authors, int(user_id)))
+    finally:
+        session.close()
+
+
+@router.get(
+    "/topics/{topic_id}/related-posts",
+    response_model=ExploreGroupListResponse,
+)
+def related_posts(
+    topic_id: int,
+    purpose: Literal["team_recruitment", "official_signup", "discussion"] | None = None,
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=20, ge=1, le=20),
+    user_id: str = Depends(current_user_id),
+) -> dict[str, Any]:
+    session, user = _current_user(user_id)
+    try:
+        result = list_related_posts(
+            session,
+            topic_id,
+            user.id,
+            purpose=purpose or "",
+            page=page,
+            page_size=page_size,
+        )
+        if result is None:
+            raise HTTPException(status_code=404, detail="活动不存在")
+        return api_ok(result)
     finally:
         session.close()
 

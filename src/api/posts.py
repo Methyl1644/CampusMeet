@@ -3,6 +3,7 @@ import logging
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import select
 
 from api.agent import classify_review, store_tag_proposals
 from api.common import api_ok, current_user_id, invoke_tool, parse_tool_result
@@ -11,11 +12,13 @@ from services.content import validate_tag_ids
 from services.content_moderation import ModerationContext, moderate_content
 from services.deadlines import parse_deadline_at
 from services.moderation_cases import has_active_restriction
-from services.collaboration_lifecycle import transition_post
+from services.collaboration_lifecycle import PUBLIC_POST_STATUSES, transition_post
+from services.explore import project_group_cards
 from services.permissions import can_manage_post
 from services.participation import (
     ParticipationError,
     commit_post_participation,
+    join_post_directly,
     validate_post_participation,
 )
 from storage.database.db import get_session
@@ -359,6 +362,38 @@ def update(post_id: int, body: PostUpdateRequest, user_id: str = Depends(current
             _post_to_dict(post, author, session, viewer_id=user.id),
             "帖子已更新",
         )
+    finally:
+        session.close()
+
+
+@router.post("/{post_id}/join")
+def join(post_id: int, user_id: str = Depends(current_user_id)) -> dict[str, Any]:
+    session = get_session()
+    try:
+        user = session.get(User, int(user_id))
+        if user is None:
+            raise HTTPException(status_code=401, detail="登录状态已失效")
+        post = session.scalar(
+            select(Post).where(
+                Post.id == post_id,
+                Post.status.in_(PUBLIC_POST_STATUSES),
+            )
+        )
+        if post is None:
+            raise HTTPException(status_code=404, detail="组队不存在")
+        try:
+            membership = join_post_directly(session, post, user)
+            session.commit()
+        except ParticipationError as exc:
+            session.rollback()
+            raise _participation_http_error(exc) from exc
+        current_post = session.get(Post, post_id)
+        if current_post is None:
+            raise HTTPException(status_code=404, detail="组队不存在")
+        projection = project_group_cards(session, [current_post], user.id)[0]
+        projection["team_id"] = str(membership.team_id)
+        projection["member_id"] = str(membership.id)
+        return api_ok(projection, "已加入组队")
     finally:
         session.close()
 

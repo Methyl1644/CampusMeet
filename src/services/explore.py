@@ -30,6 +30,7 @@ from storage.database.models import (
 
 
 MAX_PAGE_SIZE = 40
+MAX_RELATED_PAGE_SIZE = 20
 PREVIEW_LIMIT = 8
 RELATED_GROUP_LIMIT = 8
 FORMAL_ACTIVITY_CHANNELS = ("official", "organization")
@@ -825,6 +826,46 @@ def get_activity_detail(
         session, related_posts, user_id, now=current
     )
     return detail
+
+
+def list_related_posts(
+    session: Session,
+    topic_id: int,
+    user_id: int,
+    *,
+    purpose: str = "",
+    page: int = 1,
+    page_size: int = 20,
+    now: datetime.datetime | None = None,
+) -> dict[str, Any] | None:
+    topic = session.scalar(
+        select(Topic).where(Topic.id == topic_id, Topic.status == "active")
+    )
+    if topic is None:
+        return None
+    current = now or _utcnow()
+    page = max(1, int(page))
+    page_size = min(MAX_RELATED_PAGE_SIZE, max(1, int(page_size)))
+    statement = select(Post).where(
+        Post.topic_id == topic.id,
+        Post.status.in_(PUBLIC_POST_STATUSES),
+    )
+    if purpose:
+        statement = statement.where(Post.purpose == purpose)
+    total = int(session.scalar(select(func.count()).select_from(statement.subquery())) or 0)
+    posts = list(
+        session.scalars(
+            statement.order_by(Post.updated_at.desc(), Post.id.desc())
+            .offset((page - 1) * page_size)
+            .limit(page_size)
+        )
+    )
+    return _page(
+        project_group_cards(session, posts, user_id, now=current),
+        total,
+        page,
+        page_size,
+    )
 
 
 def _group_query(

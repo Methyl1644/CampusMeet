@@ -12,6 +12,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from services.deadlines import ensure_deadline_utc, parse_deadline_at
+from services.notifications import notify
 from services.permissions import can_manage_post, can_manage_topic
 from storage.database.models import (
     Application,
@@ -462,13 +463,13 @@ def _admit_member(
     user: User,
     *,
     suggested_role: str = "",
-) -> TeamMember:
+) -> tuple[TeamMember, bool]:
     existing = _membership(session, team.id, user.id)
     if existing is not None:
         synchronize_post_membership(session, post, team)
-        return existing
+        return existing, False
     _reserve_capacity(session, post, _participation_capacity(session, post))
-    membership, _ = _ensure_membership(
+    membership, created = _ensure_membership(
         session,
         team,
         user,
@@ -476,7 +477,42 @@ def _admit_member(
         suggested_role=suggested_role,
     )
     synchronize_post_membership(session, post, team)
-    return membership
+    return membership, created
+
+
+def _record_direct_join_effects(
+    session: Session,
+    post: Post,
+    team: Team,
+    membership: TeamMember,
+    user: User,
+) -> None:
+    notify(
+        session,
+        user_id=post.author_id,
+        event_type="team.member_joined",
+        title="有新成员加入",
+        body=f"{user.nickname} 已加入「{post.title}」",
+        target_type="team",
+        target_id=str(team.id),
+        dedupe_key=f"post:{post.id}:direct-join:user:{user.id}",
+    )
+    session.add(
+        AuditLog(
+            user_id=user.id,
+            action="post.direct_join",
+            target_type="post",
+            target_id=str(post.id),
+            detail=json.dumps(
+                {
+                    "team_id": team.id,
+                    "member_id": membership.id,
+                    "user_id": user.id,
+                },
+                ensure_ascii=False,
+            ),
+        )
+    )
 
 
 def join_post_directly(session: Session, post: Post, user: User) -> TeamMember:
@@ -495,15 +531,21 @@ def join_post_directly(session: Session, post: Post, user: User) -> TeamMember:
             return existing
     if locked_post.status not in EFFECTIVE_POST_STATUSES or deadline_has_passed(locked_post):
         raise ParticipationError("participation.closed")
+    if (
+        locked_post.status == "full"
+        or locked_post.current_members >= _participation_capacity(session, locked_post)
+    ):
+        raise ParticipationError("participation.full")
     team, owner = _prepare_team(session, locked_post)
     if user.id == owner.id:
         membership = _membership(session, team.id, user.id)
         if membership is None:
             raise ParticipationError("participation.closed")
         return membership
-    if locked_post.status == "full":
-        raise ParticipationError("participation.full")
-    return _admit_member(session, locked_post, team, user)
+    membership, created = _admit_member(session, locked_post, team, user)
+    if created:
+        _record_direct_join_effects(session, locked_post, team, membership, user)
+    return membership
 
 
 def validate_application_join(session: Session, post: Post, user: User) -> None:
