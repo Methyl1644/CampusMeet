@@ -16,6 +16,7 @@ from storage.database.models.verification_code import VerificationCode
 from utils.auth import hash_password, verify_password, generate_verification_code
 from utils.email_sender import send_verification_email, is_email
 from services.abuse_monitoring import check_and_record
+from services.auth_access import ACCESS_DENIED_MESSAGE, auth_email_is_allowed
 from services.auth_lifecycle import issue_access_token, validate_password
 from services.onboarding import onboarding_to_dict
 
@@ -175,6 +176,11 @@ def register_auth_send_code(
         account = account.strip().lower() if is_email(account) else account.strip()
         if not (is_email(account) or PHONE_PATTERN.fullmatch(account)):
             return json.dumps({"sent": False, "message": "请输入正确的手机号或邮箱"}, ensure_ascii=False)
+        if not auth_email_is_allowed(account):
+            return json.dumps(
+                {"sent": False, "message": ACCESS_DENIED_MESSAGE},
+                ensure_ascii=False,
+            )
         if purpose not in ALLOWED_CODE_PURPOSES:
             return json.dumps({"sent": False, "message": "不支持的验证码用途"}, ensure_ascii=False)
         if purpose == "register" and not _is_campus_email(account):
@@ -289,6 +295,11 @@ def register_user(
     ctx = request_context.get() or new_context(method="register_user")
     try:
         account = account.strip().lower() if is_email(account) else account.strip()
+        if not auth_email_is_allowed(account):
+            return json.dumps(
+                {"success": False, "message": ACCESS_DENIED_MESSAGE},
+                ensure_ascii=False,
+            )
         if not _is_campus_email(account):
             return json.dumps(
                 {"success": False, "message": "仅支持南京大学校园邮箱注册"},
@@ -374,6 +385,11 @@ def login_user(
     ctx = request_context.get() or new_context(method="login_user")
     try:
         account = account.strip().lower() if is_email(account) else account.strip()
+        if not auth_email_is_allowed(account):
+            return json.dumps(
+                {"success": False, "message": ACCESS_DENIED_MESSAGE},
+                ensure_ascii=False,
+            )
         if not password:
             return json.dumps({"success": False, "message": "请输入密码"}, ensure_ascii=False)
         session = get_session()
@@ -446,6 +462,11 @@ def verify_campus_email(user_id: str, email: str, code: str) -> str:
     ctx = request_context.get() or new_context(method="verify_campus_email")
     try:
         email = email.strip().lower()
+        if not auth_email_is_allowed(email):
+            return json.dumps(
+                {"verified": False, "message": ACCESS_DENIED_MESSAGE},
+                ensure_ascii=False,
+            )
         if not _is_campus_email(email):
             return json.dumps(
                 {"verified": False, "message": "请使用南京大学校园邮箱完成认证"},

@@ -2,6 +2,8 @@ import os
 import secrets
 from collections.abc import Mapping
 
+from services.auth_access import AUTH_ACCESS_MODES, allowed_auth_emails, auth_access_mode
+
 
 DEFAULT_LOCAL_ORIGINS = (
     "http://localhost:5173",
@@ -37,6 +39,12 @@ def production_config_errors(
 
     if env.get("AUTH_TEST_MODE", "").strip().lower() not in {"0", "false", "no", "off"}:
         errors.append("AUTH_TEST_MODE: must be false in production")
+
+    access_mode = auth_access_mode(env)
+    if access_mode not in AUTH_ACCESS_MODES:
+        errors.append("AUTH_ACCESS_MODE: must be public or allowlist")
+    elif access_mode == "allowlist" and not allowed_auth_emails(env):
+        errors.append("AUTH_ALLOWED_EMAILS: allowlist mode requires at least one email")
 
     if not env.get("CAMPUS_EMAIL_DOMAINS", "").strip():
         errors.append("CAMPUS_EMAIL_DOMAINS: configure at least one campus domain")

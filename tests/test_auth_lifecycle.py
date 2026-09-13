@@ -103,6 +103,22 @@ def test_expired_server_session_is_rejected_even_when_signature_is_valid(monkeyp
         common.current_user_id(f"Bearer {token}")
 
 
+def test_existing_session_is_rejected_after_email_is_removed_from_allowlist(monkeypatch):
+    factory = _factory()
+    monkeypatch.setattr(common, "get_session", factory)
+    monkeypatch.setenv("AUTH_ACCESS_MODE", "allowlist")
+    monkeypatch.setenv("AUTH_ALLOWED_EMAILS", "another@smail.nju.edu.cn")
+    with factory() as session:
+        token = auth_lifecycle.issue_access_token(session, 1, ttl_seconds=3600)
+        session.commit()
+
+    with pytest.raises(HTTPException) as exc:
+        common.current_user_id(f"Bearer {token}")
+
+    assert exc.value.status_code == 403
+    assert exc.value.detail == "当前为内部测试阶段，该账号暂未获得访问权限"
+
+
 def test_account_deactivation_requires_only_the_current_password():
     request = AccountDeactivateRequest(current_password="OldPassword2026")
 

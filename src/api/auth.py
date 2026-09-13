@@ -16,6 +16,7 @@ from api.schemas.auth import (
     ProfileUpdateRequest,
     OnboardingUpdateRequest,
 )
+from services.auth_access import ACCESS_DENIED_MESSAGE, auth_email_is_allowed
 from services.auth_lifecycle import (
     account_request_to_dict,
     change_password,
@@ -257,6 +258,8 @@ def change_account_password(
 @router.post("/reset-password")
 def reset_account_password(body: PasswordResetRequest) -> dict[str, Any]:
     account = body.account.strip().casefold()
+    if not auth_email_is_allowed(account):
+        raise HTTPException(status_code=403, detail=ACCESS_DENIED_MESSAGE)
     session = get_session()
     try:
         code = _verify_code(session, account, "reset_password", body.code)
