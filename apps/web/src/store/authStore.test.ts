@@ -4,6 +4,16 @@ import { describe, expect, it } from 'vitest'
 import { migrateAuthState, useAuthStore } from './authStore'
 
 describe('migrateAuthState', () => {
+  it('clears saved publishing drafts on logout even outside the publish page', () => {
+    sessionStorage.setItem('campusmate.publish.v2:1:topic_team:2', 'draft')
+    sessionStorage.setItem('campusmate.publish.v2:1:casual_invitation:', 'draft')
+    sessionStorage.setItem('unrelated', 'keep')
+    useAuthStore.getState().logout()
+    expect(sessionStorage.getItem('campusmate.publish.v2:1:topic_team:2')).toBeNull()
+    expect(sessionStorage.getItem('campusmate.publish.v2:1:casual_invitation:')).toBeNull()
+    expect(sessionStorage.getItem('unrelated')).toBe('keep')
+    sessionStorage.clear()
+  })
   it('invalidates a legacy authenticated user without an onboarding decision', () => {
     const legacyState = {
       token: 'legacy-token',

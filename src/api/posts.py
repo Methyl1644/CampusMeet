@@ -9,6 +9,7 @@ from api.agent import classify_review, store_tag_proposals
 from api.common import api_ok, current_user_id, invoke_tool, parse_tool_result
 from api.schemas.collaboration import PostCreateRequest, PostUpdateRequest
 from services.content import validate_tag_ids
+from services.publish_context import publish_context, missing_fields, inherited_tag_ids, merge_tag_ids
 from services.content_moderation import ModerationContext, moderate_content
 from services.deadlines import parse_deadline_at
 from services.moderation_cases import has_active_restriction
@@ -154,6 +155,25 @@ def post_detail(post_id: str, user_id: str = Depends(current_user_id)) -> dict[s
 def create(body: PostCreateRequest, user_id: str = Depends(current_user_id)) -> dict[str, Any]:
     if isinstance(body, PostCreateRequest):
         body = body.model_dump(exclude_none=True)
+    if body.get("client_request_id"):
+        with get_session() as session:
+            existing = session.scalar(select(Post).where(Post.author_id == int(user_id), Post.client_request_id == body["client_request_id"]))
+            if existing:
+                return api_ok(_post_to_dict(existing, session.get(User, int(user_id)), session, viewer_id=int(user_id)))
+    if body.get("publish_context_revision"):
+        with get_session() as session:
+            context = publish_context(session, session.get(User, int(user_id)), body.get("kind", "casual_invitation"), str(body.get("topic_id") or ""))
+            if context["revision"] != body["publish_context_revision"]:
+                raise HTTPException(409, "活动发布规则已更新，请重新加载后核对")
+            if body.get("purpose", "team_recruitment") not in context["allowed_purposes"]:
+                raise HTTPException(403, "当前用途不可发布")
+            if context["activity"]:
+                body["activity_name"] = context["activity"]["title"]
+            missing = missing_fields(body, {"needed_roles": {"status": "none"}}, context["kind"], body.get("purpose", "team_recruitment"))
+            if body.get("purpose") == "official_signup" and body.get("target_members", 0) > context["max_members"]:
+                missing.append("target_members")
+            if missing:
+                raise HTTPException(400, "请补全发布资料：" + ", ".join(missing))
     title = body.get("title") or body.get("activity_name") or "Team post"
     description = body.get("description", "")
     _moderate_post(body, user_id, title=title, description=description)
@@ -203,6 +223,8 @@ def create(body: PostCreateRequest, user_id: str = Depends(current_user_id)) -> 
             "review_risk_level": resolved_risk_level,
             "purpose": body.get("purpose", "team_recruitment"),
             "join_mode": body.get("join_mode") or "",
+            "client_request_id": body.get("client_request_id") or "",
+            "cover_upload_id": body.get("cover_upload_id") or "",
         },
     )
     raw_payload = json.loads(raw) if isinstance(raw, str) else raw
@@ -287,8 +309,9 @@ def update(post_id: int, body: PostUpdateRequest, user_id: str = Depends(current
                 target_members = int(body.get("target_members"))
             except (TypeError, ValueError) as exc:
                 raise HTTPException(status_code=400, detail="目标人数不正确") from exc
-            if target_members < 1 or target_members > 100:
-                raise HTTPException(status_code=400, detail="目标人数应在 1 到 100 之间")
+            limit = 10000 if participation.purpose == "official_signup" else 100
+            if target_members < 1 or target_members > limit:
+                raise HTTPException(status_code=400, detail=f"目标人数应在 1 到 {limit} 之间")
             post.target_members = target_members
             changed["target_members"] = target_members
         if "needed_roles" in body:
@@ -301,7 +324,10 @@ def update(post_id: int, body: PostUpdateRequest, user_id: str = Depends(current
             raw_tag_ids = body.get("tag_ids")
             if not isinstance(raw_tag_ids, list):
                 raise HTTPException(status_code=400, detail="标签格式不正确")
-            tag_ids = list(dict.fromkeys(str(item).strip() for item in raw_tag_ids if str(item).strip()))[:8]
+            try:
+                tag_ids = merge_tag_ids(inherited_tag_ids(session, post.topic_id), [str(item).strip() for item in raw_tag_ids if str(item).strip()])
+            except ValueError as exc:
+                raise HTTPException(400, str(exc)) from exc
             invalid = validate_tag_ids(session, tag_ids)
             if invalid:
                 raise HTTPException(status_code=400, detail=f"包含未收录的标签：{', '.join(invalid)}")

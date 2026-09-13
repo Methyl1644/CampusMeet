@@ -38,7 +38,14 @@ export const useAuthStore = create<AuthState>()(
         set((state) => ({
           user: state.user ? { ...state.user, ...partial } : null,
         })),
-      logout: () => set({ token: null, user: null, isAuthenticated: false }),
+      logout: () => {
+        try {
+          for (const key of Object.keys(sessionStorage)) {
+            if (key.startsWith('campusmate.publish.v2:')) sessionStorage.removeItem(key)
+          }
+        } catch { /* Storage can be disabled by the browser. */ }
+        set({ token: null, user: null, isAuthenticated: false })
+      },
     }),
     {
       name: 'campusmate-auth',

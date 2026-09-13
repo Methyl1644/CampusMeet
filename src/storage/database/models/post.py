@@ -9,6 +9,7 @@ class Post(Base):
     __tablename__ = "posts"
     __table_args__ = (
         Index("ix_posts_author_created", "author_id", "created_at"),
+        Index("uq_posts_author_request", "author_id", "client_request_id", unique=True),
         Index("ix_posts_topic_status", "topic_id", "status"),
         Index(
             "uq_posts_effective_official_signup_topic",
@@ -37,6 +38,7 @@ class Post(Base):
     title: Mapped[str] = mapped_column(Text, nullable=False)
     description: Mapped[str | None] = mapped_column(Text)
     cover_url: Mapped[str | None] = mapped_column(Text)
+    client_request_id: Mapped[str | None] = mapped_column(Text)
     source_type: Mapped[str] = mapped_column(Text, nullable=False, default="user")
     kind: Mapped[str] = mapped_column(Text, nullable=False, default="casual_invitation")
     purpose: Mapped[str] = mapped_column(

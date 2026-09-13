@@ -10,6 +10,7 @@ export default defineConfig({
   },
   test: {
     include: [
+      'src/pages/Publish.test.tsx',
       'src/pages/authFlow.test.ts',
       'src/pages/Login.test.tsx',
       'src/components/onboarding/ChoiceChips.test.tsx',

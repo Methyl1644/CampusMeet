@@ -1,584 +1,207 @@
-import { useEffect, useRef, useState } from 'react'
-import { Check, ChevronDown, Edit3, RefreshCw, Send, Sparkles, X } from 'lucide-react'
-import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { Check, RotateCcw, Send } from 'lucide-react'
+import { Link, useSearchParams } from 'react-router-dom'
 import { postDraft } from '@/api/agent'
 import { createPost } from '@/api/posts'
-import { AIThinking } from '@/components/Loading'
-import { Reveal } from '@/components/motion/Reveal'
-import { useToast } from '@/components/Toast'
+import { getPublishContext, uploadPostCover } from '@/api/publish'
+import CampusGrowth, { PlantBorder } from '@/components/publish/CampusGrowth'
+import WhaleWaiting, { Whale } from '@/components/publish/WhaleWaiting'
+import { PublishReview } from '@/components/publish/PublishReview'
+import { completeness, emptyDraft, missingFields, normalizeDraft, purposeLabels, requestError } from '@/features/publish/publishState'
+import type { FieldStates, PublishContext, PublishPhase } from '@/features/publish/publishState'
 import { useAuthStore } from '@/store/authStore'
-import type {
-  ChatMessage,
-  FieldStatus,
-  PostDraft,
-  PostDraftResponse,
-  StandardTag,
-} from '@shared/types'
-
-const EMPTY_DRAFT: PostDraft = {
-  activity_name: '',
-  target_members: 2,
-  needed_roles: [],
-  weekly_hours: '',
-  school_scope: '',
-  deadline: '',
-  description: '',
-}
-
-const FIELD_STATUS_LABEL: Record<FieldStatus, string> = {
-  confirmed: '已确认',
-  pending: '待补充',
-  unknown: '待确认',
-  skipped: '已跳过',
-  none: '未填写',
-}
-
-const serializeFieldStateValue = (value: string | number | string[]) =>
-  Array.isArray(value) ? value.join('、') : value
+import type { ChatMessage, PostDraft, PostDraftRequest, PostPurpose, StandardTag } from '@shared/types'
 
 export default function Publish() {
-  const navigate = useNavigate()
-  const [searchParams] = useSearchParams()
-  const shouldReduceMotion = useReducedMotion()
-  const { user } = useAuthStore()
-  const { showToast } = useToast()
-
-  const [messages, setMessages] = useState<ChatMessage[]>([])
-  const [input, setInput] = useState('')
-  const [draft, setDraft] = useState<PostDraft | null>(null)
-  const [draftRevision, setDraftRevision] = useState(0)
-  const [isComplete, setIsComplete] = useState(false)
-  const [loading, setLoading] = useState(false)
-  const [publishing, setPublishing] = useState(false)
-  const [useManualForm, setUseManualForm] = useState(false)
-  const [mobileDraftOpen, setMobileDraftOpen] = useState(false)
-  const [fieldStates, setFieldStates] = useState<
-    NonNullable<PostDraftResponse['field_states']>
-  >({})
-  const [candidateTags, setCandidateTags] = useState<StandardTag[]>([])
-  const [selectedTagIds, setSelectedTagIds] = useState<string[]>([])
-
-  const kind = searchParams.get('kind') === 'topic_team' ? 'topic_team' : 'casual_invitation'
-  const topicId = searchParams.get('topic_id') || undefined
-  const scrollRef = useRef<HTMLDivElement>(null)
-  const requiredDraftFields: Array<keyof PostDraft> = kind === 'topic_team'
-    ? ['activity_name', 'target_members', 'needed_roles', 'weekly_hours', 'school_scope', 'deadline']
-    : ['activity_name', 'target_members', 'needed_roles', 'weekly_hours', 'school_scope']
-
-  const draftIsValid = Boolean(
-    draft?.activity_name.trim() &&
-      draft.target_members > 0,
-  )
-  const fieldStatesComplete = requiredDraftFields.every((field) => {
-    const status = fieldStates[field]?.status
-    return status !== undefined && status !== 'pending'
-  }) || (Object.keys(fieldStates).length === 0 && isComplete)
-  const canPublish = draftIsValid && (useManualForm || fieldStatesComplete)
-
-  useEffect(() => {
-    scrollRef.current?.scrollTo({
-      top: scrollRef.current.scrollHeight,
-      behavior: shouldReduceMotion ? 'auto' : 'smooth',
-    })
-  }, [messages, loading, shouldReduceMotion])
-
-  const activateManualForm = () => {
-    setUseManualForm(true)
-    setMobileDraftOpen(true)
-    setDraft((current) => current || { ...EMPTY_DRAFT })
-    setDraftRevision((current) => current + 1)
-  }
-
-  const handleSend = async () => {
-    if (!input.trim() || loading) return
-
-    const userMsg: ChatMessage = {
-      role: 'user',
-      content: input.trim(),
-      timestamp: new Date().toISOString(),
-    }
-    setMessages((prev) => [...prev, userMsg])
-    setInput('')
-    setLoading(true)
-
-    try {
-      const res = await postDraft({
-        message: userMsg.content,
-        draft: draft || undefined,
-        user_skills: user?.skills,
-        kind,
-        topic_id: topicId,
-        field_states: fieldStates,
-      })
-      setDraft(res.draft)
-      setDraftRevision((current) => current + 1)
-      setIsComplete(res.is_complete)
-      setFieldStates(res.field_states || {})
-      setCandidateTags(res.candidate_tags || [])
-      setSelectedTagIds((current) =>
-        Array.from(new Set([...current, ...(res.suggested_tag_ids || [])])),
-      )
-      setMessages((prev) => [
-        ...prev,
-        {
-          role: 'assistant',
-          content: res.reply,
-          draft: res.draft,
-          timestamp: new Date().toISOString(),
-        },
-      ])
-    } catch {
-      setMessages((prev) => [
-        ...prev,
-        {
-          role: 'assistant',
-          content: 'AI 服务不可用',
-          timestamp: new Date().toISOString(),
-        },
-      ])
-      activateManualForm()
-      showToast('已切换到手动填写', 'error')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const handlePublish = async () => {
-    if (!draft) return
-    if (!draftIsValid) {
-      showToast('请至少填写活动名称和目标人数', 'error')
-      return
-    }
-    setPublishing(true)
-    try {
-      const post = await createPost({
-        title: `${draft.activity_name}${draft.needed_roles.length ? `招募${draft.needed_roles.join('和')}` : '组队邀约'}`,
-        activity_name: draft.activity_name,
-        target_members: draft.target_members,
-        needed_roles: draft.needed_roles,
-        weekly_hours: draft.weekly_hours,
-        school_scope: draft.school_scope,
-        deadline: draft.deadline,
-        description: draft.description,
-        kind,
-        topic_id: topicId,
-        tag_ids: selectedTagIds,
-      })
-      showToast('发布成功，正在审核中', 'success')
-      navigate(`/posts/${post.id}`)
-    } catch {
-      showToast('发布失败，请稍后重试', 'error')
-    } finally {
-      setPublishing(false)
-    }
-  }
-
-  const handleReset = () => {
-    setMessages([])
-    setDraft(null)
-    setDraftRevision((current) => current + 1)
-    setIsComplete(false)
-    setUseManualForm(false)
-    setMobileDraftOpen(false)
-    setFieldStates({})
-    setCandidateTags([])
-    setSelectedTagIds([])
-  }
-
-  const updateDraftField = (field: keyof PostDraft, value: string | number | string[]) => {
-    const isEmpty = Array.isArray(value)
-      ? value.length === 0
-      : typeof value === 'number'
-        ? value <= 0
-        : !value.trim()
-    const emptyIsTerminal = isEmpty && (field === 'needed_roles' || field === 'description')
-    setDraft((prev) => (prev ? { ...prev, [field]: value } : null))
-    setFieldStates((current) => ({
-      ...current,
-      [field]: {
-        value: isEmpty ? null : serializeFieldStateValue(value),
-        status: emptyIsTerminal ? 'none' : isEmpty ? 'pending' : 'confirmed',
-      },
-    }))
-  }
-
-  return (
-    <div className="min-h-[calc(100dvh-8rem)] py-2 md:py-4">
-      <Reveal as="header" className="mb-5 border-b border-stone pb-5">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-          <div className="min-w-0">
-            <p className="section-label mb-2">校园协作编辑部</p>
-            <div className="flex items-center gap-2">
-              <Sparkles size={19} className="shrink-0 text-primary-600" />
-              <h1 className="text-xl font-semibold text-ink sm:text-2xl">AI 对话式发帖</h1>
-            </div>
-            <p className="mt-2 text-sm text-ink-muted">
-              {kind === 'topic_team'
-                ? '正在为当前话题发布组队招募'
-                : '正在发布同学自主邀约'}
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <button type="button" onClick={handleReset} className="btn-secondary">
-              <RefreshCw size={15} />
-              重新描述
-            </button>
-            {useManualForm ? (
-              <button
-                type="button"
-                onClick={() => setUseManualForm(false)}
-                className="btn-secondary"
-              >
-                <Sparkles size={15} />
-                回到 AI 对话
-              </button>
-            ) : (
-              <button type="button" onClick={activateManualForm} className="btn-secondary">
-                <Edit3 size={15} />
-                手动填写
-              </button>
-            )}
-          </div>
-        </div>
-      </Reveal>
-
-      <div className="grid min-w-0 gap-5 lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-start">
-        <Reveal
-          as="section"
-          className="flex min-h-[32rem] min-w-0 flex-col overflow-hidden rounded-card border border-stone bg-paper shadow-panel lg:h-[calc(100dvh-13rem)]"
-          delay={0.04}
-        >
-          <div className="flex items-center justify-between border-b border-stone px-4 py-3">
-            <h2 className="text-sm font-semibold text-ink">需求对话</h2>
-            <span className="text-xs font-medium text-campus-green">
-              {loading ? '整理中' : useManualForm ? '手动模式' : '可继续对话'}
-            </span>
-          </div>
-
-          <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto px-3 py-4 sm:px-5">
-            <div className="space-y-3">
-              <AnimatePresence initial={false}>
-                {messages.map((message, index) => (
-                  <motion.div
-                    key={`${message.timestamp}-${index}`}
-                    layout={!shouldReduceMotion}
-                    initial={shouldReduceMotion ? false : { opacity: 0, y: 8 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={shouldReduceMotion ? undefined : { opacity: 0 }}
-                    transition={{ duration: shouldReduceMotion ? 0 : 0.18 }}
-                    className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
-                  >
-                    <div
-                      className={`max-w-[88%] rounded-card border px-3.5 py-3 text-sm leading-6 sm:max-w-[78%] ${
-                        message.role === 'user'
-                          ? 'border-primary-600 bg-primary-600 text-white'
-                          : 'border-stone bg-paper-warm text-ink'
-                      }`}
-                    >
-                      <p className="whitespace-pre-wrap break-words">{message.content}</p>
-                    </div>
-                  </motion.div>
-                ))}
-              </AnimatePresence>
-
-              <AnimatePresence>
-                {loading && (
-                  <motion.div
-                    key="ai-thinking"
-                    initial={shouldReduceMotion ? false : { opacity: 0, y: 8 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={shouldReduceMotion ? undefined : { opacity: 0 }}
-                    transition={{ duration: shouldReduceMotion ? 0 : 0.18 }}
-                    className="flex justify-start"
-                  >
-                    <div className="rounded-card border border-stone bg-paper-warm px-4 py-3">
-                      <AIThinking />
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
-          </div>
-
-          <div className="border-t border-stone bg-paper px-3 py-3 sm:px-4">
-            <label htmlFor="publish-message" className="mb-1.5 block text-sm font-medium text-ink">
-              描述组队需求
-            </label>
-            <div className="flex min-w-0 gap-2">
-              <input
-                id="publish-message"
-                type="text"
-                value={input}
-                onChange={(event) => setInput(event.target.value)}
-                onKeyDown={(event) => event.key === 'Enter' && handleSend()}
-                disabled={loading}
-                autoComplete="off"
-                className="input-base min-w-0 flex-1"
-              />
-              <button
-                type="button"
-                onClick={handleSend}
-                disabled={loading || !input.trim()}
-                className="icon-button size-10 bg-primary-600 text-white hover:bg-primary-700 hover:text-white"
-                aria-label="发送需求"
-                title="发送需求"
-              >
-                <Send size={17} />
-              </button>
-            </div>
-          </div>
-        </Reveal>
-
-        <Reveal
-          as="aside"
-          className="min-w-0 border-t-2 border-primary-600 bg-paper shadow-panel lg:max-h-[calc(100dvh-13rem)] lg:overflow-y-auto"
-          delay={0.08}
-        >
-          <button
-            type="button"
-            onClick={() => setMobileDraftOpen((current) => !current)}
-            aria-expanded={mobileDraftOpen}
-            aria-controls="mobile-publish-draft"
-            className="flex min-h-12 w-full items-center justify-between gap-3 px-4 py-3 text-left lg:hidden"
-          >
-            <span className="min-w-0">
-              <span className="block text-xs font-semibold text-primary-700">结构化稿件</span>
-              <span className="mt-0.5 block truncate text-sm font-semibold text-ink">
-                {draft ? `草稿：${draft.activity_name || '暂无'}` : '组队帖草稿'}
-              </span>
-            </span>
-            <ChevronDown size={18} className="shrink-0 text-ink-muted" />
-          </button>
-
-          <div
-            id="mobile-publish-draft"
-            className={`${mobileDraftOpen ? 'block' : 'hidden'} px-4 py-5 lg:block`}
-          >
-          <div className="mb-5 hidden items-start border-b border-stone pb-4 lg:flex">
-            <div>
-              <p className="section-label mb-2">结构化稿件</p>
-              <h2 className="text-lg font-semibold text-ink">组队帖草稿</h2>
-            </div>
-          </div>
-
-          <AnimatePresence mode="wait" initial={false}>
-            {draft ? (
-              <motion.div
-                key={`draft-${draftRevision}`}
-                initial={shouldReduceMotion ? false : { opacity: 0, x: 10 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={shouldReduceMotion ? undefined : { opacity: 0, x: -6 }}
-                transition={{ duration: shouldReduceMotion ? 0 : 0.18 }}
-                className="space-y-4"
-              >
-                <DraftField
-                  label="活动名称"
-                  value={draft.activity_name}
-                  status={fieldStates.activity_name?.status}
-                  onChange={(value) => updateDraftField('activity_name', value)}
-                />
-                <DraftField
-                  label="目标总人数"
-                  value={draft.target_members > 0 ? String(draft.target_members) : ''}
-                  status={fieldStates.target_members?.status}
-                  inputMode="numeric"
-                  onChange={(value) => {
-                    const parsed = Number(value)
-                    updateDraftField(
-                      'target_members',
-                      Number.isInteger(parsed) && parsed > 0 ? parsed : 0,
-                    )
-                  }}
-                />
-                <DraftField
-                  label={kind === 'casual_invitation' ? '参与要求' : '需要角色'}
-                  value={draft.needed_roles.join('、')}
-                  status={fieldStates.needed_roles?.status}
-                  onChange={(value) =>
-                    updateDraftField(
-                      'needed_roles',
-                      value.split(/[、,，\s]+/).filter(Boolean),
-                    )
-                  }
-                />
-                <DraftField
-                  label={kind === 'casual_invitation' ? '活动时间' : '每周投入'}
-                  value={draft.weekly_hours}
-                  status={fieldStates.weekly_hours?.status}
-                  onChange={(value) => updateDraftField('weekly_hours', value)}
-                />
-                <DraftField
-                  label={kind === 'casual_invitation' ? '活动地点' : '组队范围'}
-                  value={draft.school_scope}
-                  status={fieldStates.school_scope?.status}
-                  onChange={(value) => updateDraftField('school_scope', value)}
-                />
-                {kind === 'topic_team' && (
-                  <DraftField
-                    label="截止日期"
-                    value={draft.deadline}
-                    status={fieldStates.deadline?.status}
-                    onChange={(value) => updateDraftField('deadline', value)}
-                  />
-                )}
-                <DraftField
-                  label="补充说明"
-                  value={draft.description || ''}
-                  status={fieldStates.description?.status}
-                  multiline
-                  onChange={(value) => updateDraftField('description', value)}
-                />
-
-                {candidateTags.length > 0 && (
-                  <section className="border-t border-stone pt-4" aria-labelledby="standard-tags-title">
-                    <div className="mb-2 flex items-center justify-between gap-3">
-                      <h3 id="standard-tags-title" className="text-xs font-semibold text-ink">
-                        标准标签
-                      </h3>
-                      <span className="text-[11px] text-ink-muted">仅可选择标准标签</span>
-                    </div>
-                    <div className="flex flex-wrap gap-1.5">
-                      <AnimatePresence initial={false}>
-                        {candidateTags
-                          .filter((tag) => selectedTagIds.includes(tag.tag_id))
-                          .map((tag) => (
-                            <motion.span
-                              layout={!shouldReduceMotion}
-                              key={tag.tag_id}
-                              initial={shouldReduceMotion ? false : { opacity: 0, scale: 0.96 }}
-                              animate={{ opacity: 1, scale: 1 }}
-                              exit={shouldReduceMotion ? undefined : { opacity: 0, scale: 0.96 }}
-                              transition={{ duration: shouldReduceMotion ? 0 : 0.16 }}
-                              className="tag-chip"
-                            >
-                              <span className="max-w-[12rem] break-words">{tag.canonical_name}</span>
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  setSelectedTagIds((items) =>
-                                    items.filter((id) => id !== tag.tag_id),
-                                  )
-                                }
-                                className="inline-flex size-5 items-center justify-center rounded-full hover:bg-primary-200"
-                                aria-label={`移除${tag.canonical_name}`}
-                                title={`移除${tag.canonical_name}`}
-                              >
-                                <X size={12} />
-                              </button>
-                            </motion.span>
-                          ))}
-                      </AnimatePresence>
-                    </div>
-                    {candidateTags.some((tag) => !selectedTagIds.includes(tag.tag_id)) && (
-                      <select
-                        className="input-base mt-2 text-xs"
-                        value=""
-                        onChange={(event) => {
-                          if (event.target.value) {
-                            setSelectedTagIds((items) => [...items, event.target.value])
-                          }
-                        }}
-                        aria-label="添加标准标签"
-                      >
-                        <option value="">添加标准标签</option>
-                        {candidateTags
-                          .filter((tag) => !selectedTagIds.includes(tag.tag_id))
-                          .map((tag) => (
-                            <option key={tag.tag_id} value={tag.tag_id}>
-                              {tag.canonical_name}
-                            </option>
-                          ))}
-                      </select>
-                    )}
-                  </section>
-                )}
-
-                <div className="border-t border-stone pt-4">
-                  <button
-                    type="button"
-                    onClick={handlePublish}
-                    disabled={publishing || !canPublish}
-                    className="btn-primary min-h-11 w-full"
-                  >
-                    <Check size={16} />
-                    {publishing ? '发布中...' : canPublish ? '确认发布' : '继续完善信息'}
-                  </button>
-                </div>
-              </motion.div>
-            ) : (
-              <motion.div
-                key="empty-draft"
-                initial={shouldReduceMotion ? false : { opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={shouldReduceMotion ? undefined : { opacity: 0 }}
-                transition={{ duration: shouldReduceMotion ? 0 : 0.18 }}
-                className="py-12 text-center text-sm text-ink-muted"
-              >
-                <Sparkles size={28} className="mx-auto mb-3 text-primary-300" />
-                <p>暂无草稿</p>
-              </motion.div>
-            )}
-          </AnimatePresence>
-          </div>
-        </Reveal>
-      </div>
-    </div>
-  )
+  const [params] = useSearchParams()
+  const user = useAuthStore((state) => state.user)
+  const kind = params.get('kind') === 'topic_team' ? 'topic_team' : 'casual_invitation'
+  const topicId = params.get('topic_id') || undefined
+  return <PublishSession key={`${user?.id}:${kind}:${topicId}`} userId={user?.id || ''} kind={kind} topicId={topicId} />
 }
 
-function DraftField({
-  label,
-  value,
-  status,
-  multiline = false,
-  inputMode,
-  onChange,
-}: {
-  label: string
-  value: string
-  status?: FieldStatus
-  multiline?: boolean
-  inputMode?: 'numeric'
-  onChange: (value: string) => void
-}) {
-  const fieldId = `draft-${label}`
+function PublishSession({ userId, kind, topicId }: { userId: string; kind: PublishContext['kind']; topicId?: string }) {
+  const [context, setContext] = useState<PublishContext | null>(null)
+  const [contextError, setContextError] = useState('')
+  const [contextLoading, setContextLoading] = useState(true)
+  const [purpose, setPurpose] = useState<PostPurpose>('team_recruitment')
+  const [phase, setPhase] = useState<PublishPhase>('conversation')
+  const [draft, setDraft] = useState<PostDraft>({ ...emptyDraft })
+  const [states, setStates] = useState<FieldStates>({})
+  const [messages, setMessages] = useState<ChatMessage[]>([])
+  const [input, setInput] = useState('')
+  const [error, setError] = useState('')
+  const [degraded, setDegraded] = useState(false)
+  const [candidates, setCandidates] = useState<StandardTag[]>([])
+  const [tags, setTags] = useState<string[]>([])
+  const [cover, setCover] = useState<{ file: File; preview: string; id?: string } | null>(null)
+  const [uploading, setUploading] = useState(false)
+  const [result, setResult] = useState<string | null>(null)
+  const [restorable, setRestorable] = useState(false)
+  const requestId = useRef<string>(crypto.randomUUID())
+  const busy = useRef(false)
+  const generation = useRef(0)
+  const contextSequence = useRef(0)
+  const uploadSequence = useRef(0)
+  const retryMessage = useRef('')
+  const inputRef = useRef<HTMLTextAreaElement>(null)
+  const historyRef = useRef<HTMLDivElement>(null)
+  const reviewRef = useRef<HTMLHeadingElement>(null)
+  const storageKey = `campusmate.publish.v2:${userId}:${kind}:${topicId || ''}`
 
-  return (
-    <div className="min-w-0">
-      <div className="mb-1 flex items-center justify-between gap-3">
-        <label htmlFor={fieldId} className="text-xs font-semibold text-ink-muted">
-          {label}
-        </label>
-        {status && (
-          <span
-            className={`shrink-0 text-[11px] font-medium ${
-              status === 'confirmed' ? 'text-campus-green' : 'text-campus-gold'
-            }`}
-          >
-            {FIELD_STATUS_LABEL[status]}
-          </span>
-        )}
+  const loadContext = useCallback(async () => {
+    const sequence = ++contextSequence.current
+    setContextLoading(true); setContextError('')
+    try {
+      const value = await getPublishContext(kind, topicId)
+      if (sequence !== contextSequence.current) return
+      setContext(value)
+      setPurpose((old) => value.allowed_purposes.includes(old) ? old : value.default_purpose)
+      setDraft((old) => ({ ...old, ...value.defaults }))
+      setStates((old) => ({ ...old, ...Object.fromEntries(Object.entries(value.defaults).filter(([, v]) => Boolean(v)).map(([k, v]) => [k, { value: v, status: 'confirmed' }])) }))
+      try { setRestorable(Boolean(sessionStorage.getItem(storageKey))) } catch { /* Optional storage. */ }
+    } catch (err) {
+      if (sequence === contextSequence.current) setContextError(requestError(err, '暂时无法加载发布权限，请重试。'))
+    } finally { if (sequence === contextSequence.current) setContextLoading(false) }
+  }, [kind, topicId, storageKey])
+
+  useEffect(() => {
+    void loadContext()
+    return () => { generation.current++; contextSequence.current++; uploadSequence.current++ }
+  }, [loadContext])
+  useEffect(() => { if (historyRef.current) historyRef.current.scrollTop = historyRef.current.scrollHeight }, [messages])
+  useEffect(() => { if (phase === 'review') reviewRef.current?.focus() }, [phase])
+  const coverPreview = cover?.preview
+  useEffect(() => () => { if (coverPreview) URL.revokeObjectURL(coverPreview) }, [coverPreview])
+  useEffect(() => {
+    if (!context || restorable || phase === 'published' || (!messages.length && !draft.activity_name && !input)) return
+    try { sessionStorage.setItem(storageKey, JSON.stringify({ draft, states, messages: messages.slice(-30), input, purpose, tags, requestId: requestId.current, revision: context.revision, savedAt: Date.now() })) } catch { /* Optional storage. */ }
+  }, [context, restorable, phase, draft, states, messages, input, purpose, tags, storageKey])
+  useEffect(() => useAuthStore.subscribe((next) => {
+    if (!next.isAuthenticated) { try { sessionStorage.removeItem(storageKey) } catch { /* Optional storage. */ } }
+  }), [storageKey])
+
+  const updateField = (field: keyof PostDraft, value: string | number | string[]) => {
+    setDraft((old) => ({ ...old, [field]: value }))
+    const isEmpty = Array.isArray(value) ? !value.length : !value
+    setStates((old) => ({ ...old, [field]: { value, status: isEmpty ? (field === 'needed_roles' ? 'none' : 'pending') : 'confirmed' } }))
+  }
+  const send = async (retry = false) => {
+    const text = retry ? retryMessage.current : input.trim()
+    if (!context || !text || busy.current || uploading || restorable) return
+    busy.current = true
+    const sequence = ++generation.current
+    retryMessage.current = text
+    setError(''); setPhase('thinking')
+    if (!retry) setMessages((old) => [...old, { role: 'user', content: text, timestamp: new Date().toISOString() }])
+    setInput('')
+    try {
+      const response = await postDraft({
+        message: text, draft, kind, topic_id: topicId, purpose, publish_context_revision: context.revision,
+        field_states: Object.fromEntries(Object.entries(states).map(([key, state]) => [key, { ...state, value: Array.isArray(state.value) ? state.value.join('、') : state.value }])) as PostDraftRequest['field_states'],
+      })
+      if (sequence !== generation.current) return
+      if (response.blocked) { setError(response.reply || '请调整描述后再试。'); setPhase('conversation'); return }
+      const nextDraft = normalizeDraft(response.draft || draft)
+      if (context.activity) nextDraft.activity_name = context.activity.title
+      const nextStates = response.field_states || {}
+      setDraft(nextDraft); setStates(nextStates); setCandidates(response.candidate_tags || [])
+      setTags((old) => [...new Set([...old, ...(response.suggested_tag_ids || [])])].filter((id) => !context.inherited_tags.some((tag) => tag.tag_id === id)).slice(0, Math.max(0, 8 - context.inherited_tags.length)))
+      setMessages((old) => [...old, { role: 'assistant', content: response.reply, timestamp: new Date().toISOString() }])
+      setDegraded(Boolean(response.degraded))
+      setPhase(response.is_complete && missingFields(nextDraft, nextStates, context, purpose).length === 0 ? 'review' : 'conversation')
+      retryMessage.current = ''
+    } catch (err) {
+      if (sequence !== generation.current) return
+      setError(requestError(err, '暂时没有收到回复，你的内容已保留。请重试或手动完善。')); setPhase('conversation')
+    } finally { if (sequence === generation.current) { busy.current = false; inputRef.current?.focus() } }
+  }
+  const publish = async () => {
+    if (!context || busy.current || uploading) return
+    const missing = missingFields(draft, states, context, purpose)
+    if (missing.length) { setError('请先补全标出的必填内容。'); document.getElementById(`publish-${missing[0]}`)?.focus(); return }
+    if (cover && !cover.id) { setError('封面还未上传成功，请重试或移除封面。'); return }
+    busy.current = true
+    const sequence = ++generation.current
+    setError(''); setPhase('publishing')
+    try {
+      const post = await createPost({ ...draft, ...(purpose === 'discussion' ? { target_members: 1, needed_roles: [], weekly_hours: '', school_scope: '', deadline: '' } : {}), title: draft.activity_name, kind, topic_id: topicId, purpose, tag_ids: tags, client_request_id: requestId.current, cover_upload_id: cover?.id, publish_context_revision: context.revision })
+      if (sequence !== generation.current) return
+      setResult(post.id); setPhase('published')
+      try { sessionStorage.removeItem(storageKey) } catch { /* Optional storage. */ }
+    } catch (err) {
+      if (sequence === generation.current) { setError(requestError(err, '未能确认发布结果，内容已保留。重试不会重复发布。')); setPhase('review') }
+    } finally { if (sequence === generation.current) busy.current = false }
+  }
+  const upload = async (file: File) => {
+    const sequence = ++uploadSequence.current
+    const preview = URL.createObjectURL(file)
+    setCover({ file, preview }); setUploading(true); setError('')
+    try {
+      const id = await uploadPostCover(file)
+      if (sequence === uploadSequence.current) setCover({ file, preview, id })
+    } catch (err) {
+      if (sequence === uploadSequence.current) setError(requestError(err, '封面上传失败，请重试。'))
+    } finally { if (sequence === uploadSequence.current) setUploading(false) }
+  }
+  const restore = () => {
+    try {
+      const saved = JSON.parse(sessionStorage.getItem(storageKey) || '{}')
+      if (!context || !Number.isFinite(saved.savedAt) || Date.now() - saved.savedAt > 86400000 || saved.revision !== context.revision || !context.allowed_purposes.includes(saved.purpose)) throw new Error('stale')
+      setDraft({ ...normalizeDraft(saved.draft || {}), ...(context.activity ? { activity_name: context.activity.title } : {}) })
+      setStates(saved.states || {}); setPurpose(saved.purpose)
+      setMessages(Array.isArray(saved.messages) ? saved.messages.filter((m: ChatMessage) => ['user', 'assistant'].includes(m.role) && typeof m.content === 'string') : [])
+      setInput(typeof saved.input === 'string' ? saved.input : '')
+      setTags(Array.isArray(saved.tags) ? saved.tags.filter((tag: unknown) => typeof tag === 'string').slice(0, 8) : [])
+      if (/^[a-zA-Z0-9-]{16,64}$/.test(saved.requestId)) requestId.current = saved.requestId
+      setError('')
+    } catch { setError('旧草稿已过期或活动规则已变化，请重新确认资料。') }
+    setRestorable(false)
+  }
+  const reset = () => {
+    if (!window.confirm('清空本次对话和草稿，重新开始？')) return
+    generation.current++; uploadSequence.current++; busy.current = false
+    setDraft({ ...emptyDraft, ...context?.defaults }); setStates({})
+    setMessages([]); setInput(''); setError(''); setTags([]); setCover(null); setUploading(false)
+    setRestorable(false); setDegraded(false); setPhase('conversation'); setResult(null)
+    requestId.current = crypto.randomUUID(); retryMessage.current = ''
+    try { sessionStorage.removeItem(storageKey) } catch { /* Optional storage. */ }
+  }
+
+  if (contextLoading) return <div className="publish-experience py-12" role="status">正在准备发布空间…</div>
+  if (!context || contextError) return <div className="publish-experience py-12"><p role="alert">{contextError}</p><button className="btn btn-secondary mt-4" onClick={() => void loadContext()}>重新加载</button></div>
+  const progress = completeness(draft, states, context, purpose)
+  const locked = phase === 'thinking' || phase === 'publishing'
+  const reviewing = phase === 'review' || phase === 'publishing'
+  return <div className="publish-experience py-6 sm:py-10">
+    <header className="flex items-center justify-between gap-4 mb-5 px-1">
+      <div><p className="text-sm text-gray-500 mb-1">和小蓝鲸一起</p><h1 className="text-2xl sm:text-3xl font-bold">让想法找到伙伴</h1></div>
+      <button className="publish-icon" title="重新开始" aria-label="重新开始" disabled={locked} onClick={reset}><RotateCcw size={20} /></button>
+    </header>
+    {context.activity && <div className="publish-context mb-4"><span>关联活动</span><Link to={`/topics/${context.activity.id}`} className="font-semibold">{context.activity.title}</Link></div>}
+    {context.allowed_purposes.length > 1 && <div className="flex flex-wrap gap-2 mb-5" role="group" aria-label="发布用途">{context.allowed_purposes.map((item) => <button key={item} className={`publish-purpose ${purpose === item ? 'is-active' : ''}`} aria-pressed={purpose === item} disabled={locked || phase === 'published' || restorable} onClick={() => { setPurpose(item); setPhase('conversation'); setError(''); retryMessage.current = '' }}>{purposeLabels[item]}</button>)}</div>}
+    {restorable && <div className="publish-restore mb-4"><span>有一份尚未发布的草稿</span><button onClick={restore}>继续填写</button><button onClick={() => { try { sessionStorage.removeItem(storageKey) } catch { /* Optional storage. */ } setRestorable(false) }}>放弃</button></div>}
+    <div className="publish-dialog" aria-busy={locked}>
+      <div className="publish-dialog-content">
+        {phase === 'published' ? <div className="text-center py-16 px-6"><Check size={42} className="mx-auto mb-4 text-emerald-600" /><h2 className="text-2xl font-bold mb-3">发布成功，等伙伴来相遇</h2><div className="flex gap-3 justify-center flex-wrap"><Link className="btn btn-primary" to={`/posts/${result}`}>查看帖子</Link><Link className="btn btn-secondary" to="/my/groups">我的组队</Link></div></div> : reviewing ?
+          <PublishReview headingRef={reviewRef} draft={draft} states={states} context={context} purpose={purpose} updateField={updateField} tags={tags} setTags={setTags} candidates={candidates} cover={cover} upload={upload} removeCover={() => { uploadSequence.current++; setCover(null); setUploading(false) }} uploading={uploading} locked={locked} publish={() => void publish()} back={() => { setPhase('conversation'); setError('') }} /> : <>
+            <div className="publish-messages" ref={historyRef} role="log" aria-label="发布对话" aria-live="polite">
+              <div className="flex items-center gap-2 mb-3"><div style={{ width: 42 }}><Whale /></div><span className="font-semibold text-sm">小蓝鲸</span></div>
+              <div className="publish-bubble publish-bubble-assistant mb-4">{purpose === 'discussion' ? '想请教经验，还是分享一个新发现？和我说说吧。' : purpose === 'official_signup' ? '介绍一下这场活动，我来帮你整理报名信息。' : '你想做什么，想遇见怎样的伙伴？先从一句话开始吧。'}</div>
+              {messages.map((message, index) => <div key={index} className={`publish-bubble publish-bubble-${message.role} mb-4`}>{message.content}</div>)}
+            </div>
+            <form className="publish-composer" onSubmit={(event) => { event.preventDefault(); void send() }}>
+              <textarea ref={inputRef} aria-label="描述你的想法" placeholder="比如：这周末想找几位同学一起打羽毛球…" value={input} maxLength={4000} disabled={locked || restorable} rows={2} onChange={(event) => setInput(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); void send() } }} />
+              <button type="submit" className="publish-send" title="发送" aria-label="发送" disabled={!input.trim() || locked || restorable}><Send size={20} /></button>
+            </form>
+          </>}
+        {phase === 'thinking' && <WhaleWaiting />}
       </div>
-      {multiline ? (
-        <textarea
-          id={fieldId}
-          value={value}
-          onChange={(event) => onChange(event.target.value)}
-          rows={3}
-          className="input-base resize-y text-sm leading-6"
-        />
-      ) : (
-        <input
-          id={fieldId}
-          type={inputMode === 'numeric' ? 'number' : 'text'}
-          inputMode={inputMode}
-          min={inputMode === 'numeric' ? 1 : undefined}
-          value={value}
-          onChange={(event) => onChange(event.target.value)}
-          className="input-base text-sm"
-        />
-      )}
+      {error && <div className="publish-feedback" role="alert"><p>{error}</p><div className="flex gap-4 mt-2">{retryMessage.current && phase === 'conversation' && <button onClick={() => void send(true)}>重试回复</button>}{error.includes('规则') && <button onClick={() => { setRestorable(false); void loadContext() }}>刷新活动规则</button>}</div></div>}
+      {degraded && phase === 'conversation' && <p className="px-6 pt-3 text-sm text-gray-500">AI 暂不可用，正在使用基础整理功能。也可以直接手动完善。</p>}
+      <PlantBorder progress={progress} />
     </div>
-  )
+    <div className="text-center mt-3 min-h-6">{phase === 'conversation' && <button className="text-sm text-gray-500 hover:text-gray-900" disabled={restorable} onClick={() => setPhase('review')}>手动完善资料</button>}</div>
+    <CampusGrowth progress={progress} published={phase === 'published'} />
+  </div>
 }

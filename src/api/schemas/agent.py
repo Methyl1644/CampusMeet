@@ -12,6 +12,8 @@ class PostDraftAgentRequest(BaseModel):
     kind: Literal["topic_team", "casual_invitation"] = "casual_invitation"
     topic_id: str = Field(default="", max_length=40)
     field_states: dict[str, Any] = Field(default_factory=dict)
+    purpose: Literal["team_recruitment", "official_signup", "discussion"] | None = None
+    publish_context_revision: str | None = Field(default=None, max_length=64)
 
 
 class ClassifyReviewRequest(BaseModel):

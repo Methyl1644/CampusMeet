@@ -3318,6 +3318,32 @@
             ],
             "title": "Activity Name"
           },
+          "client_request_id": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "minLength": 16,
+                "pattern": "^[a-zA-Z0-9-]+$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Client Request Id"
+          },
+          "cover_upload_id": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cover Upload Id"
+          },
           "deadline": {
             "default": "",
             "maxLength": 80,
@@ -3384,6 +3410,18 @@
             "title": "Needed Roles",
             "type": "array"
           },
+          "publish_context_revision": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Publish Context Revision"
+          },
           "purpose": {
             "default": "team_recruitment",
             "enum": [
@@ -3429,7 +3467,7 @@
           },
           "target_members": {
             "default": 1,
-            "maximum": 100.0,
+            "maximum": 10000.0,
             "minimum": 1.0,
             "title": "Target Members",
             "type": "integer"
@@ -3501,6 +3539,34 @@
             "minLength": 1,
             "title": "Message",
             "type": "string"
+          },
+          "publish_context_revision": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Publish Context Revision"
+          },
+          "purpose": {
+            "anyOf": [
+              {
+                "enum": [
+                  "team_recruitment",
+                  "official_signup",
+                  "discussion"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Purpose"
           },
           "topic_id": {
             "default": "",
@@ -3669,7 +3735,7 @@
           "target_members": {
             "anyOf": [
               {
-                "maximum": 100.0,
+                "maximum": 10000.0,
                 "minimum": 1.0,
                 "type": "integer"
               },
@@ -4823,6 +4889,7 @@
             "enum": [
               "avatar",
               "topic_cover",
+              "post_cover",
               "organization_evidence"
             ],
             "title": "Purpose",
@@ -11637,6 +11704,78 @@
         "summary": "Profile",
         "tags": [
           "personal"
+        ]
+      }
+    },
+    "/api/publish/context": {
+      "get": {
+        "operationId": "context_api_publish_context_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "kind",
+            "required": false,
+            "schema": {
+              "default": "casual_invitation",
+              "enum": [
+                "casual_invitation",
+                "topic_team"
+              ],
+              "title": "Kind",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "topic_id",
+            "required": false,
+            "schema": {
+              "default": "",
+              "maxLength": 40,
+              "title": "Topic Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Context",
+        "tags": [
+          "publish"
         ]
       }
     },

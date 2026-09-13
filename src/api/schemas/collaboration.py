@@ -26,7 +26,7 @@ class PostCreateRequest(RequestModel):
         "拼团与AA",
     ] | None = None
     activity_name: str | None = Field(default=None, max_length=120)
-    target_members: int = Field(default=1, ge=1, le=100)
+    target_members: int = Field(default=1, ge=1, le=10000)
     needed_roles: list[ShortRole] = Field(default_factory=list, max_length=10)
     weekly_hours: str = Field(default="", max_length=80)
     school_scope: str = Field(default="", max_length=80)
@@ -37,11 +37,16 @@ class PostCreateRequest(RequestModel):
     join_mode: Literal["application", "direct", "none"] | None = None
     tag_ids: list[TagId] = Field(default_factory=list, max_length=8)
     tags: list[TagId] | None = Field(default=None, max_length=8)
+    client_request_id: str | None = Field(default=None, min_length=16, max_length=64, pattern=r"^[a-zA-Z0-9-]+$")
+    cover_upload_id: str | None = Field(default=None, max_length=64)
+    publish_context_revision: str | None = Field(default=None, max_length=64)
 
     @model_validator(mode="after")
     def require_title_or_activity(self) -> "PostCreateRequest":
         if not self.title and not self.activity_name:
             raise ValueError("title or activity_name is required")
+        if self.purpose != "official_signup" and self.target_members > 100:
+            raise ValueError("组队总人数最多 100 人")
         return self
 
 
@@ -57,7 +62,7 @@ class PostUpdateRequest(RequestModel):
         "拼团与AA",
     ] | None = None
     activity_name: str | None = Field(default=None, min_length=1, max_length=120)
-    target_members: int | None = Field(default=None, ge=1, le=100)
+    target_members: int | None = Field(default=None, ge=1, le=10000)
     needed_roles: list[ShortRole] | None = Field(default=None, max_length=10)
     weekly_hours: str | None = Field(default=None, max_length=80)
     school_scope: str | None = Field(default=None, max_length=80)

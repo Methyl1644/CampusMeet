@@ -460,6 +460,8 @@ export interface ChatMessage {
 
 /** 发帖 AI 请求 */
 export interface PostDraftRequest {
+  purpose?: PostPurpose;
+  publish_context_revision?: string;
   message: string;
   draft?: PostDraft;
   user_skills?: string[];
@@ -469,10 +471,12 @@ export interface PostDraftRequest {
 }
 
 export interface PostDraftResponse {
+  blocked?: boolean;
+  required_fields?: string[];
   reply: string;
   draft: PostDraft;
   is_complete: boolean;
-  field_states?: Record<string, { value: string | number | null; status: FieldStatus }>;
+  field_states?: Record<string, { value: string | number | string[] | null; status: FieldStatus }>;
   suggested_tag_ids?: string[];
   candidate_tags?: StandardTag[];
   next_field?: string | null;
@@ -750,7 +754,7 @@ export interface Appeal {
 
 export interface UploadTicket {
   upload_id: string;
-  purpose: 'avatar' | 'topic_cover' | 'organization_evidence';
+  purpose: 'avatar' | 'topic_cover' | 'post_cover' | 'organization_evidence';
   expires_at: string;
   upload: {
     url: string;

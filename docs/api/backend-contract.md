@@ -57,6 +57,16 @@ python scripts/export_openapi.py
 - Team planning persists validated task/role data only for an authorized team member and is idempotent under retry.
 - Any Coze timeout, malformed output, unknown ID, or unsafe content switches to a controlled backend result and records a metric.
 
-## Deferred external gates
+## Conversational Publish (Phase Five)
+
+- `GET /api/publish/context?kind=casual_invitation|topic_team&topic_id=` requires an active, verified account. Returns linked activity metadata, participation mode, allowed purposes and derived join modes, inherited standard tags, field defaults, maximum capacity and an opaque `revision`. Missing/hidden activities cannot be used.
+- `POST /api/agent/post-draft` accepts optional `purpose` and `publish_context_revision`. With the new contract, a stale revision returns HTTP 409; a forbidden purpose returns 403. The server corrects model-supplied activity identity, required fields, next question and completion. Unknown/skipped required values do not count as complete; explicitly no required role does. The legacy workflow payload is unchanged.
+- Recruitment requires activity, total people including the author, roles (or explicit none), schedule and location; linked recruitment additionally requires a deadline. Official signup requires activity, capacity, deadline and instructions. Discussion requires activity and text only. User text is still moderated before processing and before persistence.
+- `POST /api/posts` accepts `client_request_id` (16-64 ASCII letters/digits/hyphens), `publish_context_revision` and optional `cover_upload_id`. The request key is unique per author; a repeated accepted request returns the original post without another post, upload attachment or notification. Reuse the same key after uncertain network failure; use a fresh key only for a genuinely new draft. A key reused with modified content does not edit the existing post.
+- Linked tags are merged server-side during create/update and cannot be removed. User-selected plus inherited tags may not exceed eight; AI suggestions only fill remaining slots. Purpose derives joining behavior through the existing participation policy, including the single official-signup-post restriction.
+- `post_cover` upload tickets support JPEG/PNG/WebP, at most 10 MiB. Complete the existing upload protocol, then submit the raw upload ID on Post creation. Only a completed, public, author-owned cover can attach, and one upload cannot attach to two posts. Raw public URLs are not accepted. `OBJECT_STORAGE_PUBLIC_BASE_URL` must use HTTPS; storage and browser CORS must be configured. An optional cover can be removed if upload is unavailable.
+- Official signup capacity is bounded to 10,000 (context can impose a lower bound); recruitment remains at most 100. Post success notification is committed atomically with first creation. The database migration `20260913_17` adds the author/request uniqueness guard and supports existing as well as freshly bootstrapped databases.
+
+## Production Verification
 
 Repository tests cannot prove a Neon restore or deployed Render smoke test. Complete the restore rehearsal in `docs/operations/backend-runbook.md`, then verify `/health`, `/ready`, email delivery, object storage, and workflows 1-4 against production-like services before frontend release sign-off.

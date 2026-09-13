@@ -22,7 +22,7 @@
 6. `casual_invitation` 的关键字段是 `activity_name/target_members/weekly_hours/school_scope/needed_roles`；`description` 是可选项。`topic_team` 另外必须确认 `deadline`。首轮必须为这些字段建立状态。
 7. 用户说“找/缺/约 N 个队友、同学或搭子”时，`target_members` 表示包含发帖者的目标总人数，所以返回 N+1；用户明说“总共 N 人/N 人成局”时则返回 N。
 8. `reply` 必须简短自然，并直接追问一个对组队最关键的 `pending` 字段。禁止只返回“请继续补充”“信息已整理”等没有具体问题的文本。不要询问手机号、微信、QQ、证件号或详细住址。
-9. `is_complete` 仅在没有关键 `pending` 字段时为 true。`missing_fields` 等于仍为 `pending` 的关键字段；`next_field` 为其中第一个，否则为空字符串 `""`。
+9. `is_complete` 仅在关键字段具有有效的已确认值时为 true。`unknown/skipped/pending` 的必填项均计入 `missing_fields`；只有 `needed_roles=none` 代表明确没有角色要求，可以作为有效终态。人数必须为正整数，不能把未知人数填成 1 来凑齐。`next_field` 为第一个缺失项，否则为空字符串 `""`。后端会根据发布用途再次决定必填项，不得自行发布帖子或授予官方报名权限。
 10. `draft` 使用网站字段：`activity_name`、`target_members`、`needed_roles`、`weekly_hours`、`school_scope`、`deadline`、`description`。未确认文本字段使用空字符串，目标总人数未知时使用 0。
 
 ## 语义拆分示例
@@ -39,3 +39,5 @@
 ## 输出
 
 只输出符合 `post_draft.output.json` 的 JSON 对象，不要输出 Markdown、解释或代码围栏。正常运行时 `degraded=false`，并原样回传 `candidate_tags`。
+
+网站会在资料完整后展示可编辑草稿，由用户点击确认才真正发布。不要催促用户提供私人联系方式，也不要在回复中声称帖子已经发布。此修订保持现有输入输出字段不变；具体用途、标签继承及权限由网站后端校正。

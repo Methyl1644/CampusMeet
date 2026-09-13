@@ -1,5 +1,7 @@
 # CampusMate Publish Phase Five Implementation Plan
 
+> Execution update (2026-09-13): UI details and the execution checklist are superseded by `2026-09-13-conversational-publish-animation.md`, approved by the user. The six original tasks are implemented as one scoped feature branch rather than separate commits. Per the user's budget instruction, validation is targeted to Publish and affected contracts rather than the full unrelated suite. Raw `cover_url` is intentionally NOT client-writable; completed owner-scoped `cover_upload_id` is used instead.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Redesign Publish into a clear Meetup-inspired creation flow and close the activity-detail-to-tagged-group loop with automatic prefill, inherited tags, purpose selection, and official-signup enforcement.
@@ -179,4 +181,3 @@
 - [ ] Assert no horizontal overflow, layout shift, overlapping action bars, inaccessible controls, or lost draft input.
 - [ ] Stop disposable services and confirm ports are closed.
 - [ ] Commit intentional fixes/docs as `test: verify publish phase five`.
-

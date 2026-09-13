@@ -3,6 +3,7 @@ import json
 import logging
 from langchain.tools import tool
 from sqlalchemy import select, desc, asc, or_, func
+from sqlalchemy.exc import IntegrityError
 from coze_coding_utils.log.write_log import request_context
 from coze_coding_utils.runtime_ctx.context import new_context
 from storage.database.db import get_session
@@ -10,6 +11,9 @@ from storage.database.models.user import User
 from storage.database.models.post import Post
 from storage.database.models.content import PostTag, Topic
 from services.content import validate_tag_ids
+from services.publish_context import inherited_tag_ids, merge_tag_ids
+from services.notifications import notify
+from services.uploads import attach_new_post_cover
 from services.deadlines import parse_deadline_at
 from services.abuse_monitoring import check_and_record
 from services.collaboration_lifecycle import PUBLIC_POST_STATUSES
@@ -143,6 +147,8 @@ def create_post(
     review_risk_level: str = "low",
     purpose: str = "team_recruitment",
     join_mode: str = "",
+    client_request_id: str = "",
+    cover_upload_id: str = "",
 ) -> str:
     """创建组队帖。user_id 为用户ID，title 为标题，description 为描述，main_category 为主分类，activity_name 为活动名称，target_members 为目标人数，needed_roles 为所需角色(逗号分隔)，weekly_hours 为每周时长，school_scope 为学校范围，deadline 为截止日期。"""
     ctx = request_context.get() or new_context(method="create_post")
@@ -155,6 +161,12 @@ def create_post(
                 return json.dumps({"success": False, "message": "用户不存在"}, ensure_ascii=False)
             if user.auth_status == "unverified":
                 return json.dumps({"success": False, "message": "请先完成校园邮箱认证"}, ensure_ascii=False)
+            if user.account_status != "active":
+                return json.dumps({"success": False, "message": "账号不可用"}, ensure_ascii=False)
+            if client_request_id:
+                existing = session.scalar(select(Post).where(Post.author_id == uid, Post.client_request_id == client_request_id))
+                if existing:
+                    return json.dumps({"success": True, "post": _post_to_dict(existing, user, session)}, ensure_ascii=False)
             if has_active_restriction(session, uid, "posting"):
                 return json.dumps(
                     {"success": False, "message": "当前账号处于发布限制期，暂时不能发布帖子"},
@@ -198,6 +210,7 @@ def create_post(
                 topic = session.get(Topic, resolved_topic_id)
                 if not topic or topic.status != "active":
                     return json.dumps({"success": False, "message": "关联话题不存在或不可用"}, ensure_ascii=False)
+                activity_name = topic.title
             elif resolved_topic_id is not None:
                 return json.dumps({"success": False, "message": "日常邀约不能关联正式话题"}, ensure_ascii=False)
 
@@ -228,7 +241,8 @@ def create_post(
                     if item.strip() and item.strip() not in user_tag_id_set
                 )
             )
-            selected_tag_ids = (user_tag_ids + ai_tag_ids)[:8]
+            inherited = inherited_tag_ids(session, resolved_topic_id)
+            selected_tag_ids = merge_tag_ids(inherited, user_tag_ids, ai_tag_ids)
             invalid_tag_ids = validate_tag_ids(session, selected_tag_ids)
             if invalid_tag_ids:
                 return json.dumps(
@@ -249,6 +263,7 @@ def create_post(
                     ensure_ascii=False,
                 )
             post = Post(
+                client_request_id=client_request_id or None,
                 title=title,
                 description=description,
                 source_type="user",
@@ -270,11 +285,13 @@ def create_post(
             )
             session.add(post)
             flush_post_participation(session, post)
+            if cover_upload_id:
+                attach_new_post_cover(session, user, post, cover_upload_id)
             session.add_all(
                 PostTag(
                     post_id=post.id,
                     tag_id=tag_id,
-                    source="user" if tag_id in user_tag_id_set else "ai",
+                    source="user" if tag_id in user_tag_id_set or tag_id in inherited else "ai",
                 )
                 for tag_id in selected_tag_ids
             )
@@ -282,6 +299,8 @@ def create_post(
 
             # 更新用户发帖数
             user.post_count = (user.post_count or 0) + 1
+            notify(session, user_id=uid, event_type="post.published", title="帖子发布成功", body=post.title,
+                   target_type="post", target_id=str(post.id), dedupe_key=f"post.published:{post.id}")
             commit_post_participation(session, post)
 
             return json.dumps({
@@ -293,6 +312,13 @@ def create_post(
             }, ensure_ascii=False)
         finally:
             session.close()
+    except IntegrityError:
+        if client_request_id:
+            with get_session() as retry_session:
+                existing = retry_session.scalar(select(Post).where(Post.author_id == int(user_id), Post.client_request_id == client_request_id))
+                if existing:
+                    return json.dumps({"success": True, "post": _post_to_dict(existing, retry_session.get(User, int(user_id)), retry_session)}, ensure_ascii=False)
+        return json.dumps({"success": False, "message": "发布冲突，请刷新后重试"}, ensure_ascii=False)
     except ParticipationError as e:
         return json.dumps(
             {"success": False, "error_code": e.code, "message": e.message},
