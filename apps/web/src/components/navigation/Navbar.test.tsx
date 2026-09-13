@@ -362,6 +362,26 @@ describe('responsive application navigation', () => {
 
     expect(onRefreshHome).toHaveBeenCalledOnce()
   })
+
+  it('shows the management center only to users with management scope', () => {
+    useAuthStore.getState().setAuth('test-token', {
+      ...user,
+      identity: {
+        campus_verified: true,
+        platform_role: 'operator',
+        organization_roles: [],
+        topic_roles: [],
+        post_roles: [],
+      },
+    })
+    renderNavigation()
+
+    fireEvent.click(screen.getByRole('button', { name: '打开个人菜单' }))
+    const link = within(screen.getByRole('menu', { name: '个人菜单' })).getByRole('menuitem', {
+      name: '管理中心',
+    })
+    expect(link.getAttribute('href')).toBe('/management')
+  })
 })
 
 describe('authenticated application shell', () => {

@@ -82,7 +82,7 @@ class ApplicationCreateRequest(RequestModel):
     post_id: int = Field(gt=0)
     role_wanted: str = Field(min_length=1, max_length=80)
     experience: str = Field(min_length=1, max_length=2000)
-    available_time: str = Field(min_length=1, max_length=500)
+    available_time: str = Field(default="", max_length=500)
     reason: str = Field(min_length=1, max_length=2000)
     questions: list[Question] = Field(default_factory=list, max_length=10)
 

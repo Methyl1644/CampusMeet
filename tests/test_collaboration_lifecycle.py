@@ -78,7 +78,10 @@ def test_full_or_expired_post_rejects_new_application(monkeypatch):
     assert "已满" in full["message"]
 
     expired_factory = _factory(
-        deadline=(datetime.date.today() - datetime.timedelta(days=1)).isoformat()
+        deadline=(
+            datetime.datetime.now(datetime.timezone.utc).date()
+            - datetime.timedelta(days=1)
+        ).isoformat()
     )
     monkeypatch.setattr(application_tools, "get_session", expired_factory)
     expired = json.loads(application_tools.create_application.invoke(_application_payload()))
@@ -86,6 +89,21 @@ def test_full_or_expired_post_rejects_new_application(monkeypatch):
     assert "截止" in expired["message"]
     with expired_factory() as session:
         assert session.scalars(select(Application)).all() == []
+
+
+def test_repeated_active_application_returns_the_existing_record(monkeypatch):
+    factory = _factory()
+    monkeypatch.setattr(application_tools, "get_session", factory)
+
+    first = json.loads(application_tools.create_application.invoke(_application_payload()))
+    second = json.loads(application_tools.create_application.invoke(_application_payload()))
+
+    assert first["success"] is True
+    assert second["success"] is True
+    assert second["application"]["id"] == first["application"]["id"]
+    assert second["message"] == "你已提交过申请，请等待发布者审核"
+    with factory() as session:
+        assert session.query(Application).count() == 1
 
 
 @pytest.mark.parametrize(

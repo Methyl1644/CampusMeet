@@ -159,6 +159,21 @@ describe('PostDetail group experience', () => {
     expect(screen.getByText('申请审核中')).toBeTruthy()
   })
 
+  it('keeps the application open and shows the backend rejection reason', async () => {
+    vi.mocked(createApplication).mockRejectedValue({
+      response: { data: { detail: '请先完成校园邮箱认证' } },
+    })
+    renderPost()
+    fireEvent.click(await screen.findByRole('button', { name: '申请加入' }))
+    fireEvent.click(screen.getByRole('button', { name: '前端开发' }))
+    fireEvent.change(screen.getByLabelText(/相关经验/), { target: { value: '参加过校内项目' } })
+    fireEvent.change(screen.getByLabelText(/加入原因/), { target: { value: '希望共同完成作品' } })
+    fireEvent.click(screen.getByRole('button', { name: '提交申请' }))
+
+    expect(await screen.findByText('请先完成校园邮箱认证')).toBeTruthy()
+    expect(screen.getByRole('dialog', { name: '申请加入' })).toBeTruthy()
+  })
+
   it('directly joins only an available direct group and links to the returned team', async () => {
     vi.mocked(getExploreGroup).mockResolvedValue({ ...groupDetailFixture, join_mode: 'direct' })
     renderPost()

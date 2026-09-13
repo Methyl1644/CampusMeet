@@ -9,6 +9,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from storage.database.models import AccountRequest, AuthSession, User
+from services.auth_access import email_is_explicitly_allowlisted
 from utils.auth import generate_token, hash_password, verify_password
 
 
@@ -62,6 +63,20 @@ def active_session(session: Session, token_id: str, user_id: int) -> AuthSession
     ):
         return None
     return item
+
+
+def promote_allowlisted_legacy_user(session: Session, user: User) -> bool:
+    account = (user.email or user.verified_email or "").strip().casefold()
+    if user.auth_status != "unverified" or not email_is_explicitly_allowlisted(account):
+        return False
+    user.auth_status = "verified"
+    if not user.verified_email:
+        email_owner = session.scalar(
+            select(User.id).where(User.verified_email == account, User.id != user.id)
+        )
+        if email_owner is None:
+            user.verified_email = account
+    return True
 
 
 def revoke_session(session: Session, token_id: str, *, reason: str) -> bool:

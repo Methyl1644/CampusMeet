@@ -38,6 +38,18 @@ def test_application_rejects_invalid_post_and_oversized_question_list():
         )
 
 
+def test_application_allows_empty_optional_available_time():
+    request = ApplicationCreateRequest(
+        post_id=1,
+        role_wanted="member",
+        experience="none",
+        available_time="",
+        reason="interested",
+    )
+
+    assert request.available_time == ""
+
+
 def test_post_create_enforces_counts_and_list_item_limits():
     with pytest.raises(ValidationError):
         PostCreateRequest(activity_name="bad", target_members=0)

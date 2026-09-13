@@ -34,3 +34,13 @@ def auth_email_is_allowed(
     if mode != "allowlist":
         return False
     return email.strip().casefold() in allowed_auth_emails(environment)
+
+
+def email_is_explicitly_allowlisted(
+    email: str,
+    environment: Mapping[str, str] | None = None,
+) -> bool:
+    return (
+        auth_access_mode(environment) == "allowlist"
+        and email.strip().casefold() in allowed_auth_emails(environment)
+    )

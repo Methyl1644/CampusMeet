@@ -17,6 +17,7 @@ import Notifications from '@/pages/Notifications'
 import PublicProfile from '@/pages/PublicProfile'
 import Settings from '@/pages/Settings'
 import ProfileRedirect from '@/pages/ProfileRedirect'
+import Management from '@/pages/Management'
 import { useAuthStore } from '@/store/authStore'
 
 function LoginRoute() {
@@ -59,6 +60,7 @@ export const appRoutes: RouteObject[] = [
       { path: 'notifications', element: <Notifications /> },
       { path: 'users/:id', element: <PublicProfile /> },
       { path: 'settings', element: <Settings /> },
+      { path: 'management', element: <Management /> },
     ],
   },
 ]
