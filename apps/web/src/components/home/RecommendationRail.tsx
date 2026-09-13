@@ -116,7 +116,7 @@ export default function RecommendationRail({ topics, degraded = false }: Recomme
         <div className="mt-5 flex min-h-32 items-center justify-between gap-4 border-y border-stone py-6">
           <p className="text-sm text-ink-muted">暂时没有新的活动推荐</p>
           <Link
-            to="/discover?view=events"
+            to="/discover?view=activity"
             className="inline-flex shrink-0 items-center gap-1 text-sm font-semibold text-primary-700 transition-colors duration-feedback hover:text-primary-800"
           >
             探索活动

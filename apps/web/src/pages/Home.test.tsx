@@ -386,9 +386,12 @@ describe('Home', () => {
     expect(await screen.findByText('暂时没有新的活动推荐')).toBeTruthy()
     const recommendations = screen.getByRole('heading', { name: '为你推荐' }).closest('section')
     expect(recommendations?.previousElementSibling).toBeNull()
+    expect(within(recommendations as HTMLElement).getByRole('link', { name: '探索活动' }).getAttribute('href')).toBe(
+      '/discover?view=activity',
+    )
     expect(screen.getByText('小组有新任务时，会在这里按日期出现。')).toBeTruthy()
     expect(screen.getByRole('link', { name: '探索组队' }).getAttribute('href')).toBe(
-      '/discover?view=groups',
+      '/discover?view=group',
     )
   })
 

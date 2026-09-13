@@ -176,7 +176,7 @@ function EventTabPanel({
         <div className="flex min-w-0 flex-1 items-center justify-between gap-3">
           <p className="text-sm text-ink-muted">{emptyMessage}</p>
           <Link
-            to="/discover?view=events"
+            to="/discover?view=activity"
             className="shrink-0 text-sm font-semibold text-primary-700 hover:text-primary-800"
           >
             探索活动

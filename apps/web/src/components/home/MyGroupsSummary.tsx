@@ -45,7 +45,7 @@ export default function MyGroupsSummary({ groups }: { groups: HomeJoinedGroup[] 
           <div className="flex min-w-0 flex-1 items-center justify-between gap-3">
             <p className="text-sm text-ink-muted">还没有加入小组</p>
             <Link
-              to="/discover?view=groups"
+              to="/discover?view=group"
               className="shrink-0 text-sm font-semibold text-primary-700 hover:text-primary-800"
             >
               探索小组

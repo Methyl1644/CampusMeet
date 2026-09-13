@@ -24,6 +24,8 @@ export default defineConfig({
       'src/pages/Home.test.tsx',
       'src/api/explore.test.ts',
       'src/features/explore/exploreState.test.ts',
+      'src/pages/Discover.test.tsx',
+      'src/components/explore/ExploreCards.test.tsx',
     ],
   },
 })

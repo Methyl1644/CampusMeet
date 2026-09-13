@@ -140,7 +140,7 @@ describe('MyEventsSummary', () => {
 
     expect(screen.getByText('还没有参加的活动')).toBeTruthy()
     expect(screen.getByRole('link', { name: '探索活动' }).getAttribute('href')).toBe(
-      '/discover?view=events',
+      '/discover?view=activity',
     )
   })
 
@@ -200,7 +200,7 @@ describe('MyGroupsSummary', () => {
 
     expect(screen.getByText('还没有加入小组')).toBeTruthy()
     expect(screen.getByRole('link', { name: '探索小组' }).getAttribute('href')).toBe(
-      '/discover?view=groups',
+      '/discover?view=group',
     )
   })
 })

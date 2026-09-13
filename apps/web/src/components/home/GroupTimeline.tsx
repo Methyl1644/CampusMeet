@@ -162,7 +162,7 @@ export default function GroupTimeline({
         <div className="mt-5 flex min-h-32 flex-wrap items-center justify-between gap-4 border-y border-stone py-6">
           <p className="text-sm text-ink-muted">小组有新任务时，会在这里按日期出现。</p>
           <Link
-            to="/discover?view=groups"
+            to="/discover?view=group"
             className="text-sm font-semibold text-primary-700 transition-colors duration-feedback hover:text-primary-800"
           >
             探索组队
