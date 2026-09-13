@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import datetime
 import importlib
 import json
 
@@ -75,6 +76,29 @@ def _factory():
     return sessionmaker(bind=engine, expire_on_commit=False)
 
 
+@pytest.mark.parametrize(
+    ("raw", "expected"),
+    [
+        ("2026-09-13T12:30:00Z", "2026-09-13T12:30:00+00:00"),
+        ("2026-09-13T13:00:00+02:00", "2026-09-13T11:00:00+00:00"),
+        ("2026-09-13T08:00:00-05:00", "2026-09-13T13:00:00+00:00"),
+        ("2026-09-13", "2026-09-13T23:59:59.999999+00:00"),
+        ("2026-02-30", None),
+        ("2026-09-13T12:30:00", None),
+        ("明天下午", None),
+        ("", None),
+        (None, None),
+    ],
+)
+def test_deadline_normalizer_accepts_only_strict_utc_resolvable_values(raw, expected):
+    deadlines = importlib.import_module("services.deadlines")
+
+    parsed = deadlines.parse_deadline_at(raw)
+    actual = parsed.isoformat() if parsed is not None else None
+
+    assert actual == expected
+
+
 def test_participation_models_persist_safe_legacy_defaults():
     with _session() as session:
         user = _user("defaults@nju.edu.cn")
@@ -94,6 +118,7 @@ def test_participation_models_persist_safe_legacy_defaults():
         assert post.cover_url is None
         assert post.purpose == "team_recruitment"
         assert post.join_mode == "application"
+        assert post.deadline_at is None
 
 
 def test_participation_database_defaults_apply_to_raw_sqlite_inserts():
@@ -131,11 +156,11 @@ def test_participation_database_defaults_apply_to_raw_sqlite_inserts():
             text("SELECT participation_mode FROM topics WHERE id = 100")
         ).one()
         post_defaults = connection.execute(
-            text("SELECT purpose, join_mode FROM posts WHERE id = 200")
+            text("SELECT purpose, join_mode, deadline_at FROM posts WHERE id = 200")
         ).one()
 
     assert tuple(topic_defaults) == ("open_team",)
-    assert tuple(post_defaults) == ("team_recruitment", "application")
+    assert tuple(post_defaults) == ("team_recruitment", "application", None)
 
 
 @pytest.mark.parametrize(
@@ -278,6 +303,9 @@ def test_participation_model_metadata_emits_dialect_safe_ddl(dialect):
     assert "ck_posts_join_mode" in post_ddl
     assert "join_mode IN ('application', 'direct', 'none')" in post_ddl
     assert "join_mode TEXT DEFAULT 'application' NOT NULL" in post_ddl
+    assert "deadline_at" in post_ddl
+    if dialect.name == "postgresql":
+        assert "deadline_at TIMESTAMP WITH TIME ZONE" in post_ddl
     assert "PRIMARY KEY (post_id, user_id)" in bookmark_ddl
     assert "CREATE UNIQUE INDEX uq_posts_effective_official_signup_topic" in official_index_ddl
     assert "purpose = 'official_signup'" in official_index_ddl
@@ -621,6 +649,7 @@ def test_post_create_and_update_paths_apply_the_policy(monkeypatch):
             topic_id=topic_id,
             purpose="official_signup",
             join_mode="direct",
+            deadline="2026-09-13T13:00:00+02:00",
         ),
         str(operator_id),
     )
@@ -628,10 +657,21 @@ def test_post_create_and_update_paths_apply_the_policy(monkeypatch):
     assert created["data"]["cover_url"] is None
     assert created["data"]["purpose"] == "official_signup"
     assert created["data"]["join_mode"] == "direct"
+    assert "deadline_at" not in created["data"]
+
+    with factory() as session:
+        stored = session.get(Post, post_id)
+        assert stored.deadline == "2026-09-13T13:00:00+02:00"
+        assert stored.deadline_at == datetime.datetime(2026, 9, 13, 11, 0)
 
     updated = posts_api.update(
         post_id,
-        {"title": "Official signup updated", "purpose": "discussion", "join_mode": "none"},
+        {
+            "title": "Official signup updated",
+            "purpose": "discussion",
+            "join_mode": "none",
+            "deadline": "2026-09-14",
+        },
         str(operator_id),
     )
     assert updated["data"]["title"] == "Official signup updated"
@@ -641,6 +681,8 @@ def test_post_create_and_update_paths_apply_the_policy(monkeypatch):
         stored = session.get(Post, post_id)
         assert stored.purpose == "discussion"
         assert stored.join_mode == "none"
+        assert stored.deadline == "2026-09-14"
+        assert stored.deadline_at == datetime.datetime(2026, 9, 14, 23, 59, 59, 999999)
 
 
 def test_post_tool_keeps_policy_inputs_and_adds_task_three_public_projection():

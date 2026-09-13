@@ -61,6 +61,7 @@ class Post(Base):
     weekly_hours: Mapped[str | None] = mapped_column(Text)
     school_scope: Mapped[str | None] = mapped_column(Text)
     deadline: Mapped[str | None] = mapped_column(Text)
+    deadline_at: Mapped[datetime.datetime | None] = mapped_column(DateTime(timezone=True))
     risk_level: Mapped[str] = mapped_column(Text, nullable=False, default="low")
     status: Mapped[str] = mapped_column(Text, nullable=False, default="recruiting")
     author_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("users.id"), nullable=False)

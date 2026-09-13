@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import datetime
 import importlib
 import json
 from pathlib import Path
@@ -683,6 +684,123 @@ def test_postgresql_explore_participation_migration_operations_are_reversible(mo
     assert migration.OFFICIAL_SIGNUP_INDEX in state["indexes"]["posts"]
 
 
+def test_postgresql_deadline_normalization_migration_batches_safe_values(monkeypatch):
+    migration = _load_migration(
+        "migration_20260913_15",
+        "20260913_15_normalize_post_deadlines.py",
+    )
+    source_rows = [
+        {"id": index, "deadline": "2026-09-13T13:00:00+02:00"}
+        for index in range(1, 502)
+    ]
+    source_rows.append({"id": 502, "deadline": "legacy next week"})
+    events = []
+    cursor = 0
+    state = {
+        "columns": {
+            "id": {"name": "id", "nullable": False},
+            "deadline": {"name": "deadline", "nullable": True},
+        }
+    }
+
+    class FakeResult:
+        def __init__(self, rows):
+            self.rows = rows
+
+        def mappings(self):
+            return self
+
+        def all(self):
+            return self.rows
+
+    class FakeBind:
+        dialect = SimpleNamespace(name="postgresql")
+
+        def execute(self, statement, parameters=None):
+            nonlocal cursor
+            if isinstance(statement, Select):
+                limit = statement._limit_clause.value
+                batch = source_rows[cursor : cursor + limit]
+                cursor += len(batch)
+                events.append(("select", limit, len(batch)))
+                return FakeResult(batch)
+            if isinstance(statement, Update):
+                updates = list(parameters or [])
+                events.append(("update", len(updates), updates))
+                return FakeResult([])
+            raise AssertionError(type(statement))
+
+    class FakeInspector:
+        def get_table_names(self):
+            return ["posts"]
+
+        def get_columns(self, table_name):
+            assert table_name == "posts"
+            return list(state["columns"].values())
+
+    class FakeBatch:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        def add_column(self, column):
+            state["columns"][column.name] = {
+                "name": column.name,
+                "nullable": column.nullable,
+                "timezone": column.type.timezone,
+            }
+            events.append(("add", column.name))
+
+        def drop_column(self, name):
+            state["columns"].pop(name)
+            events.append(("drop", name))
+
+    class FakeOp:
+        bind = FakeBind()
+
+        def get_bind(self):
+            return self.bind
+
+        def batch_alter_table(self, table_name):
+            assert table_name == "posts"
+            return FakeBatch()
+
+    monkeypatch.setattr(migration, "op", FakeOp())
+    monkeypatch.setattr(migration, "inspect", lambda _bind: FakeInspector())
+
+    migration.upgrade()
+
+    assert migration.down_revision == "20260913_14"
+    assert migration.BACKFILL_BATCH_SIZE == 500
+    assert state["columns"]["deadline_at"] == {
+        "name": "deadline_at",
+        "nullable": True,
+        "timezone": True,
+    }
+    assert [event[:3] for event in events if event[0] == "select"] == [
+        ("select", 500, 500),
+        ("select", 500, 2),
+        ("select", 500, 0),
+    ]
+    update_events = [event for event in events if event[0] == "update"]
+    assert [event[1] for event in update_events] == [500, 2]
+    assert update_events[0][2][0]["deadline_at"] == datetime.datetime(
+        2026, 9, 13, 11, 0, tzinfo=datetime.timezone.utc
+    )
+    assert update_events[1][2][-1]["deadline_at"] is None
+
+    migration.downgrade()
+    assert "deadline_at" not in state["columns"]
+
+    cursor = 0
+    events.clear()
+    migration.upgrade()
+    assert "deadline_at" in state["columns"]
+    assert [event[1] for event in events if event[0] == "update"] == [500, 2]
+
+
 def _create_phase_two_participation_schema(engine, *, dirty_fields: bool = False) -> None:
     with engine.begin() as connection:
         connection.execute(text("CREATE TABLE users (id INTEGER PRIMARY KEY)"))
@@ -740,7 +858,7 @@ def test_explore_participation_migration_preserves_legacy_rows_and_is_reversible
         "capacity",
         "participation_mode",
     } <= {item["name"] for item in inspector.get_columns("topics")}
-    assert {"cover_url", "purpose", "join_mode"} <= {
+    assert {"cover_url", "purpose", "join_mode", "deadline_at"} <= {
         item["name"] for item in inspector.get_columns("posts")
     }
     assert "post_bookmarks" in inspector.get_table_names()
@@ -759,7 +877,7 @@ def test_explore_participation_migration_preserves_legacy_rows_and_is_reversible
         ).scalar_one()
     assert tuple(topic) == ("Legacy activity", None, "open_team")
     assert tuple(post) == ("Legacy group", "team_recruitment", "application")
-    assert revision == "20260913_14"
+    assert revision == "20260913_15"
 
     with engine.begin() as connection:
         connection.execute(
@@ -801,6 +919,80 @@ def test_explore_participation_migration_preserves_legacy_rows_and_is_reversible
         assert connection.execute(
             text("SELECT purpose || ':' || join_mode FROM posts WHERE id = 20")
         ).scalar_one() == "team_recruitment:application"
+
+
+def test_deadline_normalization_migration_streams_and_round_trips_legacy_rows(tmp_path):
+    database_url = f"sqlite:///{tmp_path / 'deadline-normalization.db'}"
+    engine = create_engine(database_url)
+    with engine.begin() as connection:
+        connection.execute(
+            text("CREATE TABLE posts (id INTEGER PRIMARY KEY, deadline TEXT)")
+        )
+        rows = [
+            {"id": 1, "deadline": "2026-09-13T12:30:00Z"},
+            {"id": 2, "deadline": "2026-09-13T13:00:00+02:00"},
+            {"id": 3, "deadline": "2026-09-13T08:00:00-05:00"},
+            {"id": 4, "deadline": "2026-09-13"},
+            {"id": 5, "deadline": "2026-02-30"},
+            {"id": 6, "deadline": "下周之前"},
+            *(
+                {"id": row_id, "deadline": None}
+                for row_id in range(7, 1008)
+            ),
+        ]
+        connection.execute(
+            text("INSERT INTO posts (id, deadline) VALUES (:id, :deadline)"), rows
+        )
+    config = _alembic_config(database_url)
+    command.stamp(config, "20260913_14")
+
+    command.upgrade(config, "head")
+
+    assert "deadline_at" in {
+        item["name"] for item in inspect(engine).get_columns("posts")
+    }
+    with engine.connect() as connection:
+        normalized = connection.execute(
+            text("SELECT id, deadline, deadline_at FROM posts WHERE id <= 6 ORDER BY id")
+        ).all()
+        revision = connection.execute(
+            text("SELECT version_num FROM alembic_version")
+        ).scalar_one()
+    assert revision == "20260913_15"
+    assert [row.deadline for row in normalized] == [
+        "2026-09-13T12:30:00Z",
+        "2026-09-13T13:00:00+02:00",
+        "2026-09-13T08:00:00-05:00",
+        "2026-09-13",
+        "2026-02-30",
+        "下周之前",
+    ]
+    assert [row.deadline_at for row in normalized] == [
+        "2026-09-13 12:30:00.000000",
+        "2026-09-13 11:00:00.000000",
+        "2026-09-13 13:00:00.000000",
+        "2026-09-13 23:59:59.999999",
+        None,
+        None,
+    ]
+
+    command.downgrade(config, "20260913_14")
+    assert "deadline_at" not in {
+        item["name"] for item in inspect(engine).get_columns("posts")
+    }
+    with engine.connect() as connection:
+        assert connection.execute(
+            text("SELECT deadline FROM posts WHERE id = 2")
+        ).scalar_one() == "2026-09-13T13:00:00+02:00"
+
+    command.upgrade(config, "head")
+    with engine.connect() as connection:
+        assert connection.execute(
+            text("SELECT deadline_at FROM posts WHERE id = 2")
+        ).scalar_one() == "2026-09-13 11:00:00.000000"
+        assert connection.execute(
+            text("SELECT version_num FROM alembic_version")
+        ).scalar_one() == "20260913_15"
 
 
 def test_explore_participation_migration_sanitizes_legacy_values_before_checks(tmp_path):

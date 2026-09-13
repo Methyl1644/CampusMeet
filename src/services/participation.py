@@ -11,6 +11,7 @@ from sqlalchemy import case, func, select, text, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from services.deadlines import ensure_deadline_utc, parse_deadline_at
 from services.permissions import can_manage_post, can_manage_topic
 from storage.database.models import (
     Application,
@@ -110,21 +111,10 @@ def deadline_has_passed(post: Post, *, now: datetime.datetime | None = None) -> 
     raw = str(post.deadline or "").strip()
     if not raw:
         return False
-    try:
-        parsed = datetime.datetime.fromisoformat(raw.replace("Z", "+00:00"))
-    except ValueError:
-        try:
-            parsed_date = datetime.date.fromisoformat(raw)
-        except ValueError:
-            return False
-        parsed = datetime.datetime.combine(
-            parsed_date,
-            datetime.time.max,
-            tzinfo=datetime.timezone.utc,
-        )
-    if parsed.tzinfo is None:
-        parsed = parsed.replace(tzinfo=datetime.timezone.utc)
-    return parsed <= (now or utcnow())
+    parsed = post.deadline_at or parse_deadline_at(raw)
+    if parsed is None:
+        return True
+    return ensure_deadline_utc(parsed) <= ensure_deadline_utc(now or utcnow())
 
 
 def _enum_value(enum_type, value: Any, error_code: str):

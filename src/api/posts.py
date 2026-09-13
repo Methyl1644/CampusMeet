@@ -9,6 +9,7 @@ from api.common import api_ok, current_user_id, invoke_tool, parse_tool_result
 from api.schemas.collaboration import PostCreateRequest, PostUpdateRequest
 from services.content import validate_tag_ids
 from services.content_moderation import ModerationContext, moderate_content
+from services.deadlines import parse_deadline_at
 from services.moderation_cases import has_active_restriction
 from services.collaboration_lifecycle import transition_post
 from services.permissions import can_manage_post
@@ -275,6 +276,8 @@ def update(post_id: int, body: PostUpdateRequest, user_id: str = Depends(current
             if field in {"title", "main_category", "activity_name"} and not value:
                 raise HTTPException(status_code=400, detail=f"{field} 不能为空")
             setattr(post, field, value or None)
+            if field == "deadline":
+                post.deadline_at = parse_deadline_at(value)
             changed[field] = value
         if "target_members" in body:
             try:

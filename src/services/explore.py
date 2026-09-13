@@ -5,7 +5,7 @@ import math
 from collections import defaultdict
 from typing import Any, Sequence
 
-from sqlalchemy import Date, DateTime, Integer, and_, case, cast, exists, func, or_, select
+from sqlalchemy import Integer, and_, exists, func, or_, select
 from sqlalchemy.orm import Session
 
 from services.collaboration_lifecycle import PUBLIC_POST_STATUSES
@@ -43,13 +43,6 @@ CATEGORY_PLACEHOLDER_KEYS = {
     "拼团与AA": "category:group-buying",
 }
 
-POSTGRES_DATE_ONLY_PATTERN = r"^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
-POSTGRES_ZONED_DATETIME_PATTERN = (
-    r"^[0-9]{4}-[0-9]{2}-[0-9]{2}[Tt ][0-9]{2}:[0-9]{2}"
-    r"(:[0-9]{2}(\.[0-9]{1,6})?)?([Zz]|[+-][0-9]{2}:[0-9]{2})$"
-)
-
-
 def _utcnow() -> datetime.datetime:
     return datetime.datetime.now(datetime.timezone.utc)
 
@@ -86,35 +79,18 @@ def _page(items: list[dict[str, Any]], total: int, page: int, page_size: int) ->
 def _deadline_range_predicate(
     date_filter: str,
     now: datetime.datetime,
-    dialect_name: str,
+    _dialect_name: str,
 ):
-    if dialect_name == "postgresql":
-        parsed_deadline = case(
-            (
-                Post.deadline.op("~")(POSTGRES_DATE_ONLY_PATTERN),
-                func.timezone(
-                    "UTC",
-                    cast(cast(Post.deadline, Date), DateTime(timezone=False)),
-                ),
-            ),
-            (
-                Post.deadline.op("~")(POSTGRES_ZONED_DATETIME_PATTERN),
-                cast(Post.deadline, DateTime(timezone=True)),
-            ),
-            else_=None,
-        )
-        comparison_time: Any = _ensure_utc(now)
-    else:
-        parsed_deadline = func.julianday(Post.deadline)
-        comparison_time = func.julianday(_ensure_utc(now).isoformat())
-
     if date_filter == "upcoming":
-        return or_(Post.deadline.is_(None), parsed_deadline >= comparison_time)
+        return or_(
+            Post.deadline.is_(None),
+            func.trim(Post.deadline) == "",
+            Post.deadline_at >= _ensure_utc(now),
+        )
     if date_filter in {"past", "ended"}:
         return and_(
-            Post.deadline.is_not(None),
-            parsed_deadline.is_not(None),
-            parsed_deadline < comparison_time,
+            Post.deadline_at.is_not(None),
+            Post.deadline_at < _ensure_utc(now),
         )
     return None
 
@@ -291,53 +267,13 @@ def _activity_state_from_signals(topic: Topic, signals: Any | None) -> str:
     return "closed"
 
 
-def activity_additive_fields(
-    session: Session,
-    topic: Topic,
-    user_id: int,
-    *,
-    now: datetime.datetime | None = None,
-) -> dict[str, Any]:
-    current = now or _utcnow()
-    counts = {
-        topic_id: int(count)
-        for topic_id, count in _participant_count_rows(session, [topic.id])
-    }
-    preview = [
-        _user_summary(participant)
-        for _topic_id, _joined_at, participant in _participant_preview_rows(
-            session, [topic.id]
-        )
-    ]
-    signals = _activity_state_rows(
-        session,
-        [topic.id],
-        user_id,
-        now=current,
-    )
-    return {
-        "location_name": topic.location_name,
-        "campus_scope": topic.campus_scope,
-        "capacity": topic.capacity,
-        "registration_deadline": _iso(topic.registration_deadline),
-        "activity_start_at": _iso(topic.activity_start_at),
-        "activity_end_at": _iso(topic.activity_end_at),
-        "participant_count": counts.get(topic.id, 0),
-        "participant_preview": preview,
-        "participation_mode": topic.participation_mode,
-        "cover_placeholder_key": activity_placeholder_key(topic),
-        "participation_state": _activity_state_from_signals(
-            topic, signals[0] if signals else None
-        ),
-    }
-
-
-def project_activity_cards(
+def _project_activity_cards(
     session: Session,
     topics: Sequence[Topic],
     user_id: int,
     *,
     now: datetime.datetime | None = None,
+    include_inactive_tags: bool = False,
 ) -> list[dict[str, Any]]:
     if not topics:
         return []
@@ -345,12 +281,15 @@ def project_activity_cards(
     topic_ids = [topic.id for topic in topics]
 
     tags_by_topic: dict[int, list[dict[str, str]]] = defaultdict(list)
-    for topic_id, tag in session.execute(
+    tag_statement = (
         select(TopicTag.topic_id, Tag)
         .join(Tag, Tag.id == TopicTag.tag_id)
-        .where(TopicTag.topic_id.in_(topic_ids), Tag.active.is_(True))
+        .where(TopicTag.topic_id.in_(topic_ids))
         .order_by(TopicTag.topic_id, Tag.sort_order, Tag.canonical_name, Tag.id)
-    ):
+    )
+    if not include_inactive_tags:
+        tag_statement = tag_statement.where(Tag.active.is_(True))
+    for topic_id, tag in session.execute(tag_statement):
         tags_by_topic[topic_id].append(_tag_projection(tag))
 
     follow_by_topic = {
@@ -425,18 +364,19 @@ def project_activity_cards(
     for topic in topics:
         follower_count, favorite = follow_by_topic.get(topic.id, (0, False))
         trust_badges: list[dict[str, str]] = []
-        if topic.channel == "official":
-            trust_badges.append({"kind": "platform_official", "label": "平台官方收录"})
-        elif topic.channel == "organization" and topic.organization_id:
-            organization = organizations.get(topic.organization_id)
-            if organization and organization_is_active(organization, now=current):
-                trust_badges.append(
-                    {
-                        "kind": "verified_organization",
-                        "label": "认证组织发布",
-                        "organization_name": organization.name,
-                    }
-                )
+        if topic.status == "active":
+            if topic.channel == "official":
+                trust_badges.append({"kind": "platform_official", "label": "平台官方收录"})
+            elif topic.channel == "organization" and topic.organization_id:
+                organization = organizations.get(topic.organization_id)
+                if organization and organization_is_active(organization, now=current):
+                    trust_badges.append(
+                        {
+                            "kind": "verified_organization",
+                            "label": "认证组织发布",
+                            "organization_name": organization.name,
+                        }
+                    )
         projections.append(
             {
                 "id": str(topic.id),
@@ -469,10 +409,38 @@ def project_activity_cards(
                 "tags": tags_by_topic[topic.id],
                 "status": topic.status,
                 "trust_badges": trust_badges,
-                "responsible_people": responsible_by_topic[topic.id],
+                "responsible_people": (
+                    responsible_by_topic[topic.id] if topic.status == "active" else []
+                ),
             }
         )
     return projections
+
+
+def project_activity_cards(
+    session: Session,
+    topics: Sequence[Topic],
+    user_id: int,
+    *,
+    now: datetime.datetime | None = None,
+) -> list[dict[str, Any]]:
+    return _project_activity_cards(session, topics, user_id, now=now)
+
+
+def project_legacy_topic_cards(
+    session: Session,
+    topics: Sequence[Topic],
+    user_id: int,
+    *,
+    now: datetime.datetime | None = None,
+) -> list[dict[str, Any]]:
+    return _project_activity_cards(
+        session,
+        topics,
+        user_id,
+        now=now,
+        include_inactive_tags=True,
+    )
 
 
 def _linked_activity(topic: Topic) -> dict[str, Any]:

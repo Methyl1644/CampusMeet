@@ -10,6 +10,7 @@ from storage.database.models.user import User
 from storage.database.models.post import Post
 from storage.database.models.content import PostTag, Topic
 from services.content import validate_tag_ids
+from services.deadlines import parse_deadline_at
 from services.abuse_monitoring import check_and_record
 from services.collaboration_lifecycle import PUBLIC_POST_STATUSES
 from services.moderation_cases import has_active_restriction
@@ -262,6 +263,7 @@ def create_post(
                 weekly_hours=weekly_hours or None,
                 school_scope=school_scope or None,
                 deadline=deadline or None,
+                deadline_at=parse_deadline_at(deadline),
                 risk_level=resolved_risk_level,
                 status="recruiting",
                 author_id=uid,

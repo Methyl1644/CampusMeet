@@ -19,6 +19,7 @@ from services.content import (
     suggest_content,
     tag_suggestions,
     topic_to_dict,
+    topics_to_dict,
     user_permissions,
     validate_tag_ids,
 )
@@ -278,11 +279,16 @@ def list_topics(
         if selected_tags:
             query = query.join(TopicTag, TopicTag.topic_id == Topic.id).where(TopicTag.tag_id.in_(selected_tags))
         query = query.distinct().order_by(desc(Topic.updated_at))
-        total = len(session.execute(query).scalars().all())
+        total = int(
+            session.scalar(
+                select(func.count()).select_from(query.order_by(None).subquery())
+            )
+            or 0
+        )
         topics = session.execute(query.offset((page - 1) * page_size).limit(page_size)).scalars().all()
         return api_ok(
             {
-                "list": [topic_to_dict(session, topic, int(user_id)) for topic in topics],
+                "list": topics_to_dict(session, topics, int(user_id)),
                 "total": total,
                 "page": page,
                 "page_size": page_size,

@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from api.common import current_user_id
+from services.deadlines import parse_deadline_at
 from storage.database.models import (
     Application,
     Post,
@@ -165,6 +166,7 @@ def _post(
         weekly_hours="每周 4 小时",
         school_scope=campus,
         deadline=deadline,
+        deadline_at=parse_deadline_at(deadline),
         risk_level="low",
         status=status,
         author_id=author_id,
@@ -452,21 +454,24 @@ def test_group_date_filters_use_real_datetimes_and_exclude_unparseable_values(
     session.add(author)
     session.flush()
     deadlines = {
-        1: "2026-09-13T13:00:00Z",
-        2: "2026-09-13T11:00:00Z",
-        3: "2026-09-13T13:00:00+02:00",
-        4: "2026-09-13T08:00:00-05:00",
-        5: "2026-09-14",
-        6: "2026-09-12",
-        7: "明天下午报名截止",
+        1: ("2026-09-13T13:00:00Z", "2026-09-13T13:00:00+00:00"),
+        2: ("2026-09-13T11:00:00Z", "2026-09-13T11:00:00+00:00"),
+        3: ("2026-09-13T13:00:00+02:00", "2026-09-13T11:00:00+00:00"),
+        4: ("2026-09-13T08:00:00-05:00", "2026-09-13T13:00:00+00:00"),
+        5: ("2026-09-14", "2026-09-14T23:59:59.999999+00:00"),
+        6: ("2026-09-12", "2026-09-12T23:59:59.999999+00:00"),
+        7: ("明天下午报名截止", None),
     }
-    for post_id, deadline in deadlines.items():
-        _post(
+    for post_id, (deadline, deadline_at) in deadlines.items():
+        post = _post(
             session,
             post_id,
             author_id=author.id,
             title=f"日期测试 {post_id}",
             deadline=deadline,
+        )
+        post.deadline_at = (
+            datetime.datetime.fromisoformat(deadline_at) if deadline_at else None
         )
     session.flush()
 
@@ -495,11 +500,11 @@ def test_group_date_filters_use_real_datetimes_and_exclude_unparseable_values(
         )
     )
 
-    assert "julianday(posts.deadline)" in sqlite_sql
-    assert "posts.deadline ~" in postgres_sql
-    assert "CAST(posts.deadline AS TIMESTAMP WITH TIME ZONE)" in postgres_sql
-    assert "CAST(posts.deadline AS DATE)" in postgres_sql
-    assert "CASE WHEN" in postgres_sql
+    assert "posts.deadline_at" in sqlite_sql
+    assert "posts.deadline_at" in postgres_sql
+    assert "julianday" not in sqlite_sql
+    assert "posts.deadline ~" not in postgres_sql
+    assert "CAST(posts.deadline" not in postgres_sql
 
 
 def test_group_detail_bounds_members_and_includes_linked_activity(session, viewer):
@@ -700,6 +705,110 @@ def test_legacy_topics_keep_inactive_tags_while_explore_uses_active_tags(
     assert inactive_filter_response.json()["data"]["list"] == []
     assert group_response.json()["data"]["list"][0]["tags"] == []
     assert inactive_group_filter_response.json()["data"]["list"] == []
+
+
+def test_legacy_topic_list_batches_exact_semantics_at_constant_query_count(
+    factory, monkeypatch
+):
+    content_api = importlib.import_module("api.content")
+    from services.content import topic_to_dict
+
+    app = FastAPI()
+    app.include_router(content_api.router, prefix="/api")
+    monkeypatch.setattr(content_api, "get_session", factory)
+    app.dependency_overrides[current_user_id] = lambda: "1"
+
+    with factory() as db_session:
+        db_session.add(_user(1, "浏览者"))
+        inactive_tag = _tag(db_session, "activity_retired", "停用标签")
+        inactive_tag.active = False
+        for topic_id in range(1, 41):
+            topic = _topic(db_session, topic_id, title=f"旧活动 {topic_id}")
+            db_session.add(TopicTag(topic_id=topic.id, tag_id=inactive_tag.id))
+        db_session.commit()
+        expected_topic = topic_to_dict(db_session, db_session.get(Topic, 40), 1)
+
+    statements = 0
+    executed_sql: list[str] = []
+
+    def count_statement(_connection, _cursor, statement, *_args):
+        nonlocal statements
+        statements += 1
+        executed_sql.append(statement.lower())
+
+    engine = factory.kw["bind"]
+    with TestClient(app) as client:
+        event.listen(engine, "before_cursor_execute", count_statement)
+        try:
+            single_response = client.get("/api/topics?page_size=1")
+            single_statements = statements
+            single_sql = list(executed_sql)
+            statements = 0
+            executed_sql.clear()
+            many_response = client.get("/api/topics?page_size=40")
+            many_statements = statements
+            many_sql = list(executed_sql)
+        finally:
+            event.remove(engine, "before_cursor_execute", count_statement)
+
+    assert single_response.status_code == 200
+    assert many_response.status_code == 200
+    assert single_statements == many_statements
+    assert many_statements == 9
+    assert sum(
+        "count(*)" in statement and "from (select distinct topics" in statement
+        for statement in single_sql
+    ) == 1
+    assert sum(
+        "count(*)" in statement and "from (select distinct topics" in statement
+        for statement in many_sql
+    ) == 1
+    assert len(many_response.json()["data"]["list"]) == 40
+    actual_topic = next(
+        item
+        for item in many_response.json()["data"]["list"]
+        if item["id"] == expected_topic["id"]
+    )
+    assert actual_topic == expected_topic
+    assert set(actual_topic) == {
+        "id",
+        "channel",
+        "title",
+        "short_title",
+        "organizer",
+        "edition",
+        "summary",
+        "content",
+        "source_url",
+        "source_status",
+        "cover_url",
+        "follower_count",
+        "followed",
+        "tags",
+        "status",
+        "trust_badges",
+        "responsible_people",
+        "cover_placeholder_key",
+        "location_name",
+        "campus_scope",
+        "capacity",
+        "registration_deadline",
+        "activity_start_at",
+        "activity_end_at",
+        "participant_count",
+        "participant_preview",
+        "participation_mode",
+        "favorite",
+        "participation_state",
+    }
+    assert actual_topic["tags"] == [
+        {
+            "tag_id": "activity_retired",
+            "canonical_name": "停用标签",
+            "category": "activity",
+            "display_color": "purple",
+        }
+    ]
 
 
 def test_main_registers_all_four_explore_routes():
