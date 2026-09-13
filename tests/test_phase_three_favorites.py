@@ -410,6 +410,97 @@ def test_direct_join_handles_uniqueness_race_without_duplicate_effects(api_app):
         assert session.get(User, 2).team_count == 1
 
 
+def test_direct_join_same_user_race_succeeds_when_only_one_place_remains(api_app):
+    app, _auth, engine, factory = api_app
+    _seed_users(factory)
+    with factory() as session:
+        topic = _topic(session, 1, capacity=2)
+        post = _post(
+            session,
+            1,
+            topic_id=topic.id,
+            purpose="official_signup",
+            join_mode="direct",
+            target_members=2,
+        )
+        team = Team(
+            post_id=post.id,
+            owner_id=1,
+            activity_name=post.activity_name,
+            status="active",
+        )
+        session.add(team)
+        session.flush()
+        session.add(TeamMember(team_id=team.id, user_id=1, member_role="owner"))
+        session.commit()
+
+    update_sync = _synchronize_first_two_statements(
+        engine,
+        lambda statement: statement.startswith("update posts set current_members"),
+    )
+    try:
+        responses = _race_two_requests(app, "POST", "/api/posts/1/join")
+    finally:
+        event.remove(engine, "before_cursor_execute", update_sync)
+
+    assert [response.status_code for response in responses] == [200, 200]
+    assert {response.json()["data"]["member_id"] for response in responses} == {"2"}
+    assert all(response.json()["data"]["join_state"] == "joined" for response in responses)
+    assert all(response.json()["data"]["current_members"] == 2 for response in responses)
+    with factory() as session:
+        assert session.query(Team).count() == 1
+        assert session.query(TeamMember).count() == 2
+        assert session.query(Notification).count() == 1
+        assert (
+            session.query(AuditLog)
+            .filter(AuditLog.action == "post.direct_join")
+            .count()
+            == 1
+        )
+        assert session.get(Post, 1).status == "full"
+        assert session.get(User, 2).team_count == 1
+
+
+def test_direct_join_failure_after_writes_rolls_back_the_whole_operation(
+    api_app,
+    monkeypatch,
+):
+    app, _auth, _engine, factory = api_app
+    posts_api = importlib.import_module("api.posts")
+    original_join = posts_api.join_post_directly
+    _seed_users(factory)
+    with factory() as session:
+        topic = _topic(session, 1, capacity=3)
+        _post(
+            session,
+            1,
+            topic_id=topic.id,
+            purpose="official_signup",
+            join_mode="direct",
+        )
+        session.commit()
+
+    def fail_after_all_writes(session, post, user):
+        original_join(session, post, user)
+        session.flush()
+        raise RuntimeError("forced failure after direct-join writes")
+
+    monkeypatch.setattr(posts_api, "join_post_directly", fail_after_all_writes)
+    with TestClient(app, raise_server_exceptions=False) as client:
+        response = client.post("/api/posts/1/join")
+
+    assert response.status_code == 500
+    with factory() as session:
+        assert session.query(Team).count() == 0
+        assert session.query(TeamMember).count() == 0
+        assert session.query(Notification).count() == 0
+        assert session.query(AuditLog).count() == 0
+        assert session.get(Post, 1).current_members == 1
+        assert session.get(Post, 1).status == "recruiting"
+        assert session.get(User, 1).team_count == 0
+        assert session.get(User, 2).team_count == 0
+
+
 def test_direct_join_returns_stable_errors_and_preserves_application_mode(
     api_app,
     monkeypatch,

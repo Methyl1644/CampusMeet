@@ -8,6 +8,8 @@ from types import MappingProxyType
 from typing import Any, Literal, Mapping
 
 from sqlalchemy import case, func, select, text, update
+from sqlalchemy.dialects.postgresql import insert as postgresql_insert
+from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -321,12 +323,29 @@ def _ensure_membership(
     existing = _membership(session, team.id, user.id)
     if existing is not None:
         return existing, False
-    membership = TeamMember(
-        team_id=team.id,
-        user_id=user.id,
-        suggested_role=suggested_role,
-        member_role=member_role,
-    )
+    values = {
+        "team_id": team.id,
+        "user_id": user.id,
+        "suggested_role": suggested_role,
+        "member_role": member_role,
+    }
+    dialect_name = session.get_bind().dialect.name
+    if dialect_name in {"sqlite", "postgresql"}:
+        insert_factory = sqlite_insert if dialect_name == "sqlite" else postgresql_insert
+        result = session.execute(
+            insert_factory(TeamMember)
+            .values(**values)
+            .on_conflict_do_nothing(index_elements=["team_id", "user_id"])
+        )
+        membership = _membership(session, team.id, user.id)
+        if membership is None:
+            raise RuntimeError("team membership insert did not produce a durable row")
+        created = int(result.rowcount or 0) == 1
+        if created:
+            _increment_team_count(session, user)
+        return membership, created
+
+    membership = TeamMember(**values)
     try:
         with session.begin_nested():
             session.add(membership)
@@ -346,16 +365,30 @@ def _create_or_find_team(session: Session, post: Post, owner: User) -> Team:
         if team.owner_id is None:
             team.owner_id = owner.id
         return team
-    team = Team(
-        post_id=post.id,
-        owner_id=owner.id,
-        activity_name=post.activity_name,
-        division_of_labor=[],
-        meeting_agenda=[],
-        task_list=[],
-        risk_reminders=[],
-        contact_info=[],
-    )
+    values = {
+        "post_id": post.id,
+        "owner_id": owner.id,
+        "activity_name": post.activity_name,
+        "division_of_labor": [],
+        "meeting_agenda": [],
+        "task_list": [],
+        "risk_reminders": [],
+        "contact_info": [],
+    }
+    dialect_name = session.get_bind().dialect.name
+    if dialect_name in {"sqlite", "postgresql"}:
+        insert_factory = sqlite_insert if dialect_name == "sqlite" else postgresql_insert
+        session.execute(
+            insert_factory(Team)
+            .values(**values)
+            .on_conflict_do_nothing(index_elements=["post_id"])
+        )
+        team = _locked_team(session, post.id)
+        if team is None:
+            raise RuntimeError("team insert did not produce a durable row")
+        return team
+
+    team = Team(**values)
     try:
         with session.begin_nested():
             session.add(team)
@@ -468,7 +501,16 @@ def _admit_member(
     if existing is not None:
         synchronize_post_membership(session, post, team)
         return existing, False
-    _reserve_capacity(session, post, _participation_capacity(session, post))
+    try:
+        _reserve_capacity(session, post, _participation_capacity(session, post))
+    except ParticipationError as exc:
+        if exc.code not in {"participation.full", "participation.closed"}:
+            raise
+        existing = _membership(session, team.id, user.id)
+        if existing is None:
+            raise
+        synchronize_post_membership(session, post, team)
+        return existing, False
     membership, created = _ensure_membership(
         session,
         team,
