@@ -73,6 +73,16 @@ export const API_PATHS = {
   home: {
     feed: '/api/home',
   },
+  explore: {
+    activities: '/api/explore/activities',
+    activityDetail: '/api/explore/activities/:id',
+    groups: '/api/explore/groups',
+    groupDetail: '/api/explore/groups/:id',
+    favoriteActivity: '/api/favorites/topics/:id',
+    favoriteGroup: '/api/favorites/posts/:id',
+    directJoin: '/api/posts/:id/join',
+    relatedGroups: '/api/topics/:id/related-posts',
+  },
   auth: {
     sendCode: '/api/auth/send-code',
     register: '/api/auth/register',

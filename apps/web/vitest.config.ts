@@ -22,6 +22,8 @@ export default defineConfig({
       'src/components/navigation/Navbar.test.tsx',
       'src/components/home/HomeSidebar.test.tsx',
       'src/pages/Home.test.tsx',
+      'src/api/explore.test.ts',
+      'src/features/explore/exploreState.test.ts',
     ],
   },
 })

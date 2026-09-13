@@ -151,6 +151,145 @@ export interface HomeFeed {
   warnings: HomeWarningSection[];
 }
 
+export type ParticipationMode = 'open_team' | 'official_signup' | 'information_only';
+export type PostPurpose = 'team_recruitment' | 'official_signup' | 'discussion';
+export type JoinMode = 'application' | 'direct' | 'none';
+export type JoinState = 'owner' | 'joined' | 'pending' | 'rejected' | 'available' | 'closed';
+
+export interface ExploreTag {
+  tag_id: string;
+  canonical_name: string;
+  category: string;
+  display_color: string;
+}
+
+export interface ExploreUserSummary {
+  id: string;
+  nickname: string;
+  avatar: string | null;
+  major: string | null;
+  grade: string | null;
+}
+
+export type ExploreTrustBadge =
+  | { kind: 'platform_official'; label: string }
+  | { kind: 'verified_organization'; label: string; organization_name: string };
+
+export interface ExploreResponsiblePerson {
+  user_id: string;
+  nickname: string;
+  role: string;
+  badge: string;
+}
+
+export interface ExploreLinkedActivity {
+  id: string;
+  title: string;
+  short_title: string;
+  organizer: string;
+  cover_url: string | null;
+  cover_placeholder_key: string;
+  registration_deadline: string | null;
+  activity_start_at: string | null;
+  participation_mode: ParticipationMode;
+  status: string;
+}
+
+export interface ExploreGroupCard {
+  id: string;
+  title: string;
+  description: string | null;
+  source_type: string;
+  kind: 'topic_team' | 'casual_invitation';
+  purpose: PostPurpose;
+  join_mode: JoinMode;
+  topic_id: string | null;
+  main_category: string;
+  activity_name: string;
+  cover_url: string | null;
+  cover_placeholder_key: string;
+  current_members: number;
+  target_members: number;
+  needed_roles: string[];
+  weekly_hours: string | null;
+  school_scope: string | null;
+  deadline: string | null;
+  risk_level: string;
+  status: 'recruiting' | 'full' | 'closed';
+  author_id: string;
+  author: ExploreUserSummary | null;
+  bookmark: boolean;
+  join_state: JoinState;
+  member_preview: ExploreUserSummary[];
+  linked_activity: ExploreLinkedActivity | null;
+  tags: ExploreTag[];
+  collaborators: ExploreResponsiblePerson[];
+  created_at: string | null;
+}
+
+export interface ExploreGroupDetail extends ExploreGroupCard {}
+
+export interface ExploreActivityCard {
+  id: string;
+  channel: 'official' | 'organization';
+  title: string;
+  short_title: string;
+  organizer: string;
+  edition: string;
+  summary: string;
+  content: string;
+  source_url: string | null;
+  source_status: string;
+  cover_url: string | null;
+  cover_placeholder_key: string;
+  location_name: string | null;
+  campus_scope: string | null;
+  capacity: number | null;
+  registration_deadline: string | null;
+  activity_start_at: string | null;
+  activity_end_at: string | null;
+  follower_count: number;
+  participant_count: number;
+  participant_preview: ExploreUserSummary[];
+  participation_mode: ParticipationMode;
+  favorite: boolean;
+  followed: boolean;
+  participation_state: JoinState;
+  tags: ExploreTag[];
+  status: 'active';
+  trust_badges: ExploreTrustBadge[];
+  responsible_people: ExploreResponsiblePerson[];
+}
+
+export interface ExploreActivityDetail extends ExploreActivityCard {
+  related_groups: ExploreGroupCard[];
+}
+
+export interface ExplorePage<T> {
+  list: T[];
+  total: number;
+  page: number;
+  page_size: number;
+  pages: number;
+}
+
+export interface TopicFavoriteState {
+  topic_id: string;
+  favorite: boolean;
+  followed: boolean;
+  follower_count: number;
+}
+
+export interface PostFavoriteState {
+  post_id: string;
+  bookmark: boolean;
+}
+
+export interface DirectJoinResult extends ExploreGroupCard {
+  team_id: string;
+  member_id: string;
+}
+
 export interface SearchDirectResult {
   entity_type: 'topic' | 'post';
   entity_id: string;
