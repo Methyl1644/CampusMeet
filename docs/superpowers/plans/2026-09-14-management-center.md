@@ -115,4 +115,4 @@
 - [x] Run focused frontend management, navigation, and affected post-detail tests.
 - [x] Run TypeScript checking and `vite build`.
 - [x] Run `git diff --check` and inspect the final diff for unrelated changes.
-- [ ] Commit all intended changes with clear messages and push the current feature branch to `origin`.
+- [x] Commit all intended changes with clear messages and push the current feature branch to `origin`.
