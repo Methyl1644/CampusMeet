@@ -4,6 +4,7 @@ from typing import Any
 
 from fastapi import Header, HTTPException
 
+from services.auth_access import ACCESS_DENIED_MESSAGE, auth_email_is_allowed
 from services.auth_lifecycle import active_session
 from storage.database.db import get_session
 from storage.database.models import User
@@ -73,6 +74,9 @@ def current_user_id(authorization: str | None = Header(default=None)) -> str:
         user = session.get(User, user_id)
         if user is None or user.account_status != "active":
             raise HTTPException(status_code=401, detail="Account is inactive")
+        account_email = user.email or user.verified_email or ""
+        if not auth_email_is_allowed(account_email):
+            raise HTTPException(status_code=403, detail=ACCESS_DENIED_MESSAGE)
         auth_session = active_session(session, str(payload["jti"]), user_id)
         if auth_session is None:
             raise HTTPException(status_code=401, detail="Invalid or revoked token")

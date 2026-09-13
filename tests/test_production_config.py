@@ -54,6 +54,28 @@ def test_production_environment_accepts_explicit_safe_configuration():
     assert production_config_errors(SAFE_PRODUCTION_ENV) == []
 
 
+def test_production_allowlist_mode_requires_at_least_one_email():
+    from utils.runtime import production_config_errors
+
+    environment = {
+        **SAFE_PRODUCTION_ENV,
+        "AUTH_ACCESS_MODE": "allowlist",
+        "AUTH_ALLOWED_EMAILS": "  ,  ",
+    }
+
+    assert "AUTH_ALLOWED_EMAILS: allowlist mode requires at least one email" in production_config_errors(
+        environment
+    )
+
+
+def test_production_rejects_unknown_auth_access_mode():
+    from utils.runtime import production_config_errors
+
+    environment = {**SAFE_PRODUCTION_ENV, "AUTH_ACCESS_MODE": "private"}
+
+    assert "AUTH_ACCESS_MODE: must be public or allowlist" in production_config_errors(environment)
+
+
 def test_ready_endpoint_fails_without_exposing_database_exception(monkeypatch):
     import main
 

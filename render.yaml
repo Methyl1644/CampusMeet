@@ -21,6 +21,10 @@ services:
         generateValue: true
       - key: AUTH_TEST_MODE
         value: "false"
+      - key: AUTH_ACCESS_MODE
+        value: public
+      - key: AUTH_ALLOWED_EMAILS
+        sync: false
       - key: ENABLE_AGENT_RUNTIME
         value: "false"
       - key: BOOTSTRAP_OPERATOR_EMAIL
