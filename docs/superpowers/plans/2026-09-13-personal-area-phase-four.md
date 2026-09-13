@@ -57,7 +57,7 @@
 ### Task 2: Settings Preferences And Notification Semantics
 
 **Files:**
-- Create: `migrations/versions/20260913_15_user_notification_preferences.py`
+- Create: `migrations/versions/20260913_16_user_notification_preferences.py`
 - Modify: `src/storage/database/models/user.py`
 - Modify: `src/api/auth.py`
 - Modify: `src/api/notifications.py`
@@ -72,7 +72,7 @@
 
 - [ ] Write failing migration/API tests for defaults, normalization, unknown-key rejection, payload byte bounds, read idempotency, read-all idempotency, pagination, and unread-count updates.
 - [ ] Run focused tests and verify expected failures.
-- [ ] Add the migration after Phase 3 revision `20260913_14`; sanitize old preference JSON before checks.
+- [ ] Add the migration after Phase 3 revision `20260913_15`; sanitize old preference JSON before checks.
 - [ ] Centralize preference normalization and use it in onboarding/profile/settings write paths.
 - [ ] Extend notification mutations without changing existing event creation semantics.
 - [ ] Run migration upgrade/downgrade/upgrade, focused tests, and auth/notification regressions.
@@ -205,4 +205,3 @@
 - [ ] Exercise the end-to-end paths: home summary -> collection; notification -> target; menu -> public profile/settings/logout; mobile messages list -> conversation.
 - [ ] Stop all disposable services and confirm ports are closed.
 - [ ] Commit intentional fixes/docs as `test: verify personal area phase four`.
-
