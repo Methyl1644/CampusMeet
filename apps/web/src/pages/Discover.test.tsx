@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
 
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { MemoryRouter, useLocation } from 'react-router-dom'
+import { MemoryRouter, useLocation, useNavigate } from 'react-router-dom'
 import {
   listExploreActivities,
   listExploreGroups,
@@ -37,13 +37,20 @@ const groupPage = {
 
 function LocationProbe() {
   const location = useLocation()
-  return <output aria-label="当前地址">{location.pathname}{location.search}</output>
+  const navigate = useNavigate()
+  return (
+    <>
+      <output aria-label="当前地址">{location.pathname}{location.search}</output>
+      <button type="button" onClick={() => navigate(-1)}>返回上一地址</button>
+    </>
+  )
 }
 
-function renderDiscover(initialEntry = '/discover') {
+function renderDiscover(initialEntry = '/discover', previousEntry?: string) {
   return render(
     <MemoryRouter
-      initialEntries={[initialEntry]}
+      initialEntries={previousEntry ? [previousEntry, initialEntry] : [initialEntry]}
+      initialIndex={previousEntry ? 1 : 0}
       future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
     >
       <ToastProvider>
@@ -188,6 +195,73 @@ describe('Discover Explore experience', () => {
       expect.objectContaining({ page: 2, pageSize: 12 }),
       expect.any(AbortSignal),
     ))
+  })
+
+  it('normalizes an out-of-range shared URL with history replacement and preserves inactive state', async () => {
+    vi.mocked(listExploreGroups)
+      .mockResolvedValueOnce({ ...groupPage, list: [], total: 13, page: 7, pages: 2 })
+      .mockResolvedValueOnce({ ...groupPage, page: 2, pages: 2 })
+
+    renderDiscover(
+      '/discover?view=group&group_page=7&activity_page=4&activity_q=robot',
+      '/home',
+    )
+
+    expect(await screen.findByText(groupFixture.title)).toBeTruthy()
+    expect(vi.mocked(listExploreGroups).mock.calls.map(([params]) => params?.page)).toEqual([7, 2])
+    const correctedUrl = screen.getByLabelText('当前地址').textContent ?? ''
+    expect(correctedUrl).toContain('group_page=2')
+    expect(correctedUrl).toContain('activity_page=4')
+    expect(correctedUrl).toContain('activity_q=robot')
+
+    fireEvent.click(screen.getByRole('button', { name: '返回上一地址' }))
+    await waitFor(() => expect(screen.getByLabelText('当前地址').textContent).toBe('/home'))
+  })
+
+  it('does not let an older success replace a newer activity result', async () => {
+    const staleRequest = deferred<typeof activityPage>()
+    const currentActivity = { ...activityFixture, id: 'activity-current', title: '当前搜索结果' }
+    vi.mocked(listExploreActivities)
+      .mockReturnValueOnce(staleRequest.promise)
+      .mockResolvedValueOnce({ ...activityPage, list: [currentActivity] })
+
+    renderDiscover()
+    await waitFor(() => expect(listExploreActivities).toHaveBeenCalledTimes(1))
+    fireEvent.change(screen.getByRole('searchbox', { name: '搜索活动' }), { target: { value: '当前' } })
+    expect(await screen.findByText(currentActivity.title)).toBeTruthy()
+
+    await act(async () => {
+      staleRequest.resolve(activityPage)
+      await staleRequest.promise
+    })
+
+    expect(screen.getByText(currentActivity.title)).toBeTruthy()
+    expect(screen.queryByText(activityFixture.title)).toBeNull()
+  })
+
+  it('does not let an older error replace a newer activity result', async () => {
+    const staleRequest = deferred<typeof activityPage>()
+    const currentActivity = { ...activityFixture, id: 'activity-current', title: '错误之后仍保留的结果' }
+    vi.mocked(listExploreActivities)
+      .mockReturnValueOnce(staleRequest.promise)
+      .mockResolvedValueOnce({ ...activityPage, list: [currentActivity] })
+
+    renderDiscover()
+    await waitFor(() => expect(listExploreActivities).toHaveBeenCalledTimes(1))
+    fireEvent.change(screen.getByRole('searchbox', { name: '搜索活动' }), { target: { value: '保留' } })
+    expect(await screen.findByText(currentActivity.title)).toBeTruthy()
+
+    await act(async () => {
+      staleRequest.reject(new Error('stale failure'))
+      try {
+        await staleRequest.promise
+      } catch {
+        // The component owns the expected rejection; awaiting it flushes the stale catch path.
+      }
+    })
+
+    expect(screen.queryByRole('alert')).toBeNull()
+    expect(screen.getByText(currentActivity.title)).toBeTruthy()
   })
 
   it('matches the loading placeholder height to group card geometry', () => {

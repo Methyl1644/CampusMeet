@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { CalendarDays, Heart, Image, MapPin, UsersRound } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import type { ExploreActivityCard } from '@shared/types'
@@ -32,6 +33,8 @@ function capacityLabel(activity: ExploreActivityCard) {
 
 export default function ActivityCard({ activity, favoritePending, onFavorite }: ActivityCardProps) {
   const favorite = activity.favorite || activity.followed
+  const [failedCoverUrl, setFailedCoverUrl] = useState<string | null>(null)
+  const showCover = Boolean(activity.cover_url) && failedCoverUrl !== activity.cover_url
   const tags = [...activity.tags].sort((left, right) => (
     left.canonical_name.localeCompare(right.canonical_name, 'zh-CN')
   )).slice(0, 2)
@@ -39,8 +42,8 @@ export default function ActivityCard({ activity, favoritePending, onFavorite }: 
   return (
     <article aria-label={activity.title} className="group flex h-[432px] min-w-0 flex-col overflow-hidden rounded-card border border-stone bg-paper shadow-panel transition duration-feedback motion-safe:hover:-translate-y-0.5 hover:border-primary-300 hover:shadow-md">
       <div data-testid="activity-media" className="relative aspect-[16/9] w-full shrink-0 overflow-hidden rounded-t-[12px] bg-[#EDF1F4]">
-        {activity.cover_url ? (
-          <img src={activity.cover_url} alt={`${activity.title}封面`} className="size-full object-cover transition-transform duration-feedback motion-safe:group-hover:scale-[1.02]" />
+        {showCover ? (
+          <img src={activity.cover_url ?? undefined} alt={`${activity.title}封面`} onError={() => setFailedCoverUrl(activity.cover_url)} className="size-full object-cover transition-transform duration-feedback motion-safe:group-hover:scale-[1.02]" />
         ) : (
           <span role="img" aria-label="活动封面占位图" className="flex size-full items-center justify-center bg-[#E9EEF1] text-campus-green"><Image aria-hidden="true" className="size-9" /></span>
         )}

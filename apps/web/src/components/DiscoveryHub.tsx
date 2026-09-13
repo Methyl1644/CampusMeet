@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { AlertCircle, ChevronLeft, ChevronRight, Search, X } from 'lucide-react'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import type { ExploreActivityCard, ExploreGroupCard, ExplorePage } from '@shared/types'
@@ -38,15 +38,18 @@ function emptyResults(): ResultsState {
 }
 
 export default function DiscoveryHub() {
-  const { state, activeState, setView, updateActiveState } = useExploreState()
+  const { state, activeState, setView, updateActiveState, replaceActivePage } = useExploreState()
   const { showToast } = useToast()
   const shouldReduceMotion = useReducedMotion()
   const [results, setResults] = useState<ResultsState>(emptyResults)
   const [retryGeneration, setRetryGeneration] = useState(0)
   const [favoritePending, setFavoritePending] = useState<Set<string>>(() => new Set())
+  const loadGeneration = useRef(0)
 
   useEffect(() => {
     const controller = new AbortController()
+    const generation = ++loadGeneration.current
+    const isCurrent = () => !controller.signal.aborted && generation === loadGeneration.current
     setResults((current) => ({ ...current, loading: true, error: false }))
 
     const load = async () => {
@@ -62,6 +65,12 @@ export default function DiscoveryHub() {
             page: state.activity.page,
             pageSize: PAGE_SIZE,
           }, controller.signal)
+          if (!isCurrent()) return
+          if (page.pages > 0 && state.activity.page > page.pages) {
+            replaceActivePage(page.pages)
+            return
+          }
+          if (!isCurrent()) return
           setResults((current) => ({ ...current, activities: page, loading: false, error: false }))
         } else {
           const page = await listExploreGroups({
@@ -74,16 +83,23 @@ export default function DiscoveryHub() {
             page: state.group.page,
             pageSize: PAGE_SIZE,
           }, controller.signal)
+          if (!isCurrent()) return
+          if (page.pages > 0 && state.group.page > page.pages) {
+            replaceActivePage(page.pages)
+            return
+          }
+          if (!isCurrent()) return
           setResults((current) => ({ ...current, groups: page, loading: false, error: false }))
         }
       } catch {
-        if (!controller.signal.aborted) setResults((current) => ({ ...current, loading: false, error: true }))
+        if (!isCurrent()) return
+        setResults((current) => ({ ...current, loading: false, error: true }))
       }
     }
 
     void load()
     return () => controller.abort()
-  }, [state.view, state.activity, state.group, retryGeneration])
+  }, [state.view, state.activity, state.group, retryGeneration, replaceActivePage])
 
   const changeView = (view: ExploreView) => {
     if (view !== state.view) setView(view)

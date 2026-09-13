@@ -259,10 +259,18 @@ export function useExploreState() {
     }, { replace })
   }, [setSearch])
 
+  const replaceActivePage = useCallback((page: number) => {
+    setSearch((currentSearch) => {
+      const next = updateExploreState(readExploreState(currentSearch), { page })
+      return writeExploreState(next.view, next)
+    }, { replace: true })
+  }, [setSearch])
+
   return {
     state,
     activeState: state[state.view],
     setView,
     updateActiveState,
+    replaceActivePage,
   }
 }

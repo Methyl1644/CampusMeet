@@ -53,6 +53,16 @@ describe('Explore result cards', () => {
     expect(within(media).getByRole('img', { name: '活动封面占位图' })).toBeTruthy()
   })
 
+  it('replaces an activity cover that fails to load with the stable placeholder', () => {
+    renderCard(<ActivityCard activity={activityFixture} onFavorite={vi.fn()} favoritePending={false} />)
+
+    const media = screen.getByTestId('activity-media')
+    fireEvent.error(within(media).getByRole('img', { name: `${activityFixture.title}封面` }))
+
+    expect(media.classList.contains('aspect-[16/9]')).toBe(true)
+    expect(within(media).getByRole('img', { name: '活动封面占位图' })).toBeTruthy()
+  })
+
   it('shows group purpose, timing, owner, capacity, roles, linked activity, and persistent actions', () => {
     const onFavorite = vi.fn()
     renderCard(<GroupCard group={groupFixture} onFavorite={onFavorite} favoritePending={false} />)
@@ -72,5 +82,16 @@ describe('Explore result cards', () => {
 
     fireEvent.click(within(card).getByRole('button', { name: `收藏${groupFixture.title}` }))
     expect(onFavorite).toHaveBeenCalledWith(groupFixture.id, true)
+  })
+
+  it('replaces a group cover that fails to load with the stable placeholder', () => {
+    const groupWithCover = { ...groupFixture, cover_url: '/images/broken-group.jpg' }
+    renderCard(<GroupCard group={groupWithCover} onFavorite={vi.fn()} favoritePending={false} />)
+
+    const media = screen.getByTestId('group-media')
+    fireEvent.error(within(media).getByRole('img', { name: `${groupWithCover.title}封面` }))
+
+    expect(media.classList.contains('aspect-[16/9]')).toBe(true)
+    expect(within(media).getByRole('img', { name: '组队封面占位图' })).toBeTruthy()
   })
 })

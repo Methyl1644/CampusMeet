@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { CalendarClock, Heart, Image, UserRound, UsersRound } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import type { ExploreGroupCard } from '@shared/types'
@@ -22,13 +23,15 @@ function formatDeadline(value: string | null) {
 }
 
 export default function GroupCard({ group, favoritePending, onFavorite }: GroupCardProps) {
+  const [failedCoverUrl, setFailedCoverUrl] = useState<string | null>(null)
+  const showCover = Boolean(group.cover_url) && failedCoverUrl !== group.cover_url
   const roles = [...group.needed_roles].sort((left, right) => left.localeCompare(right, 'zh-CN')).slice(0, 3)
 
   return (
     <article aria-label={group.title} className="group flex h-[444px] min-w-0 flex-col overflow-hidden rounded-card border border-stone bg-paper shadow-panel transition duration-feedback motion-safe:hover:-translate-y-0.5 hover:border-primary-300 hover:shadow-md">
       <div data-testid="group-media" className="relative aspect-[16/9] w-full shrink-0 overflow-hidden rounded-t-[12px] bg-[#EEF0F4]">
-        {group.cover_url ? (
-          <img src={group.cover_url} alt={`${group.title}封面`} className="size-full object-cover transition-transform duration-feedback motion-safe:group-hover:scale-[1.02]" />
+        {showCover ? (
+          <img src={group.cover_url ?? undefined} alt={`${group.title}封面`} onError={() => setFailedCoverUrl(group.cover_url)} className="size-full object-cover transition-transform duration-feedback motion-safe:group-hover:scale-[1.02]" />
         ) : (
           <span role="img" aria-label="组队封面占位图" className="flex size-full items-center justify-center bg-[#E8EDF2] text-[#31576B]"><Image aria-hidden="true" className="size-9" /></span>
         )}
