@@ -49,6 +49,8 @@ class ProfileVisibilityRequest(BaseModel):
     skills: StrictBool = True
     availability: StrictBool = False
     contact: StrictBool = False
+    activities: StrictBool = False
+    groups: StrictBool = False
 
 
 class SendCodeRequest(BaseModel):

@@ -29,6 +29,7 @@ from services.identity import identity_summary
 from services.onboarding import (
     complete_onboarding,
     onboarding_to_dict,
+    update_profile_fields,
     update_onboarding,
 )
 from storage.database.db import get_session
@@ -40,7 +41,6 @@ from tools.auth_tools import (
     login_user,
     register_auth_send_code,
     register_user,
-    update_user_profile,
     verify_campus_email,
 )
 from utils.auth import verify_password, verify_token
@@ -125,20 +125,29 @@ def profile(user_id: str = Depends(current_user_id)) -> dict[str, Any]:
 
 @router.patch("/profile")
 def update_profile(body: ProfileUpdateRequest, user_id: str = Depends(current_user_id)) -> dict[str, Any]:
-    body = body.model_dump() if isinstance(body, ProfileUpdateRequest) else body
-    skills = body.get("skills") or ""
-    raw = invoke_tool(
-        update_user_profile,
-        {
-            "user_id": user_id,
-            "nickname": body.get("nickname", ""),
-            "major": body.get("major", ""),
-            "grade": body.get("grade", ""),
-            "skills": ",".join(skills) if isinstance(skills, list) else str(skills),
-            "wechat": body.get("wechat", ""),
-        },
+    payload = (
+        body.model_dump(exclude_unset=True)
+        if isinstance(body, ProfileUpdateRequest)
+        else dict(body)
     )
-    return parse_tool_result(raw, "user")
+    skills = payload.get("skills")
+    if isinstance(skills, str):
+        payload["skills"] = [item for item in skills.split(",") if item.strip()]
+    payload = {key: value for key, value in payload.items() if value not in ("", None)}
+    session = get_session()
+    try:
+        user = session.get(User, int(user_id))
+        if user is None:
+            raise HTTPException(status_code=404, detail="用户不存在")
+        try:
+            update_profile_fields(user, payload)
+            session.commit()
+        except ValueError as exc:
+            session.rollback()
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        return api_ok(_user_to_dict(user))
+    finally:
+        session.close()
 
 
 @router.get("/onboarding")

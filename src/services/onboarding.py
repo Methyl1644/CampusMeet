@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from services.content_catalog import STANDARD_TAGS
 from storage.database.models import User
+from storage.database.models.user import DEFAULT_NOTIFICATION_PREFERENCES
 
 
 UPDATE_FIELDS = {
@@ -69,7 +70,16 @@ WEEKLY_HOURS_OPTIONS = frozenset(
     }
 )
 PROFILE_VISIBILITY_FIELDS = frozenset(
-    {"major", "grade", "interests", "skills", "availability", "contact"}
+    {
+        "major",
+        "grade",
+        "interests",
+        "skills",
+        "availability",
+        "contact",
+        "activities",
+        "groups",
+    }
 )
 DEFAULT_PROFILE_VISIBILITY = {
     "major": True,
@@ -78,7 +88,25 @@ DEFAULT_PROFILE_VISIBILITY = {
     "skills": True,
     "availability": False,
     "contact": False,
+    "activities": False,
+    "groups": False,
 }
+NOTIFICATION_PREFERENCE_FIELDS = frozenset(DEFAULT_NOTIFICATION_PREFERENCES)
+PROFILE_UPDATE_FIELDS = frozenset(
+    {
+        "nickname",
+        "avatar",
+        "major",
+        "grade",
+        "interests",
+        "looking_for",
+        "skills",
+        "availability",
+        "bio",
+        "profile_visibility",
+        "wechat",
+    }
+)
 MAX_ONBOARDING_TEXT = 4000
 
 
@@ -101,15 +129,7 @@ def _serialized_availability(value: object) -> dict[str, object]:
 
 
 def onboarding_to_dict(user: User) -> dict[str, Any]:
-    stored_visibility = user.profile_visibility or {}
-    profile_visibility = {
-        **DEFAULT_PROFILE_VISIBILITY,
-        **{
-            key: value
-            for key, value in stored_visibility.items()
-            if key in PROFILE_VISIBILITY_FIELDS and type(value) is bool
-        },
-    }
+    profile_visibility = normalized_profile_visibility(user.profile_visibility)
     return {
         "nickname": user.nickname,
         "avatar": user.avatar,
@@ -123,6 +143,30 @@ def onboarding_to_dict(user: User) -> dict[str, Any]:
         "availability": _serialized_availability(user.availability),
         "profile_visibility": profile_visibility,
         "skills": user.skills or [],
+    }
+
+
+def normalized_profile_visibility(value: object) -> dict[str, bool]:
+    stored = value if isinstance(value, Mapping) else {}
+    return {
+        **DEFAULT_PROFILE_VISIBILITY,
+        **{
+            key: item
+            for key, item in stored.items()
+            if key in PROFILE_VISIBILITY_FIELDS and type(item) is bool
+        },
+    }
+
+
+def normalize_notification_preferences(value: object) -> dict[str, bool]:
+    stored = value if isinstance(value, Mapping) else {}
+    return {
+        **DEFAULT_NOTIFICATION_PREFERENCES,
+        **{
+            key: item
+            for key, item in stored.items()
+            if key in NOTIFICATION_PREFERENCE_FIELDS and type(item) is bool
+        },
     }
 
 
@@ -181,6 +225,96 @@ def _text_size(value: object) -> int:
     if isinstance(value, list):
         return sum(_text_size(item) for item in value)
     return 0
+
+
+def update_profile_fields(user: User, payload: Mapping[str, object]) -> dict[str, Any]:
+    unknown_fields = sorted(set(payload) - PROFILE_UPDATE_FIELDS)
+    if unknown_fields:
+        raise ValueError(f"包含未知字段: {', '.join(unknown_fields)}")
+    if _text_size(payload) > MAX_ONBOARDING_TEXT:
+        raise ValueError(f"资料文本总量不能超过 {MAX_ONBOARDING_TEXT} 个字符")
+
+    normalized: dict[str, object] = {}
+    profile_string_limits = {**STRING_LIMITS, "wechat": 80}
+    for field, limit in profile_string_limits.items():
+        if field not in payload or payload[field] is None:
+            continue
+        value = payload[field]
+        if not isinstance(value, str):
+            raise ValueError(f"{field} 必须是字符串")
+        value = value.strip()
+        if field in {"nickname", "major", "grade"} and not value:
+            raise ValueError(f"{field} 不能为空")
+        if len(value) > limit:
+            raise ValueError(f"{field} 最多 {limit} 个字符")
+        normalized[field] = value or None
+
+    for field in LIST_LIMITS:
+        if field in payload and payload[field] is not None:
+            normalized[field] = _normalize_list(field, payload[field])
+
+    if "availability" in payload and payload["availability"] is not None:
+        normalized["availability"] = _normalize_mapping(
+            "availability", payload["availability"]
+        )
+    if "profile_visibility" in payload and payload["profile_visibility"] is not None:
+        visibility = _normalize_mapping(
+            "profile_visibility", payload["profile_visibility"]
+        )
+        normalized["profile_visibility"] = {
+            **normalized_profile_visibility(user.profile_visibility),
+            **visibility,
+        }
+
+    for field, value in normalized.items():
+        setattr(user, field, value)
+    return profile_settings_to_dict(user)
+
+
+def profile_settings_to_dict(user: User) -> dict[str, Any]:
+    data = onboarding_to_dict(user)
+    data.pop("onboarding_step", None)
+    data.pop("onboarding_completed", None)
+    data["wechat"] = user.wechat
+    data["notification_preferences"] = normalize_notification_preferences(
+        user.notification_preferences
+    )
+    return data
+
+
+def update_settings(
+    user: User,
+    payload: Mapping[str, object],
+) -> dict[str, Any]:
+    allowed = {"profile_visibility", "notification_preferences"}
+    unknown_fields = sorted(set(payload) - allowed)
+    if unknown_fields:
+        raise ValueError(f"包含未知字段: {', '.join(unknown_fields)}")
+    if "profile_visibility" in payload and payload["profile_visibility"] is not None:
+        patch = _normalize_mapping("profile_visibility", payload["profile_visibility"])
+        user.profile_visibility = {
+            **normalized_profile_visibility(user.profile_visibility),
+            **patch,
+        }
+    if (
+        "notification_preferences" in payload
+        and payload["notification_preferences"] is not None
+    ):
+        value = payload["notification_preferences"]
+        if not isinstance(value, dict):
+            raise ValueError("notification_preferences 必须是对象")
+        unknown = sorted(set(value) - NOTIFICATION_PREFERENCE_FIELDS)
+        if unknown:
+            raise ValueError(
+                f"notification_preferences 包含未知字段: {', '.join(unknown)}"
+            )
+        if not all(type(item) is bool for item in value.values()):
+            raise ValueError("notification_preferences 的值必须是布尔值")
+        user.notification_preferences = {
+            **normalize_notification_preferences(user.notification_preferences),
+            **value,
+        }
+    return profile_settings_to_dict(user)
 
 
 def update_onboarding(

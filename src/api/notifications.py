@@ -1,6 +1,6 @@
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 
 from api.common import api_ok, current_user_id
 from services.notifications import (
@@ -18,8 +18,8 @@ router = APIRouter(prefix="/notifications", tags=["notifications"])
 
 @router.get("")
 def list_items(
-    page: int = 1,
-    page_size: int = 20,
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=20, ge=1, le=40),
     user_id: str = Depends(current_user_id),
 ) -> dict[str, Any]:
     session = get_session()
@@ -31,9 +31,9 @@ def list_items(
             {
                 "list": [notification_to_dict(item) for item in items],
                 "total": total,
-                "page": max(1, page),
-                "page_size": min(100, max(1, page_size)),
-                "pages": (total + page_size - 1) // page_size if page_size > 0 else 0,
+                "page": page,
+                "page_size": page_size,
+                "pages": (total + page_size - 1) // page_size,
             }
         )
     finally:
@@ -55,7 +55,9 @@ def read_all(user_id: str = Depends(current_user_id)) -> dict[str, Any]:
     try:
         count = mark_all_read(session, int(user_id))
         session.commit()
-        return api_ok({"updated": count})
+        return api_ok(
+            {"updated": count, "unread_count": unread_count(session, int(user_id))}
+        )
     finally:
         session.close()
 
@@ -69,6 +71,8 @@ def read(notification_id: int, user_id: str = Depends(current_user_id)) -> dict[
             session.commit()
         except ValueError as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
-        return api_ok(notification_to_dict(item))
+        data = notification_to_dict(item)
+        data["unread_count"] = unread_count(session, int(user_id))
+        return api_ok(data)
     finally:
         session.close()

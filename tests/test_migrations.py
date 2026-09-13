@@ -22,6 +22,13 @@ from storage.database.shared.model import Base
 
 ROOT = Path(__file__).resolve().parents[1]
 EXPECTED_TABLES = set(Base.metadata.tables)
+PREFERENCE_DEFAULTS = {
+    "applications": True,
+    "teams": True,
+    "moderation": True,
+    "deadlines": True,
+    "messages": True,
+}
 
 
 def _load_migration(module_name: str, filename: str):
@@ -801,6 +808,47 @@ def test_postgresql_deadline_normalization_migration_batches_safe_values(monkeyp
     assert [event[1] for event in events if event[0] == "update"] == [500, 2]
 
 
+def test_notification_preferences_migration_round_trips_and_sanitizes_legacy_rows(tmp_path):
+    database_url = f"sqlite:///{tmp_path / 'notification-preferences.db'}"
+    engine = create_engine(database_url)
+    with engine.begin() as connection:
+        connection.execute(
+            text(
+                "CREATE TABLE users ("
+                "id INTEGER PRIMARY KEY, notification_preferences JSON)"
+            )
+        )
+        connection.execute(
+            text(
+                "INSERT INTO users (id, notification_preferences) VALUES "
+                "(1, NULL), "
+                "(2, '{\"messages\": false, \"unknown\": true}')"
+            )
+        )
+    config = _alembic_config(database_url)
+    command.stamp(config, "20260913_15")
+
+    command.upgrade(config, "20260913_16")
+
+    with engine.connect() as connection:
+        stored = connection.execute(
+            text("SELECT notification_preferences FROM users ORDER BY id")
+        ).scalars().all()
+        revision = connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
+    assert json.loads(stored[0]) == PREFERENCE_DEFAULTS
+    assert json.loads(stored[1]) == {**PREFERENCE_DEFAULTS, "messages": False}
+    assert revision == "20260913_16"
+
+    command.downgrade(config, "20260913_15")
+    assert "notification_preferences" not in {
+        item["name"] for item in inspect(engine).get_columns("users")
+    }
+
+    command.upgrade(config, "20260913_16")
+    with engine.connect() as connection:
+        assert connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one() == "20260913_16"
+
+
 def _create_phase_two_participation_schema(engine, *, dirty_fields: bool = False) -> None:
     with engine.begin() as connection:
         connection.execute(text("CREATE TABLE users (id INTEGER PRIMARY KEY)"))
@@ -877,7 +925,7 @@ def test_explore_participation_migration_preserves_legacy_rows_and_is_reversible
         ).scalar_one()
     assert tuple(topic) == ("Legacy activity", None, "open_team")
     assert tuple(post) == ("Legacy group", "team_recruitment", "application")
-    assert revision == "20260913_15"
+    assert revision == "20260913_16"
 
     with engine.begin() as connection:
         connection.execute(
@@ -960,7 +1008,7 @@ def test_deadline_normalization_migration_streams_and_round_trips_legacy_rows(tm
         revision = connection.execute(
             text("SELECT version_num FROM alembic_version")
         ).scalar_one()
-    assert revision == "20260913_15"
+    assert revision == "20260913_16"
     assert [row.deadline for row in normalized] == [
         "2026-09-13T12:30:00Z",
         "2026-09-13T13:00:00+02:00",
@@ -998,7 +1046,7 @@ def test_deadline_normalization_migration_streams_and_round_trips_legacy_rows(tm
         ).scalar_one() == "2026-09-13 11:00:00.000000"
         assert connection.execute(
             text("SELECT version_num FROM alembic_version")
-        ).scalar_one() == "20260913_15"
+        ).scalar_one() == "20260913_16"
 
 
 def test_explore_participation_migration_sanitizes_legacy_values_before_checks(tmp_path):

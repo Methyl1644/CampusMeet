@@ -46,7 +46,7 @@ def list_notifications(
     page_size: int,
 ) -> tuple[list[Notification], int]:
     page = max(1, page)
-    page_size = min(100, max(1, page_size))
+    page_size = min(40, max(1, page_size))
     total = session.scalar(
         select(func.count()).select_from(Notification).where(Notification.user_id == user_id)
     ) or 0
@@ -91,6 +91,12 @@ def mark_all_read(session: Session, user_id: int) -> int:
 
 
 def notification_to_dict(item: Notification) -> dict:
+    read_at = item.read_at
+    if read_at is not None and read_at.tzinfo is None:
+        read_at = read_at.replace(tzinfo=datetime.timezone.utc)
+    created_at = item.created_at
+    if created_at is not None and created_at.tzinfo is None:
+        created_at = created_at.replace(tzinfo=datetime.timezone.utc)
     return {
         "id": str(item.id),
         "event_type": item.event_type,
@@ -98,6 +104,6 @@ def notification_to_dict(item: Notification) -> dict:
         "body": item.body,
         "target_type": item.target_type,
         "target_id": item.target_id,
-        "read_at": item.read_at.isoformat() if item.read_at else None,
-        "created_at": item.created_at.isoformat() if item.created_at else None,
+        "read_at": read_at.isoformat() if read_at else None,
+        "created_at": created_at.isoformat() if created_at else None,
     }
