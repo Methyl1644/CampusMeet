@@ -9,9 +9,14 @@ import Publish from '@/pages/Publish'
 import PostDetail from '@/pages/PostDetail'
 import Messages from '@/pages/Messages'
 import TeamDetail from '@/pages/TeamDetail'
-import Profile from '@/pages/Profile'
 import TopicDetail from '@/pages/TopicDetail'
 import Tutorial from '@/pages/Tutorial'
+import MyActivities from '@/pages/MyActivities'
+import MyGroups from '@/pages/MyGroups'
+import Notifications from '@/pages/Notifications'
+import PublicProfile from '@/pages/PublicProfile'
+import Settings from '@/pages/Settings'
+import ProfileRedirect from '@/pages/ProfileRedirect'
 import { useAuthStore } from '@/store/authStore'
 
 function LoginRoute() {
@@ -45,9 +50,15 @@ export const appRoutes: RouteObject[] = [
       { path: 'posts/:id', element: <PostDetail /> },
       { path: 'topics/:id', element: <TopicDetail /> },
       { path: 'messages', element: <Messages /> },
+      { path: 'messages/:conversationId', element: <Messages /> },
       { path: 'tutorial', element: <Tutorial /> },
       { path: 'teams/:id', element: <TeamDetail /> },
-      { path: 'profile', element: <Profile /> },
+      { path: 'profile', element: <ProfileRedirect /> },
+      { path: 'my/activities', element: <MyActivities /> },
+      { path: 'my/groups', element: <MyGroups /> },
+      { path: 'notifications', element: <Notifications /> },
+      { path: 'users/:id', element: <PublicProfile /> },
+      { path: 'settings', element: <Settings /> },
     ],
   },
 ]

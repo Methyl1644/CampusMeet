@@ -24,14 +24,14 @@ interface UserMenuProps {
 }
 
 const profileLinks = [
-  { to: '/profile?tab=events', label: '我的活动', icon: CalendarDays },
-  { to: '/profile?tab=groups', label: '我的小组', icon: UsersRound },
-  { to: '/profile?view=public', label: '查看个人主页', icon: UserRound },
-  { to: '/profile?view=settings', label: '设置', icon: Settings },
+  { to: '/my/activities', label: '我的活动', icon: CalendarDays },
+  { to: '/my/groups', label: '我的小组', icon: UsersRound },
+  { to: '/users/me', label: '查看个人主页', icon: UserRound },
+  { to: '/settings', label: '设置', icon: Settings },
 ]
 
 const mobileLinks = [
-  { to: '/profile?view=notifications', label: '通知', icon: Bell },
+  { to: '/notifications', label: '通知', icon: Bell },
   { to: '/tutorial', label: '教程', icon: CircleHelp },
   ...profileLinks,
 ]

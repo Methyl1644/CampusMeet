@@ -84,7 +84,7 @@ export default function DesktopHeader({
             {unreadState === 'ready' && <UnreadBadge count={unread.messages} />}
           </NavLink>
           <NavLink
-            to="/profile?view=notifications"
+            to="/notifications"
             aria-label={navUnreadLabel('通知', unread.notifications, unreadState)}
             title="通知"
             className="relative flex size-10 items-center justify-center rounded-card text-ink-muted transition duration-fast hover:bg-primary-50 hover:text-primary-700"

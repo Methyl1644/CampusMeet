@@ -7,6 +7,7 @@ interface ActivityCardProps {
   activity: ExploreActivityCard
   favoritePending: boolean
   onFavorite: (id: string, favorite: boolean) => void
+  favoriteEnabled?: boolean
 }
 
 function formatDate(value: string | null) {
@@ -31,7 +32,7 @@ function capacityLabel(activity: ExploreActivityCard) {
   return remaining > 0 ? `剩余 ${remaining} 个名额` : '名额已满'
 }
 
-export default function ActivityCard({ activity, favoritePending, onFavorite }: ActivityCardProps) {
+export default function ActivityCard({ activity, favoritePending, onFavorite, favoriteEnabled = true }: ActivityCardProps) {
   const favorite = activity.favorite || activity.followed
   const [failedCoverUrl, setFailedCoverUrl] = useState<string | null>(null)
   const showCover = Boolean(activity.cover_url) && failedCoverUrl !== activity.cover_url
@@ -47,7 +48,7 @@ export default function ActivityCard({ activity, favoritePending, onFavorite }: 
         ) : (
           <span role="img" aria-label="活动封面占位图" className="flex size-full items-center justify-center bg-[#E9EEF1] text-campus-green"><Image aria-hidden="true" className="size-9" /></span>
         )}
-        <button
+        {favoriteEnabled && <button
           type="button"
           aria-label={`${favorite ? '取消收藏' : '收藏'}${activity.title}`}
           title={favorite ? '取消收藏' : '收藏'}
@@ -56,7 +57,7 @@ export default function ActivityCard({ activity, favoritePending, onFavorite }: 
           className="absolute right-2.5 top-2.5 inline-flex size-10 items-center justify-center rounded-full border border-white/80 bg-paper/95 text-primary-700 shadow-panel transition-colors duration-feedback hover:bg-primary-50"
         >
           <Heart aria-hidden="true" className="size-[18px]" fill={favorite ? 'currentColor' : 'none'} />
-        </button>
+        </button>}
         <span className="absolute bottom-2.5 left-2.5 rounded-full bg-[#18362E]/90 px-2.5 py-1 text-xs font-semibold text-white">{capacityLabel(activity)}</span>
       </div>
 

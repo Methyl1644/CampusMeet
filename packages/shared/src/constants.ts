@@ -68,6 +68,11 @@ export const ONBOARDING_INTERESTS = [
   '摄影', '视频创作', '桌游', '电子竞技', '约饭', '旅行', '校园参访',
 ] as const
 
+export const SITE_LINKS = {
+  repository: 'https://github.com/Methyl1644/EL_CampusMate',
+  contact: 'https://github.com/Methyl1644/EL_CampusMate/issues',
+} as const
+
 /** API 路径 */
 export const API_PATHS = {
   home: {
@@ -172,6 +177,13 @@ export const API_PATHS = {
     unreadCount: '/api/notifications/unread-count',
     read: '/api/notifications/:id/read',
     readAll: '/api/notifications/read-all',
+  },
+  personal: {
+    activities: '/api/me/activities',
+    groups: '/api/me/groups',
+    publicProfile: '/api/profiles/:id',
+    profile: '/api/me/profile',
+    settings: '/api/me/settings',
   },
   uploads: {
     create: '/api/uploads',

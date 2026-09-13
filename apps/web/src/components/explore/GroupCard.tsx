@@ -7,6 +7,7 @@ interface GroupCardProps {
   group: ExploreGroupCard
   favoritePending: boolean
   onFavorite: (id: string, favorite: boolean) => void
+  favoriteEnabled?: boolean
 }
 
 const purposeLabels = {
@@ -22,7 +23,7 @@ function formatDeadline(value: string | null) {
   return `${new Intl.DateTimeFormat('zh-CN', { month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false }).format(date)} 截止`
 }
 
-export default function GroupCard({ group, favoritePending, onFavorite }: GroupCardProps) {
+export default function GroupCard({ group, favoritePending, onFavorite, favoriteEnabled = true }: GroupCardProps) {
   const [failedCoverUrl, setFailedCoverUrl] = useState<string | null>(null)
   const showCover = Boolean(group.cover_url) && failedCoverUrl !== group.cover_url
   const roles = [...group.needed_roles].sort((left, right) => left.localeCompare(right, 'zh-CN')).slice(0, 3)
@@ -36,7 +37,7 @@ export default function GroupCard({ group, favoritePending, onFavorite }: GroupC
           <span role="img" aria-label="组队封面占位图" className="flex size-full items-center justify-center bg-[#E8EDF2] text-[#31576B]"><Image aria-hidden="true" className="size-9" /></span>
         )}
         <span className="absolute left-2.5 top-2.5 rounded-full bg-[#18362E]/90 px-2.5 py-1 text-xs font-semibold text-white">{purposeLabels[group.purpose]}</span>
-        <button
+        {favoriteEnabled && <button
           type="button"
           aria-label={`${group.bookmark ? '取消收藏' : '收藏'}${group.title}`}
           title={group.bookmark ? '取消收藏' : '收藏'}
@@ -45,7 +46,7 @@ export default function GroupCard({ group, favoritePending, onFavorite }: GroupC
           className="absolute right-2.5 top-2.5 inline-flex size-10 items-center justify-center rounded-full border border-white/80 bg-paper/95 text-primary-700 shadow-panel transition-colors duration-feedback hover:bg-primary-50"
         >
           <Heart aria-hidden="true" className="size-[18px]" fill={group.bookmark ? 'currentColor' : 'none'} />
-        </button>
+        </button>}
       </div>
 
       <div className="flex min-h-0 flex-1 flex-col p-4">

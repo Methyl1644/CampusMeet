@@ -325,6 +325,8 @@ export interface ProfileVisibility {
   skills: boolean;
   availability: boolean;
   contact: boolean;
+  activities?: boolean;
+  groups?: boolean;
 }
 
 /** 帖子结构 */
@@ -662,6 +664,63 @@ export interface Notification {
   target_id?: string | null;
   read_at?: string | null;
   created_at: string;
+}
+
+export type MyActivityView = 'attending' | 'saved' | 'past';
+export type MyGroupView = 'joined' | 'pending' | 'saved' | 'archived';
+
+export interface NotificationPreferences {
+  applications: boolean;
+  teams: boolean;
+  moderation: boolean;
+  deadlines: boolean;
+  messages: boolean;
+}
+
+export interface PublicProfile {
+  id: string;
+  nickname: string;
+  avatar: string | null;
+  bio: string | null;
+  looking_for: string[];
+  major?: string;
+  grade?: string;
+  interests?: string[];
+  skills?: string[];
+  availability?: OnboardingAvailability;
+  contact?: { wechat?: string };
+  activities?: ExploreActivityCard[];
+  groups?: ExploreGroupCard[];
+  is_owner: boolean;
+}
+
+export interface PersonalSettings {
+  nickname: string;
+  avatar: string | null;
+  bio: string | null;
+  major: string | null;
+  grade: string | null;
+  interests: string[];
+  looking_for: string[];
+  skills: string[];
+  availability: OnboardingAvailability;
+  profile_visibility: ProfileVisibility;
+  notification_preferences: NotificationPreferences;
+  wechat?: string | null;
+}
+
+export interface PersonalSettingsUpdate {
+  nickname?: string;
+  avatar?: string | null;
+  bio?: string;
+  major?: string;
+  grade?: string;
+  interests?: string[];
+  looking_for?: string[];
+  skills?: string[];
+  availability?: OnboardingAvailability;
+  profile_visibility?: Partial<ProfileVisibility>;
+  notification_preferences?: Partial<NotificationPreferences>;
 }
 
 export interface Report {

@@ -159,10 +159,10 @@ describe('responsive application navigation', () => {
       '退出登录',
     ])
     expect(items.slice(0, 4).map((item) => item.getAttribute('href'))).toEqual([
-      '/profile?tab=events',
-      '/profile?tab=groups',
-      '/profile?view=public',
-      '/profile?view=settings',
+      '/my/activities',
+      '/my/groups',
+      '/users/me',
+      '/settings',
     ])
   })
 
@@ -218,7 +218,7 @@ describe('responsive application navigation', () => {
 
     fireEvent.keyDown(firstItem, { key: ' ' })
 
-    expect(screen.getByLabelText('当前位置').textContent).toBe('/profile?tab=events')
+    expect(screen.getByLabelText('当前位置').textContent).toBe('/my/activities')
     expect(screen.queryByRole('menu')).toBeNull()
   })
 
@@ -326,12 +326,12 @@ describe('responsive application navigation', () => {
       '退出登录',
     ])
     expect(items.slice(0, 6).map((item) => item.getAttribute('href'))).toEqual([
-      '/profile?view=notifications',
+      '/notifications',
       '/tutorial',
-      '/profile?tab=events',
-      '/profile?tab=groups',
-      '/profile?view=public',
-      '/profile?view=settings',
+      '/my/activities',
+      '/my/groups',
+      '/users/me',
+      '/settings',
     ])
   })
 

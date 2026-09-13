@@ -32,7 +32,7 @@ export default function ProfileSummary({ profile }: { profile: HomeProfile }) {
           {details || '专业与年级待完善'}
         </p>
         <Link
-          to="/profile"
+          to="/users/me"
           className="mt-1.5 inline-flex items-center gap-1 text-sm font-semibold text-primary-700 transition-colors duration-fast hover:text-primary-800"
         >
           查看个人主页

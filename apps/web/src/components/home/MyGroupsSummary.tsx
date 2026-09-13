@@ -12,7 +12,7 @@ export default function MyGroupsSummary({ groups }: { groups: HomeJoinedGroup[] 
           我的小组
         </h2>
         <Link
-          to="/profile?tab=groups"
+          to="/my/groups"
           className="inline-flex items-center gap-1 text-xs font-semibold text-primary-700 transition-colors duration-fast hover:text-primary-800"
         >
           查看全部小组

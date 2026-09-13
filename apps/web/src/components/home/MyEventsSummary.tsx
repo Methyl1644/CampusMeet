@@ -65,7 +65,7 @@ export default function MyEventsSummary({
           我的活动
         </h2>
         <Link
-          to="/profile?tab=events"
+          to="/my/activities"
           className="inline-flex items-center gap-1 text-xs font-semibold text-primary-700 transition-colors duration-fast hover:text-primary-800"
         >
           查看全部活动

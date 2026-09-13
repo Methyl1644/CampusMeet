@@ -45,3 +45,14 @@ export function getProfile() {
 export function updateProfile(data: Partial<Pick<User, 'nickname' | 'major' | 'grade' | 'skills'>>) {
   return patch<User>(API_PATHS.auth.profile, data)
 }
+
+export function changePassword(currentPassword: string, newPassword: string) {
+  return post<null>(API_PATHS.auth.changePassword, {
+    current_password: currentPassword,
+    new_password: newPassword,
+  })
+}
+
+export function deactivateAccount(currentPassword: string) {
+  return post<null>(API_PATHS.auth.deactivate, { current_password: currentPassword })
+}

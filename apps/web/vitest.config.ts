@@ -31,6 +31,9 @@ export default defineConfig({
       'src/pages/PostDetail.test.tsx',
       'src/pages/TeamDetail.test.tsx',
       'src/pages/Profile.test.tsx',
+      'src/api/personal.test.ts',
+      'src/router/personalRoutes.test.ts',
+      'src/pages/personalPages.test.tsx',
     ],
   },
 })

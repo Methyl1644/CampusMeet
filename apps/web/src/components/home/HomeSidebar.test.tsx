@@ -94,7 +94,7 @@ describe('ProfileSummary', () => {
     expect(screen.getByRole('img', { name: '林晓的头像' }).textContent).toBe('林')
     expect(screen.getByText('林晓')).toBeTruthy()
     expect(screen.getByText('软件工程 · 2024级')).toBeTruthy()
-    expect(screen.getByRole('link', { name: '查看个人主页' }).getAttribute('href')).toBe('/profile')
+    expect(screen.getByRole('link', { name: '查看个人主页' }).getAttribute('href')).toBe('/users/me')
   })
 })
 
@@ -119,7 +119,7 @@ describe('MyEventsSummary', () => {
     expect(screen.queryByText(attending[0].title)).toBeNull()
     expect(screen.getByText(saved[0].title)).toBeTruthy()
     expect(screen.getByRole('link', { name: '查看全部活动' }).getAttribute('href')).toBe(
-      '/profile?tab=events',
+      '/my/activities',
     )
   })
 
@@ -191,7 +191,7 @@ describe('MyGroupsSummary', () => {
       '/teams/team-1',
     )
     expect(screen.getByRole('link', { name: '查看全部小组' }).getAttribute('href')).toBe(
-      '/profile?tab=groups',
+      '/my/groups',
     )
   })
 

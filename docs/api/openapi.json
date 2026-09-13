@@ -2556,6 +2556,68 @@
         "title": "MessageSendRequest",
         "type": "object"
       },
+      "NotificationPreferencesRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "applications": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Applications"
+          },
+          "deadlines": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deadlines"
+          },
+          "messages": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Messages"
+          },
+          "moderation": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Moderation"
+          },
+          "teams": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Teams"
+          }
+        },
+        "title": "NotificationPreferencesRequest",
+        "type": "object"
+      },
       "OnboardingUpdateRequest": {
         "additionalProperties": false,
         "properties": {
@@ -2974,6 +3036,164 @@
           "target_user_id"
         ],
         "title": "OwnershipTransferRequest",
+        "type": "object"
+      },
+      "PartialAvailabilityRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "weekday_daytime": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Weekday Daytime"
+          },
+          "weekday_evening": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Weekday Evening"
+          },
+          "weekend_daytime": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Weekend Daytime"
+          },
+          "weekend_evening": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Weekend Evening"
+          },
+          "weekly_hours": {
+            "anyOf": [
+              {
+                "maxLength": 40,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Weekly Hours"
+          }
+        },
+        "title": "PartialAvailabilityRequest",
+        "type": "object"
+      },
+      "PartialProfileVisibilityRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "activities": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Activities"
+          },
+          "availability": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Availability"
+          },
+          "contact": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contact"
+          },
+          "grade": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Grade"
+          },
+          "groups": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Groups"
+          },
+          "interests": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Interests"
+          },
+          "major": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Major"
+          },
+          "skills": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Skills"
+          }
+        },
+        "title": "PartialProfileVisibilityRequest",
         "type": "object"
       },
       "PasswordChangeRequest": {
@@ -3488,6 +3708,203 @@
         "title": "PostUpdateRequest",
         "type": "object"
       },
+      "ProfilePatchRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "availability": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PartialAvailabilityRequest"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "avatar": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Avatar"
+          },
+          "bio": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bio"
+          },
+          "grade": {
+            "anyOf": [
+              {
+                "maxLength": 40,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Grade"
+          },
+          "interests": {
+            "anyOf": [
+              {
+                "items": {
+                  "enum": [
+                    "数学建模",
+                    "程序设计",
+                    "算法竞赛",
+                    "创新创业",
+                    "电子设计",
+                    "机器人",
+                    "网络安全",
+                    "数据科学",
+                    "人工智能",
+                    "商业案例",
+                    "金融竞赛",
+                    "模拟法庭",
+                    "辩论",
+                    "语言竞赛",
+                    "科研项目",
+                    "论文写作",
+                    "学习小组",
+                    "考试备考",
+                    "读书会",
+                    "讲座",
+                    "工作坊",
+                    "职业发展",
+                    "实习交流",
+                    "志愿服务",
+                    "公益活动",
+                    "羽毛球",
+                    "篮球",
+                    "足球",
+                    "乒乓球",
+                    "排球",
+                    "网球",
+                    "跑步",
+                    "骑行",
+                    "徒步",
+                    "健身",
+                    "游泳",
+                    "飞盘",
+                    "舞蹈",
+                    "音乐",
+                    "歌唱",
+                    "摄影",
+                    "视频创作",
+                    "桌游",
+                    "电子竞技",
+                    "约饭",
+                    "旅行",
+                    "校园参访"
+                  ],
+                  "type": "string"
+                },
+                "maxItems": 30,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Interests"
+          },
+          "looking_for": {
+            "anyOf": [
+              {
+                "items": {
+                  "maxLength": 40,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "maxItems": 12,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Looking For"
+          },
+          "major": {
+            "anyOf": [
+              {
+                "maxLength": 80,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Major"
+          },
+          "nickname": {
+            "anyOf": [
+              {
+                "maxLength": 40,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nickname"
+          },
+          "profile_visibility": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PartialProfileVisibilityRequest"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "skills": {
+            "anyOf": [
+              {
+                "items": {
+                  "maxLength": 80,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "maxItems": 30,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Skills"
+          },
+          "wechat": {
+            "anyOf": [
+              {
+                "maxLength": 80,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Wechat"
+          }
+        },
+        "title": "ProfilePatchRequest",
+        "type": "object"
+      },
       "ProfileUpdateRequest": {
         "properties": {
           "grade": {
@@ -3535,6 +3952,11 @@
       "ProfileVisibilityRequest": {
         "additionalProperties": false,
         "properties": {
+          "activities": {
+            "default": false,
+            "title": "Activities",
+            "type": "boolean"
+          },
           "availability": {
             "default": false,
             "title": "Availability",
@@ -3548,6 +3970,11 @@
           "grade": {
             "default": true,
             "title": "Grade",
+            "type": "boolean"
+          },
+          "groups": {
+            "default": false,
+            "title": "Groups",
             "type": "boolean"
           },
           "interests": {
@@ -3878,6 +4305,33 @@
           "account"
         ],
         "title": "SendCodeRequest",
+        "type": "object"
+      },
+      "SettingsPatchRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "notification_preferences": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/NotificationPreferencesRequest"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "profile_visibility": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PartialProfileVisibilityRequest"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "title": "SettingsPatchRequest",
         "type": "object"
       },
       "TagProposalCreateRequest": {
@@ -6566,6 +7020,185 @@
         ]
       }
     },
+    "/api/me/activities": {
+      "get": {
+        "operationId": "activities_api_me_activities_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "view",
+            "required": false,
+            "schema": {
+              "default": "attending",
+              "enum": [
+                "attending",
+                "saved",
+                "past"
+              ],
+              "title": "View",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page_size",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 40,
+              "minimum": 1,
+              "title": "Page Size",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Activities Api Me Activities Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Activities",
+        "tags": [
+          "personal"
+        ]
+      }
+    },
+    "/api/me/groups": {
+      "get": {
+        "operationId": "groups_api_me_groups_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "view",
+            "required": false,
+            "schema": {
+              "default": "joined",
+              "enum": [
+                "joined",
+                "pending",
+                "saved",
+                "archived"
+              ],
+              "title": "View",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page_size",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 40,
+              "minimum": 1,
+              "title": "Page Size",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Groups Api Me Groups Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Groups",
+        "tags": [
+          "personal"
+        ]
+      }
+    },
     "/api/me/permissions": {
       "get": {
         "operationId": "permissions_api_me_permissions_get",
@@ -6614,6 +7247,177 @@
         "summary": "Permissions",
         "tags": [
           "content"
+        ]
+      }
+    },
+    "/api/me/profile": {
+      "patch": {
+        "operationId": "patch_profile_api_me_profile_patch",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProfilePatchRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Patch Profile Api Me Profile Patch",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Patch Profile",
+        "tags": [
+          "personal"
+        ]
+      }
+    },
+    "/api/me/settings": {
+      "get": {
+        "operationId": "settings_api_me_settings_get",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Settings Api Me Settings Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Settings",
+        "tags": [
+          "personal"
+        ]
+      },
+      "patch": {
+        "operationId": "patch_settings_api_me_settings_patch",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SettingsPatchRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Patch Settings Api Me Settings Patch",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Patch Settings",
+        "tags": [
+          "personal"
         ]
       }
     },
@@ -7938,6 +8742,7 @@
             "required": false,
             "schema": {
               "default": 1,
+              "minimum": 1,
               "title": "Page",
               "type": "integer"
             }
@@ -7948,6 +8753,8 @@
             "required": false,
             "schema": {
               "default": 20,
+              "maximum": 40,
+              "minimum": 1,
               "title": "Page Size",
               "type": "integer"
             }
@@ -10770,6 +11577,66 @@
         "summary": "Reopen Post",
         "tags": [
           "posts"
+        ]
+      }
+    },
+    "/api/profiles/{profile_user_id}": {
+      "get": {
+        "operationId": "profile_api_profiles__profile_user_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "profile_user_id",
+            "required": true,
+            "schema": {
+              "title": "Profile User Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Profile Api Profiles  Profile User Id  Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Profile",
+        "tags": [
+          "personal"
         ]
       }
     },

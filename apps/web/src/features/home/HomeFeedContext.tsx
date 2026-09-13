@@ -20,6 +20,7 @@ interface HomeFeedContextValue {
   loading: boolean
   error: unknown | null
   reload: () => Promise<void>
+  setNotificationUnread: (count: number) => void
 }
 
 const HomeFeedContext = createContext<HomeFeedContextValue | null>(null)
@@ -60,6 +61,13 @@ export function HomeFeedProvider({ children }: { children: ReactNode }) {
     }
   }, [applyRequest])
 
+  const setNotificationUnread = useCallback((count: number) => {
+    setFeed((current) => current ? {
+      ...current,
+      unread: { ...current.unread, notifications: Math.max(0, count) },
+    } : current)
+  }, [])
+
   useEffect(() => {
     const gate = createHomeFeedRequestGate()
     gateRef.current = gate
@@ -77,8 +85,8 @@ export function HomeFeedProvider({ children }: { children: ReactNode }) {
   }, [applyRequest])
 
   const value = useMemo(
-    () => ({ feed, loading, error, reload }),
-    [error, feed, loading, reload],
+    () => ({ feed, loading, error, reload, setNotificationUnread }),
+    [error, feed, loading, reload, setNotificationUnread],
   )
 
   return <HomeFeedContext.Provider value={value}>{children}</HomeFeedContext.Provider>
