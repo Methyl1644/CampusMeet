@@ -85,6 +85,8 @@ def _factory():
         ("2026-09-13", "2026-09-13T23:59:59.999999+00:00"),
         ("2026-02-30", None),
         ("2026-09-13T12:30:00", None),
+        ("0001-01-01T00:00:00+14:00", None),
+        ("9999-12-31T23:59:59-14:00", None),
         ("明天下午", None),
         ("", None),
         (None, None),
@@ -683,6 +685,16 @@ def test_post_create_and_update_paths_apply_the_policy(monkeypatch):
         assert stored.join_mode == "none"
         assert stored.deadline == "2026-09-14"
         assert stored.deadline_at == datetime.datetime(2026, 9, 14, 23, 59, 59, 999999)
+
+    for boundary in (
+        "0001-01-01T00:00:00+14:00",
+        "9999-12-31T23:59:59-14:00",
+    ):
+        posts_api.update(post_id, {"deadline": boundary}, str(operator_id))
+        with factory() as session:
+            stored = session.get(Post, post_id)
+            assert stored.deadline == boundary
+            assert stored.deadline_at is None
 
 
 def test_post_tool_keeps_policy_inputs_and_adds_task_three_public_projection():

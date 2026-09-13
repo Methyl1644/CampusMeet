@@ -26,9 +26,9 @@ def parse_deadline_at(value: object) -> datetime.datetime | None:
         parsed = datetime.datetime.fromisoformat(
             raw.replace("Z", "+00:00").replace("z", "+00:00")
         )
-    except ValueError:
+        return parsed.astimezone(datetime.timezone.utc)
+    except (OverflowError, ValueError):
         return None
-    return parsed.astimezone(datetime.timezone.utc)
 
 
 def ensure_deadline_utc(value: datetime.datetime) -> datetime.datetime:

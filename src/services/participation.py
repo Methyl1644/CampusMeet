@@ -113,7 +113,7 @@ def deadline_has_passed(post: Post, *, now: datetime.datetime | None = None) -> 
         return False
     parsed = post.deadline_at or parse_deadline_at(raw)
     if parsed is None:
-        return True
+        return False
     return ensure_deadline_utc(parsed) <= ensure_deadline_utc(now or utcnow())
 
 

@@ -5,7 +5,7 @@ import math
 from collections import defaultdict
 from typing import Any, Sequence
 
-from sqlalchemy import Integer, and_, exists, func, or_, select
+from sqlalchemy import Integer, and_, exists, false, func, or_, select
 from sqlalchemy.orm import Session
 
 from services.collaboration_lifecycle import PUBLIC_POST_STATUSES
@@ -285,10 +285,16 @@ def _project_activity_cards(
         select(TopicTag.topic_id, Tag)
         .join(Tag, Tag.id == TopicTag.tag_id)
         .where(TopicTag.topic_id.in_(topic_ids))
-        .order_by(TopicTag.topic_id, Tag.sort_order, Tag.canonical_name, Tag.id)
     )
-    if not include_inactive_tags:
-        tag_statement = tag_statement.where(Tag.active.is_(True))
+    if include_inactive_tags:
+        tag_statement = tag_statement.order_by(TopicTag.topic_id, TopicTag.tag_id)
+    else:
+        tag_statement = tag_statement.where(Tag.active.is_(True)).order_by(
+            TopicTag.topic_id,
+            Tag.sort_order,
+            Tag.canonical_name,
+            Tag.id,
+        )
     for topic_id, tag in session.execute(tag_statement):
         tags_by_topic[topic_id].append(_tag_projection(tag))
 
@@ -329,16 +335,15 @@ def _project_activity_cards(
         )
 
     organization_ids = {topic.organization_id for topic in topics if topic.organization_id}
-    organizations = (
-        {
-            organization.id: organization
-            for organization in session.scalars(
-                select(Organization).where(Organization.id.in_(organization_ids))
-            )
-        }
-        if organization_ids
-        else {}
+    organization_filter = (
+        Organization.id.in_(organization_ids) if organization_ids else false()
     )
+    organizations = {
+        organization.id: organization
+        for organization in session.scalars(
+            select(Organization).where(organization_filter)
+        )
+    }
 
     participant_counts = {
         topic_id: int(count)

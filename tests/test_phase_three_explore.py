@@ -15,6 +15,7 @@ from api.common import current_user_id
 from services.deadlines import parse_deadline_at
 from storage.database.models import (
     Application,
+    Organization,
     Post,
     PostBookmark,
     PostTag,
@@ -377,7 +378,7 @@ def test_explore_projection_queries_bound_fanout_rows_per_parent(
     assert [group["id"] for group in detail["related_groups"]] == [
         str(post_id) for post_id in range(111, 103, -1)
     ]
-    assert activity_statements == 6
+    assert activity_statements == 7
     assert group_statements == 8
 
     for parent_count, row_count in observed["_participant_preview_rows"]:
@@ -707,6 +708,57 @@ def test_legacy_topics_keep_inactive_tags_while_explore_uses_active_tags(
     assert inactive_group_filter_response.json()["data"]["list"] == []
 
 
+def test_legacy_topic_tags_keep_primary_key_order_while_explore_uses_display_order(
+    factory,
+    monkeypatch,
+):
+    content_api = importlib.import_module("api.content")
+    explore_api = importlib.import_module("api.explore")
+    from services.content import topic_to_dict
+
+    app = FastAPI()
+    app.include_router(content_api.router, prefix="/api")
+    app.include_router(explore_api.router, prefix="/api")
+    monkeypatch.setattr(content_api, "get_session", factory)
+    monkeypatch.setattr(explore_api, "get_session", factory)
+    app.dependency_overrides[current_user_id] = lambda: "1"
+
+    with factory() as db_session:
+        db_session.add(_user(1, "浏览者"))
+        topic = _topic(db_session, 1, title="标签顺序活动")
+        tag_z = _tag(db_session, "activity_z", "优先展示")
+        tag_a = _tag(db_session, "activity_a", "最后展示")
+        tag_m = _tag(db_session, "activity_m", "中间展示")
+        tag_z.sort_order = 1
+        tag_m.sort_order = 2
+        tag_a.sort_order = 3
+        db_session.add_all(
+            [
+                TopicTag(topic_id=topic.id, tag_id=tag_z.id),
+                TopicTag(topic_id=topic.id, tag_id=tag_a.id),
+                TopicTag(topic_id=topic.id, tag_id=tag_m.id),
+            ]
+        )
+        db_session.commit()
+        direct_legacy_ids = [
+            tag["tag_id"] for tag in topic_to_dict(db_session, topic, 1)["tags"]
+        ]
+
+    with TestClient(app) as client:
+        legacy_ids = [
+            tag["tag_id"]
+            for tag in client.get("/api/topics").json()["data"]["list"][0]["tags"]
+        ]
+        explore_ids = [
+            tag["tag_id"]
+            for tag in client.get("/api/explore/activities").json()["data"]["list"][0]["tags"]
+        ]
+
+    assert direct_legacy_ids == ["activity_a", "activity_m", "activity_z"]
+    assert legacy_ids == ["activity_a", "activity_m", "activity_z"]
+    assert explore_ids == ["activity_z", "activity_m", "activity_a"]
+
+
 def test_legacy_topic_list_batches_exact_semantics_at_constant_query_count(
     factory, monkeypatch
 ):
@@ -754,7 +806,7 @@ def test_legacy_topic_list_batches_exact_semantics_at_constant_query_count(
     assert single_response.status_code == 200
     assert many_response.status_code == 200
     assert single_statements == many_statements
-    assert many_statements == 9
+    assert many_statements == 10
     assert sum(
         "count(*)" in statement and "from (select distinct topics" in statement
         for statement in single_sql
@@ -809,6 +861,84 @@ def test_legacy_topic_list_batches_exact_semantics_at_constant_query_count(
             "display_color": "purple",
         }
     ]
+
+
+def test_legacy_topic_batch_count_is_constant_for_mixed_and_nonmixed_pages(
+    factory,
+    monkeypatch,
+):
+    content_api = importlib.import_module("api.content")
+    app = FastAPI()
+    app.include_router(content_api.router, prefix="/api")
+    monkeypatch.setattr(content_api, "get_session", factory)
+    app.dependency_overrides[current_user_id] = lambda: "1"
+
+    with factory() as db_session:
+        db_session.add(_user(1, "浏览者"))
+        organization = Organization(
+            id=1,
+            name="混合页组织",
+            org_type="student_org",
+            verification_status="approved",
+            verified_at=NOW,
+            expires_at=NOW + datetime.timedelta(days=30),
+        )
+        db_session.add(organization)
+        for topic_id in range(1, 41):
+            topic = _topic(
+                db_session,
+                topic_id,
+                title=f"混合活动 {topic_id}",
+                channel="organization" if topic_id % 2 == 0 else "official",
+                updated_at=NOW + datetime.timedelta(seconds=topic_id),
+            )
+            if topic.channel == "organization":
+                topic.organization_id = organization.id
+        db_session.commit()
+
+    engine = factory.kw["bind"]
+
+    def statement_count(client, path):
+        statements = 0
+
+        def count_statement(*_args):
+            nonlocal statements
+            statements += 1
+
+        event.listen(engine, "before_cursor_execute", count_statement)
+        try:
+            response = client.get(path)
+        finally:
+            event.remove(engine, "before_cursor_execute", count_statement)
+        assert response.status_code == 200
+        return statements
+
+    with TestClient(app) as client:
+        counts = {
+            f"official-{page_size}": statement_count(
+                client,
+                f"/api/topics?channel=official&page_size={page_size}",
+            )
+            for page_size in (1, 20, 40)
+        }
+        counts.update(
+            {
+                f"mixed-{page_size}": statement_count(
+                    client,
+                    f"/api/topics?page_size={page_size}",
+                )
+                for page_size in (1, 20, 40)
+            }
+        )
+
+    assert counts == {
+        "official-1": 10,
+        "official-20": 10,
+        "official-40": 10,
+        "mixed-1": 10,
+        "mixed-20": 10,
+        "mixed-40": 10,
+    }
 
 
 def test_main_registers_all_four_explore_routes():

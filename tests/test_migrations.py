@@ -935,9 +935,11 @@ def test_deadline_normalization_migration_streams_and_round_trips_legacy_rows(tm
             {"id": 4, "deadline": "2026-09-13"},
             {"id": 5, "deadline": "2026-02-30"},
             {"id": 6, "deadline": "下周之前"},
+            {"id": 7, "deadline": "0001-01-01T00:00:00+14:00"},
+            {"id": 8, "deadline": "9999-12-31T23:59:59-14:00"},
             *(
                 {"id": row_id, "deadline": None}
-                for row_id in range(7, 1008)
+                for row_id in range(9, 1008)
             ),
         ]
         connection.execute(
@@ -953,7 +955,7 @@ def test_deadline_normalization_migration_streams_and_round_trips_legacy_rows(tm
     }
     with engine.connect() as connection:
         normalized = connection.execute(
-            text("SELECT id, deadline, deadline_at FROM posts WHERE id <= 6 ORDER BY id")
+            text("SELECT id, deadline, deadline_at FROM posts WHERE id <= 8 ORDER BY id")
         ).all()
         revision = connection.execute(
             text("SELECT version_num FROM alembic_version")
@@ -966,12 +968,16 @@ def test_deadline_normalization_migration_streams_and_round_trips_legacy_rows(tm
         "2026-09-13",
         "2026-02-30",
         "下周之前",
+        "0001-01-01T00:00:00+14:00",
+        "9999-12-31T23:59:59-14:00",
     ]
     assert [row.deadline_at for row in normalized] == [
         "2026-09-13 12:30:00.000000",
         "2026-09-13 11:00:00.000000",
         "2026-09-13 13:00:00.000000",
         "2026-09-13 23:59:59.999999",
+        None,
+        None,
         None,
         None,
     ]
