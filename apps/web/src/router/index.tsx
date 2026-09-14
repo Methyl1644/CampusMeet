@@ -18,6 +18,7 @@ import PublicProfile from '@/pages/PublicProfile'
 import Settings from '@/pages/Settings'
 import ProfileRedirect from '@/pages/ProfileRedirect'
 import Management from '@/pages/Management'
+import Authorizations from '@/pages/Authorizations'
 import { useAuthStore } from '@/store/authStore'
 
 function LoginRoute() {
@@ -61,6 +62,7 @@ export const appRoutes: RouteObject[] = [
       { path: 'users/:id', element: <PublicProfile /> },
       { path: 'settings', element: <Settings /> },
       { path: 'management', element: <Management /> },
+      { path: 'authorizations', element: <Authorizations /> },
     ],
   },
 ]

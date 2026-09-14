@@ -703,6 +703,36 @@ export interface CollaboratorGrant extends ScopedGrant {
   accepted_at?: string | null;
 }
 
+export interface OrganizationInvitationSummary {
+  invitation_id: string;
+  organization_id: string;
+  organization_name?: string;
+  inviter_id: string;
+  invitee_id: string;
+  role: 'publisher' | 'member';
+  status: string;
+  expires_at: string;
+  accepted_at?: string | null;
+  created_at?: string | null;
+}
+
+export interface TopicCollaborationInvitation extends CollaboratorGrant {
+  topic_id: string;
+  topic_title: string;
+}
+
+export interface OwnershipTransferSummary {
+  transfer_id: string;
+  organization_id: string;
+  organization_name?: string;
+  from_owner_id: string;
+  to_owner_id: string;
+  status: string;
+  expires_at: string;
+  accepted_at?: string | null;
+  completed_at?: string | null;
+}
+
 export interface Notification {
   id: string;
   event_type: string;

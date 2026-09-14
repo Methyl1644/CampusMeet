@@ -248,6 +248,37 @@ def accept_platform_role(
     return grant
 
 
+def decline_platform_role(
+    session: Session,
+    user: User,
+    grant: PlatformRoleGrant,
+) -> PlatformRoleGrant:
+    if grant.user_id != user.id:
+        raise PermissionError("只能拒绝发给自己的平台角色邀请")
+    if grant.status != "pending" or grant.revoked_at is not None:
+        raise ValueError("该平台角色邀请已失效或已经处理")
+    grant.status = "revoked"
+    grant.revoked_at = utcnow()
+    _audit(
+        session,
+        user.id,
+        "platform_role.decline",
+        grant,
+        {"role": grant.role, "granted_by": grant.granted_by},
+    )
+    notify(
+        session,
+        user_id=grant.granted_by,
+        event_type="platform_role.declined",
+        title="平台角色邀请已被拒绝",
+        body=f"{user.nickname} 拒绝了 {grant.role} 邀请",
+        target_type="platform_role_grant",
+        target_id=str(grant.id),
+        dedupe_key=f"platform-role:{grant.id}:declined",
+    )
+    return grant
+
+
 def _active_senior_count(session: Session) -> int:
     grants = session.execute(
         select(PlatformRoleGrant).where(

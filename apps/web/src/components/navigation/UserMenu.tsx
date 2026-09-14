@@ -1,5 +1,6 @@
 import {
   Bell,
+  BadgeCheck,
   CalendarDays,
   ChevronDown,
   CircleHelp,
@@ -29,6 +30,7 @@ const profileLinks = [
   { to: '/my/activities', label: '我的活动', icon: CalendarDays },
   { to: '/my/groups', label: '我的小组', icon: UsersRound },
   { to: '/users/me', label: '查看个人主页', icon: UserRound },
+  { to: '/authorizations', label: '我的授权', icon: BadgeCheck },
   { to: '/settings', label: '设置', icon: Settings },
 ]
 
