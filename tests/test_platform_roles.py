@@ -10,6 +10,7 @@ from sqlalchemy.orm import sessionmaker
 
 from api import operators as operators_api
 from api.schemas.operators import PlatformRoleAcceptRequest
+from services.operators import has_platform_role, require_senior_operator
 from storage.database.models import AuditLog, PlatformRoleGrant, User
 from storage.database.shared.model import Base
 
@@ -101,6 +102,19 @@ def test_bootstrap_email_materializes_only_the_first_senior_operator(monkeypatch
         )
     assert exc.value.status_code == 403
     assert _audit_actions(factory) == ["platform_role.bootstrap", "platform_role.invite"]
+
+
+def test_each_configured_staff_email_has_senior_operator_capability(monkeypatch):
+    factory = _factory()
+    _grant(factory, user_id=2, role="operator", granted_by=1)
+    monkeypatch.setenv("STAFF_EMAILS", "senior@nju.edu.cn, target@nju.edu.cn")
+
+    with factory() as session:
+        first = session.get(User, 1)
+        third = session.get(User, 3)
+        assert has_platform_role(session, first)
+        assert has_platform_role(session, third)
+        assert require_senior_operator(session, third).role == "senior_operator"
 
 
 def test_only_active_senior_operator_can_invite_supported_roles(monkeypatch):

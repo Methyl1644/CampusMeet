@@ -22,12 +22,14 @@ services:
       - key: AUTH_TEST_MODE
         value: "false"
       - key: AUTH_ACCESS_MODE
-        value: public
+        value: allowlist
       - key: AUTH_ALLOWED_EMAILS
         sync: false
       - key: ENABLE_AGENT_RUNTIME
         value: "false"
       - key: BOOTSTRAP_OPERATOR_EMAIL
+        sync: false
+      - key: STAFF_EMAILS
         sync: false
       - key: FRONTEND_ORIGINS
         sync: false

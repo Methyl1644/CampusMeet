@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Check, RotateCcw, Send } from 'lucide-react'
+import { CalendarPlus, Check, RotateCcw, Send } from 'lucide-react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { postDraft } from '@/api/agent'
 import { createPost } from '@/api/posts'
@@ -17,10 +17,11 @@ export default function Publish() {
   const user = useAuthStore((state) => state.user)
   const kind = params.get('kind') === 'topic_team' ? 'topic_team' : 'casual_invitation'
   const topicId = params.get('topic_id') || undefined
-  return <PublishSession key={`${user?.id}:${kind}:${topicId}`} userId={user?.id || ''} kind={kind} topicId={topicId} />
+  const canPublishActivity = Boolean(user?.identity?.is_staff || user?.identity?.platform_role || user?.identity?.organization_roles.some(({ role }) => role === 'owner' || role === 'publisher'))
+  return <PublishSession key={`${user?.id}:${kind}:${topicId}`} userId={user?.id || ''} kind={kind} topicId={topicId} canPublishActivity={canPublishActivity} />
 }
 
-function PublishSession({ userId, kind, topicId }: { userId: string; kind: PublishContext['kind']; topicId?: string }) {
+function PublishSession({ userId, kind, topicId, canPublishActivity }: { userId: string; kind: PublishContext['kind']; topicId?: string; canPublishActivity: boolean }) {
   const [context, setContext] = useState<PublishContext | null>(null)
   const [contextError, setContextError] = useState('')
   const [contextLoading, setContextLoading] = useState(true)
@@ -176,7 +177,7 @@ function PublishSession({ userId, kind, topicId }: { userId: string; kind: Publi
   return <div className="publish-experience py-6 sm:py-10">
     <header className="flex items-center justify-between gap-4 mb-5 px-1">
       <div><p className="text-sm text-gray-500 mb-1">和小蓝鲸一起</p><h1 className="text-2xl sm:text-3xl font-bold">让想法找到伙伴</h1></div>
-      <button className="publish-icon" title="重新开始" aria-label="重新开始" disabled={locked} onClick={reset}><RotateCcw size={20} /></button>
+      <div className="flex items-center gap-2">{canPublishActivity && <Link className="btn-secondary" to="/publish/activity"><CalendarPlus size={17} />正式活动</Link>}<button className="publish-icon" title="重新开始" aria-label="重新开始" disabled={locked} onClick={reset}><RotateCcw size={20} /></button></div>
     </header>
     {context.activity && <div className="publish-context mb-4"><span>关联活动</span><Link to={`/topics/${context.activity.id}`} className="font-semibold">{context.activity.title}</Link></div>}
     {context.allowed_purposes.length > 1 && <div className="flex flex-wrap gap-2 mb-5" role="group" aria-label="发布用途">{context.allowed_purposes.map((item) => <button key={item} className={`publish-purpose ${purpose === item ? 'is-active' : ''}`} aria-pressed={purpose === item} disabled={locked || phase === 'published' || restorable} onClick={() => { setPurpose(item); setPhase('conversation'); setError(''); retryMessage.current = '' }}>{purposeLabels[item]}</button>)}</div>}

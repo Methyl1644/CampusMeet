@@ -7,7 +7,7 @@ from typing import Any
 from sqlalchemy import desc, select
 from sqlalchemy.orm import Session
 
-from services.operators import active_platform_grants, has_platform_role
+from services.operators import active_platform_grants, has_platform_role, is_configured_staff
 from services.notifications import notify
 from storage.database.models import (
     AuditLog,
@@ -588,6 +588,8 @@ def identity_summary(session: Session, user: User) -> dict[str, Any]:
         )
     elif user.site_role in {"operator", "senior_operator"}:
         platform_role = user.site_role
+    if is_configured_staff(user):
+        platform_role = "senior_operator"
 
     organization_roles: list[dict[str, Any]] = []
     memberships = session.execute(
@@ -644,6 +646,7 @@ def identity_summary(session: Session, user: User) -> dict[str, Any]:
 
     return {
         "campus_verified": user.auth_status in CAMPUS_VERIFIED_STATUSES,
+        "is_staff": is_configured_staff(user),
         "platform_role": platform_role,
         "organization_roles": organization_roles,
         "topic_roles": topic_roles,

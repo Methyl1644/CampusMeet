@@ -109,7 +109,7 @@ describe('management center', () => {
     expect(await screen.findByRole('button', { name: '平台角色' })).not.toBeNull()
     expect(screen.getByRole('button', { name: '组织审核' })).not.toBeNull()
     expect(screen.queryByRole('button', { name: '组织成员' })).toBeNull()
-    fireEvent.change(screen.getByLabelText('用户 ID'), { target: { value: '22' } })
+    fireEvent.change(screen.getByLabelText('账号 ID'), { target: { value: 'CM-22' } })
     fireEvent.click(screen.getByRole('button', { name: '发送角色邀请' }))
 
     await waitFor(() => expect(invitePlatformRole).toHaveBeenCalledWith({

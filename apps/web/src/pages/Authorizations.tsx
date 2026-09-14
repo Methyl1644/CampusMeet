@@ -5,6 +5,7 @@ import type {
   OwnershipTransferSummary,
   PlatformRoleGrant,
   TopicCollaborationInvitation,
+  IdentitySummary,
 } from '@shared/types'
 import { getProfile } from '@/api/auth'
 import { getApiErrorMessage } from '@/api/auth-feedback'
@@ -23,6 +24,7 @@ import {
   getMyTopicCollaborations,
 } from '@/api/authorizations'
 import { useAuthStore } from '@/store/authStore'
+import { publicUserId } from '@/features/identity/publicUserId'
 
 const platformRoleLabels = { operator: '平台运营', senior_operator: '高级平台运营' }
 const organizationRoleLabels = { publisher: '官方活动发布者', member: '组织成员' }
@@ -46,6 +48,7 @@ function EmptyAuthorization() {
 
 export default function Authorizations() {
   const setUser = useAuthStore((state) => state.setUser)
+  const user = useAuthStore((state) => state.user)
   const [platformRoles, setPlatformRoles] = useState<PlatformRoleGrant[]>([])
   const [organizationInvitations, setOrganizationInvitations] = useState<OrganizationInvitationSummary[]>([])
   const [topicInvitations, setTopicInvitations] = useState<TopicCollaborationInvitation[]>([])
@@ -98,11 +101,12 @@ export default function Authorizations() {
   return (
     <div className="mx-auto max-w-4xl animate-slide-up">
       <header className="flex flex-wrap items-end justify-between gap-4 border-b border-stone pb-6">
-        <div><p className="section-label">身份确认</p><h1 className="mt-3 text-3xl font-bold text-ink">我的授权</h1><p className="mt-2 text-sm text-ink-muted">确认组织和平台授予你的职责，接受后相应权限立即生效。</p></div>
+        <div><p className="section-label">身份确认</p><h1 className="mt-3 text-3xl font-bold text-ink">我的授权</h1><p className="mt-2 text-sm text-ink-muted">账号 ID：<strong className="text-ink">{publicUserId(user?.id || '')}</strong>。把它提供给工作人员即可接收授权邀请。</p></div>
         <button type="button" className="btn-secondary" disabled={loading} onClick={() => void load()}><RefreshCw aria-hidden="true" className="size-4" />刷新</button>
       </header>
 
       {error && <p role="alert" className="mt-5 rounded-card border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
+      {user?.identity && <ActiveAuthorizations identity={user.identity} />}
       {loading ? <p role="status" className="py-20 text-center text-sm text-ink-muted">正在读取授权邀请...</p> : pendingCount === 0 ? (
         <div className="py-20 text-center"><BadgeCheck aria-hidden="true" className="mx-auto size-10 text-campus-green" /><h2 className="mt-4 text-xl font-bold text-ink">所有授权都已处理</h2><p className="mt-2 text-sm text-ink-muted">收到新的身份邀请后会显示在这里。</p></div>
       ) : (
@@ -146,5 +150,20 @@ export default function Authorizations() {
         </div>
       )}
     </div>
+  )
+}
+
+function ActiveAuthorizations({ identity }: { identity: IdentitySummary }) {
+  const roles = [
+    ...(identity.is_staff ? ['CampusMate 工作人员'] : []),
+    ...(identity.platform_role ? [platformRoleLabels[identity.platform_role]] : []),
+    ...identity.organization_roles.map((item) => `${item.organization_name} · ${item.role === 'owner' ? '负责人' : organizationRoleLabels[item.role as 'publisher' | 'member']}`),
+    ...identity.topic_roles.map((item) => `${item.topic_title} · ${topicRoleLabels[item.role]}`),
+  ]
+  return (
+    <section className="border-b border-stone py-6" aria-labelledby="active-authorizations-title">
+      <h2 id="active-authorizations-title" className="text-lg font-bold text-ink">已生效身份</h2>
+      {roles.length === 0 ? <p className="mt-3 text-sm text-ink-muted">当前只有普通校园用户权限</p> : <div className="mt-3 flex flex-wrap gap-2">{[...new Set(roles)].map((role) => <span key={role} className="rounded-full bg-primary-100 px-3 py-1.5 text-sm font-semibold text-primary-800">{role}</span>)}</div>}
+    </section>
   )
 }

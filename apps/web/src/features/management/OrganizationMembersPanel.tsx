@@ -9,6 +9,7 @@ import {
   transferOrganizationOwnership,
 } from '@/api/management'
 import { getApiErrorMessage } from '@/api/auth-feedback'
+import { parsePublicUserId, publicUserId } from '@/features/identity/publicUserId'
 
 export default function OrganizationMembersPanel() {
   const [organizations, setOrganizations] = useState<ManagedOrganization[]>([])
@@ -65,9 +66,9 @@ export default function OrganizationMembersPanel() {
 
   const invite = async (event: FormEvent) => {
     event.preventDefault()
-    const parsedUserId = Number(inviteeId)
-    if (!organizationId || !Number.isInteger(parsedUserId) || parsedUserId <= 0) {
-      setError('请选择组织并输入有效的用户 ID')
+    const parsedUserId = parsePublicUserId(inviteeId)
+    if (!organizationId || !parsedUserId) {
+      setError('请选择组织并输入有效的账号 ID，例如 CM-104')
       return
     }
     setBusy(true)
@@ -99,9 +100,9 @@ export default function OrganizationMembersPanel() {
   }
 
   const transfer = async () => {
-    const parsedUserId = Number(successorId)
-    if (!organizationId || !Number.isInteger(parsedUserId) || parsedUserId <= 0) {
-      setError('请输入有效的接任用户 ID')
+    const parsedUserId = parsePublicUserId(successorId)
+    if (!organizationId || !parsedUserId) {
+      setError('请输入有效的接任账号 ID，例如 CM-104')
       return
     }
     if (!confirmTransfer) {
@@ -111,7 +112,7 @@ export default function OrganizationMembersPanel() {
     setBusy(true)
     setError('')
     try {
-      await transferOrganizationOwnership(organizationId, successorId)
+      await transferOrganizationOwnership(organizationId, String(parsedUserId))
       setSuccessorId('')
       setConfirmTransfer(false)
     } catch (requestError) {
@@ -141,7 +142,7 @@ export default function OrganizationMembersPanel() {
           <form onSubmit={invite}>
             <h3 className="font-bold text-ink">邀请成员</h3>
             <div className="mt-3 grid gap-3 sm:grid-cols-[minmax(0,1fr)_10rem_auto] sm:items-end">
-              <label className="text-sm font-medium">用户 ID<input className="input-base mt-1.5" inputMode="numeric" value={inviteeId} onChange={(event) => setInviteeId(event.target.value)} /></label>
+              <label className="text-sm font-medium">账号 ID<input className="input-base mt-1.5" placeholder="CM-104" value={inviteeId} onChange={(event) => setInviteeId(event.target.value)} /></label>
               <label className="text-sm font-medium">组织身份<select className="input-base mt-1.5" value={inviteRole} onChange={(event) => setInviteRole(event.target.value as 'publisher' | 'member')}><option value="member">普通成员</option><option value="publisher">官方发布者</option></select></label>
               <button type="submit" className="btn-primary" disabled={busy}><UserPlus aria-hidden="true" className="size-4" />发送邀请</button>
             </div>
@@ -149,7 +150,7 @@ export default function OrganizationMembersPanel() {
           <div>
             <h3 className="font-bold text-ink">转移负责人</h3>
             <div className="mt-3 flex flex-wrap items-end gap-3">
-              <label className="min-w-48 flex-1 text-sm font-medium">接任用户 ID<input className="input-base mt-1.5" inputMode="numeric" value={successorId} onChange={(event) => { setSuccessorId(event.target.value); setConfirmTransfer(false) }} /></label>
+              <label className="min-w-48 flex-1 text-sm font-medium">接任账号 ID<input className="input-base mt-1.5" placeholder="CM-104" value={successorId} onChange={(event) => { setSuccessorId(event.target.value); setConfirmTransfer(false) }} /></label>
               <button type="button" className={confirmTransfer ? 'btn-danger' : 'btn-secondary'} disabled={busy} onClick={() => void transfer()}><Crown aria-hidden="true" className="size-4" />{confirmTransfer ? '确认发送转移邀请' : '发起转移'}</button>
             </div>
           </div>
@@ -165,7 +166,7 @@ export default function OrganizationMembersPanel() {
         <div className="divide-y divide-stone">
           {members.map((member) => (
             <div key={`${member.user_id}-${member.role}`} className="flex flex-wrap items-center justify-between gap-3 py-4">
-              <div><p className="font-semibold text-ink">用户 #{member.user_id}</p><p className="mt-1 text-sm text-ink-muted">{member.role} · {member.status}</p></div>
+              <div><p className="font-semibold text-ink">账号 {publicUserId(member.user_id)}</p><p className="mt-1 text-sm text-ink-muted">{member.role} · {member.status}</p></div>
               {member.role !== 'owner' && member.status === 'active' && (
                 revokeId === member.user_id ? (
                   <div className="flex gap-2"><button type="button" className="btn-danger" disabled={busy} onClick={() => void revoke()}>确认撤销</button><button type="button" className="btn-secondary" onClick={() => setRevokeId(null)}>取消</button></div>

@@ -10,6 +10,7 @@ import {
   type ManagementSectionId,
 } from '@/features/management/managementAccess'
 import { useAuthStore } from '@/store/authStore'
+import { publicUserId } from '@/features/identity/publicUserId'
 
 const sectionMeta: Record<ManagementSectionId, { label: string; icon: LucideIcon }> = {
   'platform-roles': { label: '平台角色', icon: ShieldCheck },
@@ -46,7 +47,7 @@ export default function Management() {
       <header className="border-b border-stone pb-6">
         <p className="section-label">权限与责任范围</p>
         <h1 className="mt-3 text-3xl font-bold text-ink">管理中心</h1>
-        <p className="mt-2 max-w-3xl text-sm leading-6 text-ink-muted">集中管理平台身份、认证组织和官方活动协作者。每项操作都会再次经过服务器权限校验。</p>
+        <p className="mt-2 max-w-3xl text-sm leading-6 text-ink-muted">集中管理平台身份、认证组织和官方活动协作者。你的账号 ID 是 <strong className="text-ink">{publicUserId(user.id)}</strong>。</p>
       </header>
 
       <div className="mt-6 grid min-w-0 gap-6 lg:grid-cols-[13rem_minmax(0,1fr)]">

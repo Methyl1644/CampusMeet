@@ -11,6 +11,7 @@ from storage.database.models import (
     Tag,
     TagAlias,
     Topic,
+    TopicCollaborator,
     TopicFollow,
     TopicTag,
     User,
@@ -337,6 +338,12 @@ def bootstrap_operator(session: Session, email: str) -> bool:
     return bootstrap_platform_operator(session, email)
 
 
+def bootstrap_staff_operators(session: Session) -> int:
+    from services.operators import bootstrap_configured_staff
+
+    return bootstrap_configured_staff(session)
+
+
 def _active_tag_rows(session: Session) -> list[tuple[Tag, list[str]]]:
     tags = session.execute(
         select(Tag).where(Tag.active.is_(True)).order_by(Tag.sort_order, Tag.canonical_name)
@@ -436,7 +443,11 @@ def user_permissions(session: Session, user: User) -> dict[str, Any]:
     memberships = session.execute(
         select(OrganizationMember).where(OrganizationMember.user_id == user.id)
     ).scalars().all()
-    publisher_org_ids = [str(member.organization_id) for member in memberships if _is_active_membership(member)]
+    publisher_org_ids = [
+        str(member.organization_id)
+        for member in memberships
+        if _is_active_membership(member) and member.role in {"owner", "publisher"}
+    ]
     campus_verified = user.auth_status in {"verified", "organization", "campus_verified"}
     return {
         "campus_verified": campus_verified,
@@ -483,7 +494,7 @@ def create_topic(session: Session, user: User, payload: dict[str, Any]) -> Topic
                 OrganizationMember.user_id == user.id,
             )
         ).scalar_one_or_none()
-        if not member or not _is_active_membership(member):
+        if not member or not _is_active_membership(member) or member.role not in {"owner", "publisher"}:
             raise PermissionError("只有该组织的有效发布者可以发布话题")
     else:
         raise ValueError("话题频道必须是 official 或 organization")
@@ -502,6 +513,14 @@ def create_topic(session: Session, user: User, payload: dict[str, Any]) -> Topic
         raise ValueError(f"包含未收录的标签：{', '.join(invalid)}")
     if not tag_ids:
         raise ValueError("请至少选择一个标准标签")
+
+    activity_start_at = payload.get("activity_start_at")
+    activity_end_at = payload.get("activity_end_at")
+    registration_deadline = payload.get("registration_deadline")
+    if activity_start_at and activity_end_at and activity_end_at <= activity_start_at:
+        raise ValueError("活动结束时间必须晚于开始时间")
+    if registration_deadline and activity_start_at and registration_deadline > activity_start_at:
+        raise ValueError("报名截止时间不能晚于活动开始时间")
 
     organizer_key = normalize_text(organizer)
     event_key = _event_key(payload)
@@ -527,12 +546,29 @@ def create_topic(session: Session, user: User, payload: dict[str, Any]) -> Topic
         content=content,
         source_url=str(payload.get("source_url") or "").strip() or None,
         cover_url=str(payload.get("cover_url") or "").strip() or None,
+        location_name=str(payload.get("location_name") or "").strip() or None,
+        campus_scope=str(payload.get("campus_scope") or "").strip() or None,
+        capacity=payload.get("capacity"),
+        participation_mode=str(payload.get("participation_mode") or "official_signup"),
+        registration_deadline=registration_deadline,
+        activity_start_at=activity_start_at,
+        activity_end_at=activity_end_at,
         organization_id=int(organization_id) if organization_id else None,
         created_by=user.id,
     )
     session.add(topic)
     session.flush()
     session.add_all(TopicTag(topic_id=topic.id, tag_id=tag_id) for tag_id in tag_ids)
+    session.add(
+        TopicCollaborator(
+            topic_id=topic.id,
+            user_id=user.id,
+            role="manager",
+            status="active",
+            granted_by=user.id,
+            accepted_at=datetime.datetime.now(datetime.timezone.utc),
+        )
+    )
     return topic
 
 

@@ -1,15 +1,15 @@
 import { get, post } from './client'
 import { API_PATHS } from '@shared/constants'
-import type { Conversation, Message } from '@shared/types'
+import type { Conversation, Message, PaginatedResponse } from '@shared/types'
 
 /** 获取会话列表 */
-export function getConversations() {
-  return get<Conversation[]>(API_PATHS.messages.conversations)
+export async function getConversations() {
+  return (await get<PaginatedResponse<Conversation>>(API_PATHS.messages.conversations)).list
 }
 
 /** 获取某个会话的消息列表 */
-export function getMessages(conversationId: string) {
-  return get<Message[]>(API_PATHS.messages.messages.replace(':conversationId', conversationId))
+export async function getMessages(conversationId: string) {
+  return (await get<PaginatedResponse<Message>>(API_PATHS.messages.messages.replace(':conversationId', conversationId))).list
 }
 
 /** 发送消息 */

@@ -20,6 +20,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom'
 import type { User } from '@shared/types'
 import { useAuthStore } from '@/store/authStore'
 import { hasManagementAccess } from '@/features/management/managementAccess'
+import { publicUserId } from '@/features/identity/publicUserId'
 
 interface UserMenuProps {
   user: User
@@ -210,6 +211,10 @@ export default function UserMenu({ user, variant = 'desktop' }: UserMenuProps) {
               : 'top-[calc(100%+0.5rem)]'
           }`}
         >
+          <div className="border-b border-stone px-3 pb-2 pt-1">
+            <p className="truncate text-sm font-semibold text-ink">{user.nickname}</p>
+            <p className="mt-0.5 text-xs text-ink-muted">账号 ID {publicUserId(user.id)}</p>
+          </div>
           {menuLinks.map(({ to, label, icon: Icon }, index) => (
             <Link
               key={to}

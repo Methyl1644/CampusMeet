@@ -11,7 +11,7 @@ from services.content import (
     seed_content_catalog,
     suggest_content,
 )
-from storage.database.models import Organization, OrganizationMember, Tag, Topic, User
+from storage.database.models import Organization, OrganizationMember, Tag, Topic, TopicCollaborator, User
 from storage.database.shared.model import Base
 
 
@@ -516,3 +516,37 @@ def test_bootstrap_operator_promotes_only_the_configured_existing_account():
         assert target.site_role == "senior_operator"
         assert other.site_role == "student"
         assert bootstrap_operator(session, "missing@nju.edu.cn") is False
+
+
+def test_official_topic_persists_event_details_and_makes_creator_manager():
+    with _session() as session:
+        seed_content_catalog(session)
+        operator = _user("operator@nju.edu.cn", role="operator")
+        session.add(operator)
+        session.flush()
+        start = datetime.datetime(2026, 10, 1, 10, tzinfo=datetime.timezone.utc)
+
+        topic = create_topic(session, operator, {
+            "channel": "official",
+            "title": "校园人工智能开放日",
+            "short_title": "AI 开放日",
+            "organizer": "CampusMate",
+            "edition": "2026",
+            "summary": "面向全校同学的正式活动",
+            "content": "活动详情",
+            "tag_ids": ["activity_innovation"],
+            "location_name": "北大楼",
+            "campus_scope": "鼓楼校区",
+            "capacity": 120,
+            "participation_mode": "official_signup",
+            "activity_start_at": start,
+            "activity_end_at": start + datetime.timedelta(hours=2),
+        })
+        session.flush()
+
+        grant = session.query(TopicCollaborator).filter_by(topic_id=topic.id, user_id=operator.id).one()
+        assert topic.location_name == "北大楼"
+        assert topic.capacity == 120
+        assert topic.activity_start_at == start
+        assert grant.role == "manager"
+        assert grant.status == "active"

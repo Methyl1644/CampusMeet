@@ -629,6 +629,7 @@ export type GrantStatus = 'pending' | 'active' | 'suspended' | 'revoked' | 'expi
 
 export interface IdentitySummary {
   campus_verified: boolean;
+  is_staff?: boolean;
   platform_role?: PlatformRole | null;
   organization_roles: Array<{
     organization_id: string;
