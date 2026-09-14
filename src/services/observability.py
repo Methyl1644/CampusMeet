@@ -124,7 +124,11 @@ def install_observability(app: FastAPI) -> None:
         started = time.perf_counter()
         status_code = 500
         try:
-            response = await call_next(request)
+            try:
+                response = await call_next(request)
+            except Exception as exc:
+                # Return inside the CORS middleware so browsers can read 500 responses.
+                response = await unhandled_exception_handler(request, exc)
             status_code = response.status_code
             response.headers["X-Request-ID"] = request_id
             return response

@@ -26,7 +26,7 @@ def create(body: ApplicationCreateRequest, user_id: str = Depends(current_user_i
             create_application,
             {
                 "user_id": user_id,
-                "post_id": body.get("post_id", ""),
+                "post_id": str(body.get("post_id", "")),
                 "role_wanted": body.get("role_wanted", ""),
                 "experience": body.get("experience", ""),
                 "available_time": body.get("available_time", ""),

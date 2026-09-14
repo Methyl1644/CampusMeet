@@ -4,6 +4,7 @@ import json
 
 import pytest
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -12,6 +13,29 @@ from api import operations
 from services.observability import install_observability, redact_sensitive
 from storage.database.models import AuditLog, User
 from storage.database.shared.model import Base
+
+
+@pytest.mark.parametrize("origin,allowed", [
+    ("https://campusmate-web.onrender.com", True),
+    ("https://untrusted.example", False),
+])
+def test_internal_errors_remain_readable_to_allowed_browser_origins(origin, allowed):
+    app = FastAPI()
+    install_observability(app)
+    app.add_middleware(CORSMiddleware, allow_origins=["https://campusmate-web.onrender.com"],
+                       allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
+
+    @app.post("/broken")
+    def broken():
+        raise TypeError("internal tool validation failed")
+
+    with TestClient(app, raise_server_exceptions=False) as client:
+        response = client.post("/broken", headers={"Origin": origin, "X-Request-ID": "join-debug"})
+    assert response.status_code == 500
+    assert (response.headers.get("access-control-allow-origin") == origin) is allowed
+    assert response.headers["X-Request-ID"] == "join-debug"
+    assert response.json()["request_id"] == "join-debug"
+    assert "internal tool validation" not in response.text
 
 
 def test_request_id_and_stable_error_envelope_do_not_expose_exception_details():
