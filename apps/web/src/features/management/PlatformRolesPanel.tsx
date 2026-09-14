@@ -8,6 +8,7 @@ import {
   suspendPlatformRole,
 } from '@/api/management'
 import { getApiErrorMessage } from '@/api/auth-feedback'
+import { parsePublicUserId, publicUserId } from '@/features/identity/publicUserId'
 
 const roleLabel: Record<PlatformRole, string> = {
   operator: '平台运营',
@@ -39,9 +40,9 @@ export default function PlatformRolesPanel({ canManage }: { canManage: boolean }
 
   const invite = async (event: FormEvent) => {
     event.preventDefault()
-    const parsedUserId = Number(userId)
-    if (!Number.isInteger(parsedUserId) || parsedUserId <= 0) {
-      setError('请输入有效的用户 ID')
+    const parsedUserId = parsePublicUserId(userId)
+    if (!parsedUserId) {
+      setError('请输入有效的账号 ID，例如 CM-104')
       return
     }
     setBusy(true)
@@ -92,8 +93,8 @@ export default function PlatformRolesPanel({ canManage }: { canManage: boolean }
 
       {canManage && (
         <form onSubmit={invite} className="grid gap-3 border-b border-stone py-5 sm:grid-cols-[minmax(0,1fr)_12rem_auto] sm:items-end">
-          <label className="text-sm font-medium text-ink">用户 ID
-            <input className="input-base mt-1.5" value={userId} onChange={(event) => setUserId(event.target.value)} inputMode="numeric" />
+          <label className="text-sm font-medium text-ink">账号 ID
+            <input className="input-base mt-1.5" value={userId} onChange={(event) => setUserId(event.target.value)} placeholder="CM-104" />
           </label>
           <label className="text-sm font-medium text-ink">平台角色
             <select className="input-base mt-1.5" value={role} onChange={(event) => setRole(event.target.value as PlatformRole)}>
@@ -115,7 +116,7 @@ export default function PlatformRolesPanel({ canManage }: { canManage: boolean }
           {roles.map((grant) => (
             <div key={grant.grant_id} className="flex flex-wrap items-center justify-between gap-3 py-4">
               <div className="min-w-0">
-                <p className="font-semibold text-ink">用户 #{grant.user_id}</p>
+                <p className="font-semibold text-ink">账号 {publicUserId(grant.user_id)}</p>
                 <p className="mt-1 text-sm text-ink-muted">{roleLabel[grant.role]} · {grant.status}</p>
               </div>
               {canManage && grant.status === 'active' && (

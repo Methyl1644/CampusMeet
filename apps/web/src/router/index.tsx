@@ -6,6 +6,7 @@ import { successfulAuthNavigation } from '@/pages/authFlow'
 import Home from '@/pages/Home'
 import Discover from '@/pages/Discover'
 import Publish from '@/pages/Publish'
+import PublishActivity from '@/pages/PublishActivity'
 import PostDetail from '@/pages/PostDetail'
 import Messages from '@/pages/Messages'
 import TeamDetail from '@/pages/TeamDetail'
@@ -49,6 +50,7 @@ export const appRoutes: RouteObject[] = [
       { path: 'home', element: <Home /> },
       { path: 'discover', element: <Discover /> },
       { path: 'publish', element: <Publish /> },
+      { path: 'publish/activity', element: <PublishActivity /> },
       { path: 'posts/:id', element: <PostDetail /> },
       { path: 'topics/:id', element: <TopicDetail /> },
       { path: 'messages', element: <Messages /> },

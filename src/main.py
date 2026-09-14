@@ -73,7 +73,7 @@ from api.explore import router as explore_router
 from api.favorites import router as favorites_router
 from api.personal import router as personal_router
 from api.publish import router as publish_router
-from services.content import bootstrap_operator, seed_content_catalog
+from services.content import bootstrap_operator, bootstrap_staff_operators, seed_content_catalog
 from services.observability import install_observability
 
 setup_logging(
@@ -315,6 +315,7 @@ async def lifespan(app: FastAPI):
     try:
         seed_content_catalog(catalog_session)
         bootstrap_operator(catalog_session, os.getenv("BOOTSTRAP_OPERATOR_EMAIL", ""))
+        bootstrap_staff_operators(catalog_session)
         catalog_session.commit()
     finally:
         catalog_session.close()

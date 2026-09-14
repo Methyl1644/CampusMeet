@@ -11,6 +11,7 @@ export default defineConfig({
   test: {
     include: [
       'src/pages/Publish.test.tsx',
+      'src/pages/PublishActivity.test.tsx',
       'src/pages/authFlow.test.ts',
       'src/pages/Login.test.tsx',
       'src/components/onboarding/ChoiceChips.test.tsx',
@@ -36,6 +37,8 @@ export default defineConfig({
       'src/api/personal.test.ts',
       'src/api/management.test.ts',
       'src/api/authorizations.test.ts',
+      'src/api/messages.test.ts',
+      'src/features/identity/publicUserId.test.ts',
       'src/features/management/managementAccess.test.ts',
       'src/pages/Management.test.tsx',
       'src/pages/Authorizations.test.tsx',

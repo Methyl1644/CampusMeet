@@ -7,6 +7,7 @@ import {
   revokeTopicCollaborator,
 } from '@/api/management'
 import { getApiErrorMessage } from '@/api/auth-feedback'
+import { parsePublicUserId, publicUserId } from '@/features/identity/publicUserId'
 
 const roleDescriptions: Record<TopicRole, string> = {
   coordinator: '协作成员：处理报名与组队秩序',
@@ -45,9 +46,9 @@ export default function TopicCollaboratorsPanel({ suggestedTopicId = '' }: { sug
 
   const invite = async (event: FormEvent) => {
     event.preventDefault()
-    const parsedUserId = Number(userId)
-    if (!activeTopicId || !Number.isInteger(parsedUserId) || parsedUserId <= 0) {
-      setError('请先加载活动并输入有效的用户 ID')
+    const parsedUserId = parsePublicUserId(userId)
+    if (!activeTopicId || !parsedUserId) {
+      setError('请先加载活动并输入有效的账号 ID，例如 CM-104')
       return
     }
     setBusy(true)
@@ -93,7 +94,7 @@ export default function TopicCollaboratorsPanel({ suggestedTopicId = '' }: { sug
 
       {activeTopicId && (
         <form onSubmit={invite} className="grid gap-3 border-b border-stone py-5 sm:grid-cols-[minmax(0,1fr)_minmax(12rem,1fr)_auto] sm:items-end">
-          <label className="text-sm font-medium">用户 ID<input className="input-base mt-1.5" inputMode="numeric" value={userId} onChange={(event) => setUserId(event.target.value)} /></label>
+          <label className="text-sm font-medium">账号 ID<input className="input-base mt-1.5" placeholder="CM-104" value={userId} onChange={(event) => setUserId(event.target.value)} /></label>
           <label className="text-sm font-medium">活动身份<select className="input-base mt-1.5" value={role} onChange={(event) => setRole(event.target.value as TopicRole)}>{Object.entries(roleDescriptions).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
           <button type="submit" className="btn-primary" disabled={busy}><UserPlus aria-hidden="true" className="size-4" />发送邀请</button>
         </form>
@@ -112,7 +113,7 @@ export default function TopicCollaboratorsPanel({ suggestedTopicId = '' }: { sug
         <div className="divide-y divide-stone">
           {collaborators.map((grant) => (
             <div key={`${grant.user_id}-${grant.role}`} className="flex flex-wrap items-center justify-between gap-3 py-4">
-              <div><p className="font-semibold text-ink">用户 #{grant.user_id}</p><p className="mt-1 text-sm text-ink-muted">{roleDescriptions[grant.role]} · {grant.status}</p></div>
+              <div><p className="font-semibold text-ink">账号 {publicUserId(grant.user_id)}</p><p className="mt-1 text-sm text-ink-muted">{roleDescriptions[grant.role]} · {grant.status}</p></div>
               {grant.status === 'active' && (revokeUserId === grant.user_id ? (
                 <div className="flex gap-2"><button type="button" className="btn-danger" disabled={busy} onClick={() => void revoke()}>确认撤销</button><button type="button" className="btn-secondary" onClick={() => setRevokeUserId(null)}>取消</button></div>
               ) : (

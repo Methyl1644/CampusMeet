@@ -35,6 +35,10 @@ class TopicCreateRequest(BaseModel):
     registration_deadline: datetime.datetime | None = None
     activity_start_at: datetime.datetime | None = None
     activity_end_at: datetime.datetime | None = None
+    location_name: str = Field(default="", max_length=200)
+    campus_scope: str = Field(default="", max_length=120)
+    capacity: int | None = Field(default=None, ge=1, le=100000)
+    participation_mode: Literal["open_team", "official_signup", "information_only"] = "official_signup"
     organization_id: int | None = Field(default=None, ge=1)
     tag_ids: list[str] = Field(min_length=1, max_length=8)
 

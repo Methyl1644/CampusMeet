@@ -3,8 +3,18 @@ import { API_PATHS } from '@shared/constants'
 import type { Application, CreateApplicationRequest } from '@shared/types'
 
 /** 创建申请 */
-export function createApplication(data: CreateApplicationRequest) {
-  return post<Application>(API_PATHS.applications.create, data)
+export async function createApplication(data: CreateApplicationRequest) {
+  try {
+    return await post<Application>(API_PATHS.applications.create, data)
+  } catch (error) {
+    const requestError = error as { code?: string; response?: unknown }
+    const retryable = requestError.code === 'ERR_NETWORK'
+      || requestError.code === 'ECONNABORTED'
+      || !requestError.response
+    if (!retryable) throw error
+    await new Promise((resolve) => window.setTimeout(resolve, 500))
+    return post<Application>(API_PATHS.applications.create, data)
+  }
 }
 
 /** 获取我的申请 */

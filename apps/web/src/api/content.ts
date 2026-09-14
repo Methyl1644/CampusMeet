@@ -45,3 +45,30 @@ export function getSearchSuggestions(q: string, channel: string) {
 export function getTags() {
   return get<StandardTag[]>(API_PATHS.content.tags)
 }
+
+export interface TopicCreateInput {
+  channel: 'official' | 'organization'
+  title: string
+  short_title: string
+  organizer: string
+  organizer_key: string
+  canonical_event_key: string
+  edition: string
+  summary: string
+  content: string
+  source_url?: string
+  cover_url?: string
+  registration_deadline?: string | null
+  activity_start_at?: string | null
+  activity_end_at?: string | null
+  location_name?: string
+  campus_scope?: string
+  capacity?: number | null
+  participation_mode: 'open_team' | 'official_signup' | 'information_only'
+  organization_id?: number | null
+  tag_ids: string[]
+}
+
+export function createTopic(body: TopicCreateInput) {
+  return post<Topic>(API_PATHS.content.topics, body)
+}

@@ -16,6 +16,18 @@ PLATFORM_ROLES = frozenset({"operator", "senior_operator"})
 _ROLE_PRIORITY = {"operator": 1, "senior_operator": 2}
 
 
+def configured_staff_emails() -> frozenset[str]:
+    return frozenset(
+        item.strip().casefold()
+        for item in os.getenv("STAFF_EMAILS", "").split(",")
+        if item.strip()
+    )
+
+
+def is_configured_staff(user: User) -> bool:
+    return (user.email or "").strip().casefold() in configured_staff_emails()
+
+
 def utcnow() -> datetime.datetime:
     return datetime.datetime.now(datetime.timezone.utc)
 
@@ -81,11 +93,50 @@ def has_platform_role(
     user: User,
     roles: frozenset[str] = PLATFORM_ROLES,
 ) -> bool:
+    if is_configured_staff(user) and roles.intersection(PLATFORM_ROLES):
+        return True
     grants = active_platform_grants(session, user.id)
     if grants:
         return any(grant.role in roles for grant in grants)
     has_governed_roles = session.execute(select(PlatformRoleGrant.id).limit(1)).first() is not None
     return not has_governed_roles and user.site_role in roles
+
+
+def _materialize_configured_staff(session: Session, user: User) -> PlatformRoleGrant | None:
+    if not is_configured_staff(user):
+        return None
+    existing = next(
+        (grant for grant in active_platform_grants(session, user.id) if grant.role == "senior_operator"),
+        None,
+    )
+    if existing:
+        return existing
+    now = utcnow()
+    grant = PlatformRoleGrant(
+        user_id=user.id,
+        role="senior_operator",
+        status="active",
+        granted_by=user.id,
+        accepted_at=now,
+        effective_at=now,
+    )
+    session.add(grant)
+    session.flush()
+    user.site_role = "senior_operator"
+    _audit(session, user.id, "platform_role.staff_bootstrap", grant, {"source": "STAFF_EMAILS"})
+    return grant
+
+
+def bootstrap_configured_staff(session: Session) -> int:
+    created = 0
+    if not configured_staff_emails():
+        return created
+    users = session.execute(select(User).where(User.email.in_(configured_staff_emails()))).scalars().all()
+    for user in users:
+        before = len(active_platform_grants(session, user.id))
+        _materialize_configured_staff(session, user)
+        created += int(before == 0)
+    return created
 
 
 def bootstrap_platform_operator(session: Session, email: str) -> bool:
@@ -154,6 +205,8 @@ def _bootstrap_legacy_operator(
 def require_senior_operator(session: Session, user: User) -> PlatformRoleGrant:
     grants = active_platform_grants(session, user.id)
     senior = next((grant for grant in grants if grant.role == "senior_operator"), None)
+    if senior is None:
+        senior = _materialize_configured_staff(session, user)
     if senior is None:
         senior = _bootstrap_legacy_operator(session, user)
     if senior is None:

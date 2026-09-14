@@ -403,7 +403,21 @@ def close_conversation(user_id: str, conversation_id: str) -> str:
             if conv.post_author_id != uid and conv.applicant_id != uid:
                 return json.dumps({"success": False, "message": "无权操作"}, ensure_ascii=False)
 
+            if conv.status == "closed":
+                return json.dumps({"success": True, "message": "会话已关闭"}, ensure_ascii=False)
+
+            other_user_id = conv.applicant_id if conv.post_author_id == uid else conv.post_author_id
             conv.status = "closed"
+            notify(
+                session,
+                user_id=other_user_id,
+                event_type="conversation.closed",
+                title="对话已结束",
+                body="对方结束了与你的组队对话",
+                target_type="conversation",
+                target_id=str(conv.id),
+                dedupe_key=f"conversation:{conv.id}:closed",
+            )
             session.commit()
             return json.dumps({"success": True, "message": "会话已关闭"}, ensure_ascii=False)
         finally:

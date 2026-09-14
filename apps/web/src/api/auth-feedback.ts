@@ -28,7 +28,9 @@ export function getApiErrorMessage(error: unknown, fallback: string): string {
   const responseMessage = apiError?.response?.data?.message
   if (responseMessage?.trim()) return responseMessage
   if (apiError?.code === 'ERR_NETWORK' || !apiError?.response) {
-    return '无法连接后端服务，请确认后端已在 3000 端口启动'
+    return import.meta.env.DEV
+      ? '无法连接本地后端服务，请确认后端已启动'
+      : '服务暂时不可达，请检查网络后重试；填写内容已经保留'
   }
   return fallback
 }

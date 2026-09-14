@@ -27,6 +27,8 @@
 | `campusmate-api` | `DATABASE_URL` | Neon 的 pooled connection 完整地址 |
 | `campusmate-api` | `FRONTEND_ORIGINS` | `https://campusmate-web.onrender.com` |
 | `campusmate-api` | `BOOTSTRAP_OPERATOR_EMAIL` | 你准备用作平台运营账号的注册邮箱 |
+| `campusmate-api` | `AUTH_ALLOWED_EMAILS` | 可登录网站的邮箱，多个邮箱用英文逗号分隔 |
+| `campusmate-api` | `STAFF_EMAILS` | 四个初始工作人员邮箱，多个邮箱用英文逗号分隔 |
 | `campusmate-api` | `BREVO_API_KEY` | Brevo 创建的 API Key |
 | `campusmate-api` | `BREVO_FROM_EMAIL` | Brevo 中已验证的个人发件邮箱 |
 | `campusmate-api` | `BREVO_FROM_NAME` | `CampusMate` |
@@ -98,7 +100,7 @@ Render Cron Job 目前没有免费实例。测试阶段可手动运行；进入�
 1. 后端 `/health` 返回成功。
 2. 前端能打开登录页，刷新内部路由不会出现 404。
 3. 使用邮箱接收验证码并完成注册、登录和退出。
-4. 使用 `BOOTSTRAP_OPERATOR_EMAIL` 对应邮箱注册后，重启一次后端服务，并在个人资料接口确认 `site_role` 为 `operator`。
+4. 使用 `STAFF_EMAILS` 中的账号登录，在“我的授权”确认显示工作人员和高级平台运营身份。
 5. 创建一条组队帖，刷新页面后数据仍存在。
 6. 搜索标准标签和官方话题。
 7. 配置 Coze 后测试工作流 1-4；关闭 Coze 配置后确认规则降级仍可用。
