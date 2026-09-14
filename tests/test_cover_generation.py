@@ -21,7 +21,8 @@ def test_generate_content_cover_calls_deployed_workflow_and_unwraps_image(monkey
         return Response()
 
     monkeypatch.setenv("COZE_COVER_API_URL", "https://sbs68xhstz.coze.site/run")
-    monkeypatch.setenv("COZE_DEPLOY_API_TOKEN", "secret-token")
+    monkeypatch.delenv("COZE_DEPLOY_API_TOKEN", raising=False)
+    monkeypatch.setenv("COZE_COVER_API_TOKEN", "cover-secret-token")
     monkeypatch.setattr("requests.post", fake_post)
 
     result = generate_content_cover(
@@ -35,7 +36,7 @@ def test_generate_content_cover_calls_deployed_workflow_and_unwraps_image(monkey
 
     assert result == "https://cdn.example.test/cover.png"
     assert captured["url"] == "https://sbs68xhstz.coze.site/run"
-    assert captured["headers"]["Authorization"] == "Bearer secret-token"
+    assert captured["headers"]["Authorization"] == "Bearer cover-secret-token"
     assert captured["json"] == {
         "content_type": "post",
         "title": "羽毛球搭子",
