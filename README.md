@@ -201,6 +201,7 @@ git push origin feat/your-task-name
 
 ## 📄 相关文档
 
+- [项目完整总结（课程验收与技术交接）](docs/project-summary.md)
 - [产品需求文档](docs/prd.md)
 - [用户主流程](docs/user-flow.md)
 - [页面定义与验收标准](docs/pages.md)
