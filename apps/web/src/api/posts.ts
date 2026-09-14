@@ -55,6 +55,10 @@ export function archivePost(id: string) {
   return post<Post>(API_PATHS.posts.archive.replace(':id', id))
 }
 
+export function regeneratePostCover(id: string) {
+  return post<Post>(API_PATHS.posts.regenerateCover.replace(':id', id))
+}
+
 export async function deletePost(id: string) {
   return (await client.delete(API_PATHS.posts.remove.replace(':id', id))).data.data as Post
 }

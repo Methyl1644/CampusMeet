@@ -13,7 +13,14 @@ def test_generate_content_cover_calls_deployed_workflow_and_unwraps_image(monkey
             return None
 
         def json(self):
-            return {"data": json.dumps({"output": {"image_url": "https://cdn.example.test/cover.png"}})}
+            return {
+                "data": json.dumps(
+                    {
+                        "status": "success",
+                        "output": {"image_url": "https://cdn.example.test/cover.png?token=" + "x" * 600},
+                    }
+                )
+            }
 
     def fake_post(url, **kwargs):
         captured["url"] = url
@@ -34,7 +41,7 @@ def test_generate_content_cover_calls_deployed_workflow_and_unwraps_image(monkey
         roles=["双打队友"],
     )
 
-    assert result == "https://cdn.example.test/cover.png"
+    assert result == "https://cdn.example.test/cover.png?token=" + "x" * 600
     assert captured["url"] == "https://sbs68xhstz.coze.site/run"
     assert captured["headers"]["Authorization"] == "Bearer cover-secret-token"
     assert captured["json"] == {
@@ -45,6 +52,21 @@ def test_generate_content_cover_calls_deployed_workflow_and_unwraps_image(monkey
         "location": "仙林校区",
         "roles": "双打队友",
     }
+
+
+def test_generate_content_cover_rejects_failed_workflow(monkeypatch):
+    class Response:
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return {"status": "failed", "image_url": "https://cdn.example.test/stale.png"}
+
+    monkeypatch.setenv("COZE_COVER_API_URL", "https://sbs68xhstz.coze.site/run")
+    monkeypatch.setenv("COZE_COVER_API_TOKEN", "cover-secret-token")
+    monkeypatch.setattr("requests.post", lambda *_args, **_kwargs: Response())
+
+    assert generate_content_cover(content_type="post", title="失败任务") is None
 
 
 def test_create_post_generates_cover_only_when_upload_is_missing(monkeypatch):

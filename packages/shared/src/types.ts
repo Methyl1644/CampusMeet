@@ -342,6 +342,7 @@ export interface Post {
   tags: string[];
   tag_ids?: string[];
   activity_name: string;
+  cover_url: string | null;
   current_members: number;
   target_members: number;
   needed_roles: string[];

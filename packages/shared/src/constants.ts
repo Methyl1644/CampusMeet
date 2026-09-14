@@ -108,6 +108,7 @@ export const API_PATHS = {
     close: '/api/posts/:id/close',
     reopen: '/api/posts/:id/reopen',
     archive: '/api/posts/:id/archive',
+    regenerateCover: '/api/posts/:id/cover/regenerate',
     remove: '/api/posts/:id',
   },
   content: {

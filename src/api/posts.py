@@ -405,6 +405,51 @@ def update(post_id: int, body: PostUpdateRequest, user_id: str = Depends(current
         session.close()
 
 
+@router.post("/{post_id}/cover/regenerate")
+def regenerate_cover(post_id: int, user_id: str = Depends(current_user_id)) -> dict[str, Any]:
+    session = get_session()
+    try:
+        user = session.get(User, int(user_id))
+        if not user:
+            raise HTTPException(status_code=401, detail="登录状态已失效")
+        post = session.get(Post, post_id)
+        if not post:
+            raise HTTPException(status_code=404, detail="帖子不存在")
+        if not can_manage_post(session, user, post, "edit_post"):
+            raise HTTPException(status_code=403, detail="你没有编辑该帖子的权限")
+
+        cover_url = generate_content_cover(
+            content_type="post",
+            title=post.title,
+            description=post.description or "",
+            category=post.main_category or "校园生活",
+            location=post.school_scope or "",
+            roles=post.needed_roles or [],
+        )
+        if not cover_url:
+            raise HTTPException(status_code=502, detail="封面生成失败，请稍后重试")
+
+        post.cover_url = cover_url
+        session.add(
+            AuditLog(
+                user_id=user.id,
+                action="post.cover.regenerate",
+                target_type="post",
+                target_id=str(post.id),
+                detail=json.dumps({"provider": "coze"}, ensure_ascii=False),
+            )
+        )
+        session.commit()
+        session.refresh(post)
+        author = session.get(User, post.author_id)
+        return api_ok(
+            _post_to_dict(post, author, session, viewer_id=user.id),
+            "封面已生成",
+        )
+    finally:
+        session.close()
+
+
 @router.post("/{post_id}/join")
 def join(post_id: int, user_id: str = Depends(current_user_id)) -> dict[str, Any]:
     session = get_session()
