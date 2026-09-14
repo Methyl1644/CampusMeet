@@ -80,7 +80,7 @@ export default function Tutorial() {
   return (
     <div className="mx-auto max-w-5xl">
       <Reveal as="header" className="border-b border-stone pb-7">
-        <p className="section-label">CampusMate 使用手册</p>
+        <p className="section-label">梧桐遇 CampusMeet 使用手册</p>
         <div className="mt-4 flex items-center gap-3">
           <BookOpen aria-hidden="true" className="size-6 text-primary-600" />
           <h1 className="text-3xl font-semibold text-ink">教程</h1>

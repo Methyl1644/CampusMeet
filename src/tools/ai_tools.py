@@ -569,7 +569,7 @@ def ai_post_draft(
         return json.dumps(local_result, ensure_ascii=False)
 
     # 降级: 使用 LLM 直接处理
-    system_prompt = """你是 CampusMate AI 发帖助手。用户想发布组队帖，你需要：
+    system_prompt = """你是梧桐遇 CampusMeet AI 发帖助手。用户想发布组队帖，你需要：
 1. 理解用户的组队需求
 2. 检查信息是否完整(活动名称、目标人数、所需角色、每周时长、学校范围、截止日期、描述)
 3. 如果信息不完整，礼貌追问缺失的关键信息
@@ -656,7 +656,7 @@ def ai_classify_review(post_title: str, post_description: str, candidate_tags: s
             return json.dumps(coze_result, ensure_ascii=False)
 
     # 降级: 使用 LLM 直接处理
-    system_prompt = """你是 CampusMate AI 内容审核专家。对帖子进行分类、打标签、评估风险等级。
+    system_prompt = """你是梧桐遇 CampusMeet AI 内容审核专家。对帖子进行分类、打标签、评估风险等级。
 
 主分类选项(只能选一个):
 - 竞赛与项目
@@ -762,7 +762,7 @@ def ai_match_teammates(post_id: str) -> str:
             if coze_result is None:
                 coze_result = _try_coze_workflow("COZE_WORKFLOW_MATCH", controlled_context)
 
-            system_prompt = """你是 CampusMate AI 匹配引擎。根据帖子需求，为每个候选用户生成匹配分数(0-100)和推荐理由。
+            system_prompt = """你是梧桐遇 CampusMeet AI 匹配引擎。根据帖子需求，为每个候选用户生成匹配分数(0-100)和推荐理由。
 
 匹配逻辑:
 1. 技能匹配: 用户技能是否覆盖所需角色
@@ -854,7 +854,7 @@ def ai_team_plan(team_id: str) -> str:
             if result is None:
                 result = _try_coze_workflow("COZE_WORKFLOW_TEAM_PLAN", controlled_context)
 
-            system_prompt = """你是 CampusMate AI 成队规划助手。根据团队成员能力生成:
+            system_prompt = """你是梧桐遇 CampusMeet AI 成队规划助手。根据团队成员能力生成:
 1. 分工建议: 根据每个人的技能和角色分配任务
 2. 首次会议议程: 5-7个议程项(id为a1,a2...)
 3. 任务清单: 3-5个具体任务(id为t1,t2...,done为false)

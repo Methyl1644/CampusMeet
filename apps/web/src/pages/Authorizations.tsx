@@ -181,7 +181,7 @@ export default function Authorizations() {
 
 function ActiveAuthorizations({ identity }: { identity: IdentitySummary }) {
   const roles = [
-    ...(identity.is_staff ? ['CampusMate 工作人员'] : []),
+    ...(identity.is_staff ? ['梧桐遇工作人员'] : []),
     ...(identity.platform_role ? [platformRoleLabels[identity.platform_role]] : []),
     ...identity.organization_roles.map((item) => `${item.organization_name} · ${item.role === 'owner' ? '负责人' : organizationRoleLabels[item.role as 'publisher' | 'member']}`),
     ...identity.topic_roles.map((item) => `${item.topic_title} · ${topicRoleLabels[item.role]}`),

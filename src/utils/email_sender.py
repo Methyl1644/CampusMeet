@@ -20,8 +20,8 @@ def _get_brevo_config() -> dict | None:
     return {
         "api_key": api_key,
         "sender_email": sender_email,
-        "sender_name": os.getenv("BREVO_FROM_NAME", "CampusMate").strip()
-        or "CampusMate",
+        "sender_name": os.getenv("BREVO_FROM_NAME", "梧桐遇 CampusMeet").strip()
+        or "梧桐遇 CampusMeet",
         "base_url": os.getenv(
             "BREVO_API_BASE_URL", "https://api.brevo.com/v3"
         ).strip().rstrip("/"),
@@ -68,10 +68,10 @@ def is_email(account: str) -> bool:
 
 
 def _build_verification_content(code: str, purpose: str) -> tuple[str, str, str]:
-    subject = f"CampusMate AI - {purpose}验证码"
+    subject = f"梧桐遇 CampusMeet - {purpose}验证码"
     html_body = f"""
     <div style="font-family: Arial, sans-serif; max-width: 480px; margin: 0 auto; padding: 20px;">
-        <h2 style="color: #4F46E5;">CampusMate AI</h2>
+        <h2 style="color: #346F5D;">梧桐遇 CampusMeet</h2>
         <p>您好！</p>
         <p>您的{purpose}验证码为：</p>
         <div style="font-size: 32px; font-weight: bold; color: #4F46E5; text-align: center;
@@ -82,7 +82,7 @@ def _build_verification_content(code: str, purpose: str) -> tuple[str, str, str]
         <p style="color: #9CA3AF; font-size: 12px;">如非本人操作，请忽略此邮件。</p>
     </div>
     """
-    text_body = f"CampusMate AI {purpose}验证码: {code} (10分钟内有效)"
+    text_body = f"梧桐遇 CampusMeet {purpose}验证码: {code} (10分钟内有效)"
     return subject, html_body, text_body
 
 

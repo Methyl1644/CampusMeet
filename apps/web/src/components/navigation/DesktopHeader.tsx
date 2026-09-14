@@ -40,7 +40,7 @@ export default function DesktopHeader({
       className="sticky top-0 z-40 hidden h-[72px] border-b border-stone bg-paper/95 backdrop-blur md:block"
     >
       <div className="mx-auto flex h-[72px] max-w-content items-center px-4 lg:px-8">
-        <NavLink to="/home" aria-label="CampusMate 首页" className="mr-5 shrink-0 lg:mr-8">
+        <NavLink to="/home" aria-label="梧桐遇首页" className="mr-5 shrink-0 lg:mr-8">
           <span className="lg:hidden">
             <CampusMark compact />
           </span>

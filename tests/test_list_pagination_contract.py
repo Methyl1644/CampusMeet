@@ -43,6 +43,9 @@ def test_notification_read_all_static_route_precedes_dynamic_read_route(monkeypa
         def commit(self):
             return None
 
+        def scalar(self, _statement):
+            return 0
+
         def close(self):
             return None
 
@@ -60,4 +63,4 @@ def test_notification_read_all_static_route_precedes_dynamic_read_route(monkeypa
         app.dependency_overrides.pop(current_user_id, None)
 
     assert response.status_code == 200
-    assert response.json()["data"] == {"updated": 0}
+    assert response.json()["data"] == {"updated": 0, "unread_count": 0}

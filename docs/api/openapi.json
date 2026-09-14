@@ -82,8 +82,8 @@
         "additionalProperties": false,
         "properties": {
           "available_time": {
+            "default": "",
             "maxLength": 500,
-            "minLength": 1,
             "title": "Available Time",
             "type": "string"
           },
@@ -125,7 +125,6 @@
           "post_id",
           "role_wanted",
           "experience",
-          "available_time",
           "reason"
         ],
         "title": "ApplicationCreateRequest",
@@ -595,6 +594,10 @@
             ],
             "title": "Campus Scope"
           },
+          "can_manage_collaborators": {
+            "title": "Can Manage Collaborators",
+            "type": "boolean"
+          },
           "capacity": {
             "anyOf": [
               {
@@ -819,7 +822,8 @@
           "status",
           "trust_badges",
           "responsible_people",
-          "related_groups"
+          "related_groups",
+          "can_manage_collaborators"
         ],
         "title": "ExploreActivityDetail",
         "type": "object"
@@ -4612,11 +4616,30 @@
             ],
             "title": "Activity Start At"
           },
+          "campus_scope": {
+            "default": "",
+            "maxLength": 120,
+            "title": "Campus Scope",
+            "type": "string"
+          },
           "canonical_event_key": {
             "maxLength": 120,
             "minLength": 1,
             "title": "Canonical Event Key",
             "type": "string"
+          },
+          "capacity": {
+            "anyOf": [
+              {
+                "maximum": 100000.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Capacity"
           },
           "channel": {
             "enum": [
@@ -4644,6 +4667,12 @@
             "title": "Edition",
             "type": "string"
           },
+          "location_name": {
+            "default": "",
+            "maxLength": 200,
+            "title": "Location Name",
+            "type": "string"
+          },
           "organization_id": {
             "anyOf": [
               {
@@ -4666,6 +4695,16 @@
             "maxLength": 100,
             "minLength": 1,
             "title": "Organizer Key",
+            "type": "string"
+          },
+          "participation_mode": {
+            "default": "official_signup",
+            "enum": [
+              "open_team",
+              "official_signup",
+              "information_only"
+            ],
+            "title": "Participation Mode",
             "type": "string"
           },
           "registration_deadline": {
@@ -4755,6 +4794,55 @@
       },
       "TopicUpdateRequest": {
         "properties": {
+          "activity_end_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Activity End At"
+          },
+          "activity_start_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Activity Start At"
+          },
+          "campus_scope": {
+            "anyOf": [
+              {
+                "maxLength": 120,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Campus Scope"
+          },
+          "capacity": {
+            "anyOf": [
+              {
+                "maximum": 100000.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Capacity"
+          },
           "content": {
             "anyOf": [
               {
@@ -4779,6 +4867,72 @@
               }
             ],
             "title": "Cover Url"
+          },
+          "edition": {
+            "anyOf": [
+              {
+                "maxLength": 40,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Edition"
+          },
+          "location_name": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location Name"
+          },
+          "organizer": {
+            "anyOf": [
+              {
+                "maxLength": 120,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Organizer"
+          },
+          "participation_mode": {
+            "anyOf": [
+              {
+                "enum": [
+                  "open_team",
+                  "official_signup",
+                  "information_only"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Participation Mode"
+          },
+          "registration_deadline": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Registration Deadline"
           },
           "short_title": {
             "anyOf": [
@@ -9586,6 +9740,16 @@
             }
           },
           {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "default": "all",
+              "title": "Status",
+              "type": "string"
+            }
+          },
+          {
             "in": "header",
             "name": "authorization",
             "required": false,
@@ -9697,6 +9861,66 @@
           }
         },
         "summary": "Accept Platform Role",
+        "tags": [
+          "operators"
+        ]
+      }
+    },
+    "/api/operators/roles/{grant_id}/decline": {
+      "post": {
+        "operationId": "decline_platform_role_api_operators_roles__grant_id__decline_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "grant_id",
+            "required": true,
+            "schema": {
+              "title": "Grant Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Decline Platform Role Api Operators Roles  Grant Id  Decline Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Decline Platform Role",
         "tags": [
           "operators"
         ]
@@ -10075,6 +10299,16 @@
             }
           },
           {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "default": "all",
+              "title": "Status",
+              "type": "string"
+            }
+          },
+          {
             "in": "header",
             "name": "authorization",
             "required": false,
@@ -10241,6 +10475,57 @@
         ]
       }
     },
+    "/api/organizations/my-managed": {
+      "get": {
+        "operationId": "my_managed_organizations_api_organizations_my_managed_get",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response My Managed Organizations Api Organizations My Managed Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "My Managed Organizations",
+        "tags": [
+          "identity"
+        ]
+      }
+    },
     "/api/organizations/ownership-transfers/my": {
       "get": {
         "operationId": "my_organization_ownership_transfers_api_organizations_ownership_transfers_my_get",
@@ -10266,6 +10551,16 @@
               "minimum": 1,
               "title": "Page Size",
               "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "default": "all",
+              "title": "Status",
+              "type": "string"
             }
           },
           {
@@ -10370,6 +10665,66 @@
           }
         },
         "summary": "Accept Organization Ownership Transfer",
+        "tags": [
+          "identity"
+        ]
+      }
+    },
+    "/api/organizations/ownership-transfers/{transfer_id}/decline": {
+      "post": {
+        "operationId": "decline_organization_ownership_transfer_api_organizations_ownership_transfers__transfer_id__decline_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "transfer_id",
+            "required": true,
+            "schema": {
+              "title": "Transfer Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Decline Organization Ownership Transfer Api Organizations Ownership Transfers  Transfer Id  Decline Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Decline Organization Ownership Transfer",
         "tags": [
           "identity"
         ]
@@ -10864,6 +11219,90 @@
         "summary": "Create",
         "tags": [
           "posts"
+        ]
+      }
+    },
+    "/api/posts/collaborations/my": {
+      "get": {
+        "operationId": "my_post_collaborations_api_posts_collaborations_my_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "default": "pending",
+              "title": "Status",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page_size",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 50,
+              "minimum": 1,
+              "title": "Page Size",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response My Post Collaborations Api Posts Collaborations My Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "My Post Collaborations",
+        "tags": [
+          "permissions"
         ]
       }
     },
@@ -11453,6 +11892,66 @@
           }
         },
         "summary": "Accept Post Collaboration",
+        "tags": [
+          "permissions"
+        ]
+      }
+    },
+    "/api/posts/{post_id}/collaborators/decline": {
+      "post": {
+        "operationId": "decline_post_collaboration_api_posts__post_id__collaborators_decline_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "post_id",
+            "required": true,
+            "schema": {
+              "title": "Post Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Decline Post Collaboration Api Posts  Post Id  Collaborators Decline Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Decline Post Collaboration",
         "tags": [
           "permissions"
         ]
@@ -13178,6 +13677,90 @@
         ]
       }
     },
+    "/api/topics/collaborations/my": {
+      "get": {
+        "operationId": "my_topic_collaborations_api_topics_collaborations_my_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "default": "pending",
+              "title": "Status",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page_size",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 50,
+              "minimum": 1,
+              "title": "Page Size",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response My Topic Collaborations Api Topics Collaborations My Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "My Topic Collaborations",
+        "tags": [
+          "permissions"
+        ]
+      }
+    },
     "/api/topics/{topic_id}": {
       "get": {
         "operationId": "topic_detail_api_topics__topic_id__get",
@@ -13512,6 +14095,66 @@
           }
         },
         "summary": "Accept Topic Collaboration",
+        "tags": [
+          "permissions"
+        ]
+      }
+    },
+    "/api/topics/{topic_id}/collaborators/decline": {
+      "post": {
+        "operationId": "decline_topic_collaboration_api_topics__topic_id__collaborators_decline_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "topic_id",
+            "required": true,
+            "schema": {
+              "title": "Topic Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Decline Topic Collaboration Api Topics  Topic Id  Collaborators Decline Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Decline Topic Collaboration",
         "tags": [
           "permissions"
         ]

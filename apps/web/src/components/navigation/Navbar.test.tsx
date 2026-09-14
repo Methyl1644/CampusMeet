@@ -124,7 +124,7 @@ describe('responsive application navigation', () => {
         .getAllByRole('link')
         .map((link) => link.getAttribute('aria-label') || link.textContent),
     ).toEqual([
-      'CampusMate 首页',
+      '梧桐遇首页',
       '首页',
       '探索',
       '发布',

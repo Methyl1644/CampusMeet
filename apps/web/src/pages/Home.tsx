@@ -40,7 +40,7 @@ export default function Home() {
 
   return (
     <div aria-busy={loading} className="animate-slide-up">
-      <h1 className="sr-only">你的 CampusMate 首页</h1>
+      <h1 className="sr-only">你的梧桐遇首页</h1>
       <div className="grid min-w-0 grid-cols-1 gap-8 lg:grid-cols-[minmax(0,280px)_minmax(0,1fr)] lg:gap-10">
         <aside aria-label="我的首页摘要" className="min-w-0 space-y-5">
           <ProfileSummary profile={feed.profile} />

@@ -44,7 +44,7 @@ services:
       - key: BREVO_FROM_EMAIL
         sync: false
       - key: BREVO_FROM_NAME
-        value: CampusMate
+        value: 梧桐遇 CampusMeet
       - key: COZE_DEPLOY_API_TOKEN
         sync: false
       - key: COZE_POST_DRAFT_API_URL

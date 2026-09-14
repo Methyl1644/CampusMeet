@@ -220,7 +220,7 @@ def test_render_blueprint_keeps_external_credentials_out_of_git():
     assert "key: DATABASE_URL\n        sync: false" in blueprint
     assert "key: BREVO_API_KEY\n        sync: false" in blueprint
     assert "key: BREVO_FROM_EMAIL\n        sync: false" in blueprint
-    assert "key: BREVO_FROM_NAME\n        value: CampusMate" in blueprint
+    assert "key: BREVO_FROM_NAME\n        value: 梧桐遇 CampusMeet" in blueprint
     assert "key: RESEND_API_KEY\n        sync: false" in blueprint
     assert "key: RESEND_FROM_EMAIL\n        sync: false" in blueprint
     assert "key: FRONTEND_ORIGINS\n        sync: false" in blueprint

@@ -158,7 +158,7 @@ describe('Home', () => {
 
     renderHome()
 
-    expect(await screen.findByRole('heading', { level: 1, name: '你的 CampusMate 首页' })).toBeTruthy()
+    expect(await screen.findByRole('heading', { level: 1, name: '你的梧桐遇首页' })).toBeTruthy()
     expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1)
     expect(screen.getByRole('tabpanel').textContent).toContain(attendingTopic.title)
   })

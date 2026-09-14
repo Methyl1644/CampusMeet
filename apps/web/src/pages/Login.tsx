@@ -242,10 +242,11 @@ export default function Login() {
         </div>
         <div className="max-w-lg border-l-2 border-campus-gold pl-7">
           <p className="mb-4 text-xs font-semibold text-primary-100">NANJING UNIVERSITY</p>
-          <h1 className="font-serif text-5xl font-semibold leading-tight xl:text-6xl">CampusMate</h1>
+          <h1 className="font-serif text-5xl font-semibold leading-tight xl:text-6xl">梧桐遇</h1>
+          <p className="mt-2 text-xl font-semibold text-primary-100">CampusMeet</p>
         </div>
         <div className="flex items-center justify-between border-t border-white/20 pt-5 text-xs text-primary-100">
-          <span>南京大学校园组队</span>
+          <span>在校园，遇见同行的人</span>
           <span className="text-campus-gold">诚朴雄伟 · 励学敦行</span>
         </div>
       </section>
@@ -255,8 +256,8 @@ export default function Login() {
           <div className="mb-7 flex items-center gap-3 lg:hidden">
             <CampusMark compact />
             <div className="min-w-0">
-              <p className="truncate font-serif text-lg font-semibold text-ink">CampusMate</p>
-              <p className="truncate text-xs text-ink-muted">南京大学校园组队</p>
+              <p className="truncate font-serif text-lg font-semibold text-ink">梧桐遇</p>
+              <p className="truncate text-xs font-semibold text-campus-green">CampusMeet</p>
             </div>
           </div>
 

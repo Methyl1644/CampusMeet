@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96">
+  <defs>
+    <linearGradient id="left" x1="8" y1="28" x2="50" y2="77" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#275f50" />
+      <stop offset="1" stop-color="#397765" />
+    </linearGradient>
+    <linearGradient id="top" x1="36" y1="7" x2="61" y2="67" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#3f806a" />
+      <stop offset="1" stop-color="#68a58d" />
+    </linearGradient>
+    <linearGradient id="right" x1="49" y1="31" x2="89" y2="75" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#75ac94" />
+      <stop offset="1" stop-color="#91c4ad" />
+    </linearGradient>
+  </defs>
+  <path d="M48 5C35 14 29 27 31 40c1 10 8 18 14 27l3 8 3-8c6-9 13-17 14-27 2-13-4-26-17-35Z" fill="url(#top)" />
+  <path d="M46 34C34 24 17 23 8 32-1 41 5 55 18 64c0 9 9 15 20 13 7-1 11 4 10 12 5-19 7-39-2-55Z" fill="url(#left)" stroke="#fff" stroke-width="2" stroke-linejoin="round" />
+  <path d="M50 34c12-10 29-11 38-2 9 9 3 23-10 32 0 9-9 15-20 13-7-1-11 4-10 12-5-19-7-39 2-55Z" fill="url(#right)" stroke="#fff" stroke-width="2" stroke-linejoin="round" />
+  <path d="M48 67c0 8 0 14-1 19-8-5-16-1-18 8 8 1 14-1 19-6 5 5 11 7 19 6-2-9-10-13-18-8-1-5-1-11-1-19Z" fill="#346f5d" />
+  <circle cx="43" cy="20" r="3.2" fill="#fff" />
+  <circle cx="17" cy="40" r="3.2" fill="#fff" />
+  <circle cx="79" cy="40" r="3.2" fill="#fff" />
+</svg>

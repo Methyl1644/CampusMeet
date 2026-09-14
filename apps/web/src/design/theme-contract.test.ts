@@ -148,7 +148,7 @@ test('desktop navbar has a medium-width fit strategy', () => {
   assert.match(
     navbarSource,
     /className=['"]hidden[^'"]*lg:inline-flex[^'"]*['"][\s\S]*?<CampusMark\s*\/>/,
-    'Large widths may restore the full CampusMate wordmark',
+    'Large widths may restore the full CampusMeet wordmark',
   )
   assert.match(
     navbarSource,

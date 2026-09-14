@@ -91,7 +91,7 @@ const STEP_META = [
   },
   {
     label: '目标',
-    title: '你想在 CampusMate 遇见什么？',
+    title: '你想在梧桐遇遇见什么？',
     tipTitle: '可以有不止一个答案',
     tip: '参与目标会帮助我们区分短期组队、长期合作与轻松的校园连接。',
   },
@@ -262,7 +262,7 @@ function OnboardingFlow() {
       await saveOnboarding(toUpdate(draft, 6))
       const completedUser = await completeOnboarding()
       commitCompletedOnboarding(completedUser, setUser, (to, options) => {
-        showToast('资料已完成，欢迎来到 CampusMate', 'success')
+        showToast('资料已完成，欢迎来到梧桐遇', 'success')
         navigate(to, options)
       })
     } catch (error) {

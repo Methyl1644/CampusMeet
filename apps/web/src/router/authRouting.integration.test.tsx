@@ -22,6 +22,20 @@ vi.mock('@/api/onboarding', () => ({
   completeOnboarding: vi.fn(),
 }))
 
+vi.mock('@/api/home', () => ({
+  getHomeFeed: vi.fn().mockResolvedValue({
+    profile: { id: '1', nickname: '小紫', avatar: null, major: null, grade: null },
+    deadline_reminder: null,
+    recommended_topics: [],
+    attending_topics: [],
+    followed_topics: [],
+    joined_groups: [],
+    group_timeline: [],
+    unread: { messages: 0, notifications: 0 },
+    warnings: [],
+  }),
+}))
+
 vi.mock('@/pages/Home', () => ({
   default: () => <h1>Home route</h1>,
 }))

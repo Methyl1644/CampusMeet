@@ -17,6 +17,7 @@ export default defineConfig({
       'src/components/onboarding/ChoiceChips.test.tsx',
       'src/components/onboarding/onboardingState.test.ts',
       'src/components/Toast.test.tsx',
+      'src/components/CampusMark.test.tsx',
       'src/router/authRouting.test.ts',
       'src/router/authRouting.integration.test.tsx',
       'src/store/authStore.test.ts',
