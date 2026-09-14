@@ -2,6 +2,18 @@ import { Bell, ChevronRight } from 'lucide-react'
 import type { Notification } from '@shared/types'
 
 export function notificationTarget(item: Notification): string | null {
+  const authorizationTargets = new Set([
+    'platform_role_grant',
+    'organization_invitation',
+    'organization_ownership_transfer',
+  ])
+  if (
+    (item.target_type && authorizationTargets.has(item.target_type))
+    || item.event_type.includes('invited')
+    || item.event_type.includes('ownership_transfer')
+  ) {
+    return '/authorizations'
+  }
   if (!item.target_id) return null
   const routes: Record<string, string> = {
     topic: `/topics/${item.target_id}`,

@@ -74,11 +74,17 @@ def my_platform_roles(
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=20, ge=1, le=50),
     user_id: str = Depends(current_user_id),
+    status: str = "all",
 ) -> dict[str, Any]:
+    if status not in {"pending", "active", "suspended", "revoked", "expired", "all"}:
+        raise HTTPException(status_code=400, detail="平台角色状态不正确")
     session, actor = _current_user(user_id)
     try:
+        filters = [PlatformRoleGrant.user_id == actor.id]
+        if status != "all":
+            filters.append(PlatformRoleGrant.status == status)
         return api_ok(
-            _role_page(session, (PlatformRoleGrant.user_id == actor.id,), page, page_size)
+            _role_page(session, tuple(filters), page, page_size)
         )
     finally:
         session.close()
@@ -147,6 +153,20 @@ def accept_platform_role(
         )
 
     return _run_mutation(user_id, operation, "平台角色已生效")
+
+
+@router.post("/roles/{grant_id}/decline")
+def decline_platform_role(
+    grant_id: int,
+    user_id: str = Depends(current_user_id),
+) -> dict[str, Any]:
+    def operation(session, actor):
+        grant = session.get(PlatformRoleGrant, grant_id)
+        if grant is None:
+            raise ValueError("平台角色邀请不存在")
+        return operator_service.decline_platform_role(session, actor, grant)
+
+    return _run_mutation(user_id, operation, "已拒绝平台角色邀请")
 
 
 @router.post("/roles/{grant_id}/suspend")

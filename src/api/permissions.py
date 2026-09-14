@@ -95,6 +95,13 @@ def _grant_dict(grant: TopicCollaborator | PostCollaborator) -> dict[str, Any]:
     return data
 
 
+def _topic_grant_dict(session, grant: TopicCollaborator) -> dict[str, Any]:
+    data = _grant_dict(grant)
+    topic = session.get(Topic, grant.topic_id)
+    data["topic_title"] = topic.title if topic else f"活动 #{grant.topic_id}"
+    return data
+
+
 def _audit(session, actor_id: int, action: str, target_type: str, target_id: int, detail: dict) -> None:
     session.add(
         AuditLog(
@@ -105,6 +112,41 @@ def _audit(session, actor_id: int, action: str, target_type: str, target_id: int
             detail=json.dumps(detail, ensure_ascii=False),
         )
     )
+
+
+@router.get("/topics/collaborations/my")
+def my_topic_collaborations(
+    status: str = Query(default="pending"),
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=20, ge=1, le=50),
+    user_id: str = Depends(current_user_id),
+) -> dict[str, Any]:
+    if status not in {"pending", "active", "revoked", "all"}:
+        raise HTTPException(status_code=400, detail="活动协作者邀请状态不正确")
+    session, actor = _current_user(user_id)
+    try:
+        filters = [TopicCollaborator.user_id == actor.id]
+        if status != "all":
+            filters.append(TopicCollaborator.status == status)
+        total = int(session.scalar(select(func.count()).select_from(TopicCollaborator).where(*filters)) or 0)
+        grants = session.scalars(
+            select(TopicCollaborator)
+            .where(*filters)
+            .order_by(TopicCollaborator.id.desc())
+            .offset((page - 1) * page_size)
+            .limit(page_size)
+        ).all()
+        return api_ok(
+            {
+                "list": [_topic_grant_dict(session, grant) for grant in grants],
+                "total": total,
+                "page": page,
+                "page_size": page_size,
+                "pages": (total + page_size - 1) // page_size,
+            }
+        )
+    finally:
+        session.close()
 
 
 @router.get("/topics/{topic_id}/collaborators")
@@ -225,7 +267,38 @@ def accept_topic_collaboration(topic_id: int, user_id: str = Depends(current_use
         grant.accepted_at = now
         _audit(session, actor.id, "topic_collaborator.accept", "topic", topic_id, _grant_dict(grant))
         session.commit()
-        return api_ok(_grant_dict(grant), "已接受话题负责人邀请")
+        return api_ok(_topic_grant_dict(session, grant), "已接受话题负责人邀请")
+    finally:
+        session.close()
+
+
+@router.post("/topics/{topic_id}/collaborators/decline")
+def decline_topic_collaboration(topic_id: int, user_id: str = Depends(current_user_id)) -> dict[str, Any]:
+    session, actor = _current_user(user_id)
+    try:
+        grant = session.execute(
+            select(TopicCollaborator).where(
+                TopicCollaborator.topic_id == topic_id,
+                TopicCollaborator.user_id == actor.id,
+            )
+        ).scalar_one_or_none()
+        if not grant or grant.status != "pending":
+            raise HTTPException(status_code=404, detail="没有待处理的活动协作者邀请")
+        grant.status = "revoked"
+        grant.revoked_at = datetime.datetime.now(datetime.timezone.utc)
+        _audit(session, actor.id, "topic_collaborator.decline", "topic", topic_id, _grant_dict(grant))
+        notify(
+            session,
+            user_id=grant.granted_by,
+            event_type="topic.collaborator.declined",
+            title="活动协作者邀请已被拒绝",
+            body=f"{actor.nickname} 拒绝了活动协作者邀请",
+            target_type="topic",
+            target_id=str(topic_id),
+            dedupe_key=f"topic-grant:{grant.id}:declined",
+        )
+        session.commit()
+        return api_ok(_topic_grant_dict(session, grant), "已拒绝活动协作者邀请")
     finally:
         session.close()
 

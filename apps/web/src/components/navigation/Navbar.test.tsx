@@ -155,13 +155,15 @@ describe('responsive application navigation', () => {
       '我的活动',
       '我的小组',
       '查看个人主页',
+      '我的授权',
       '设置',
       '退出登录',
     ])
-    expect(items.slice(0, 4).map((item) => item.getAttribute('href'))).toEqual([
+    expect(items.slice(0, 5).map((item) => item.getAttribute('href'))).toEqual([
       '/my/activities',
       '/my/groups',
       '/users/me',
+      '/authorizations',
       '/settings',
     ])
   })
@@ -322,15 +324,17 @@ describe('responsive application navigation', () => {
       '我的活动',
       '我的小组',
       '查看个人主页',
+      '我的授权',
       '设置',
       '退出登录',
     ])
-    expect(items.slice(0, 6).map((item) => item.getAttribute('href'))).toEqual([
+    expect(items.slice(0, 7).map((item) => item.getAttribute('href'))).toEqual([
       '/notifications',
       '/tutorial',
       '/my/activities',
       '/my/groups',
       '/users/me',
+      '/authorizations',
       '/settings',
     ])
   })

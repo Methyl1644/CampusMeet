@@ -30,6 +30,7 @@ from services.identity import (
     submit_application,
     utcnow,
 )
+from services.notifications import notify
 from storage.database.db import get_session
 from storage.database.models import (
     AuditLog,
@@ -68,6 +69,23 @@ def _domain_error(exc: Exception) -> HTTPException:
         return HTTPException(status_code=403, detail=str(exc))
     status = 409 if any(word in str(exc) for word in ("已有", "已经", "过期", "不可用")) else 400
     return HTTPException(status_code=status, detail=str(exc))
+
+
+def _invitation_projection(session: Any, invitation: OrganizationInvitation) -> dict[str, Any]:
+    data = invitation_to_dict(invitation)
+    organization = session.get(Organization, invitation.organization_id)
+    data["organization_name"] = organization.name if organization else f"组织 #{invitation.organization_id}"
+    return data
+
+
+def _ownership_transfer_projection(
+    session: Any,
+    transfer: OrganizationOwnershipTransfer,
+) -> dict[str, Any]:
+    data = ownership_transfer_to_dict(transfer)
+    organization = session.get(Organization, transfer.organization_id)
+    data["organization_name"] = organization.name if organization else f"组织 #{transfer.organization_id}"
+    return data
 
 
 @router.post("/organizations/applications")
@@ -275,10 +293,15 @@ def my_organization_invitations(
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=20, ge=1, le=50),
     user_id: str = Depends(current_user_id),
+    status: str = "all",
 ) -> dict[str, Any]:
+    if status not in {"pending", "accepted", "declined", "expired", "all"}:
+        raise HTTPException(status_code=400, detail="组织邀请状态不正确")
     session, actor = _current_user(user_id)
     try:
-        filters = (OrganizationInvitation.invitee_id == actor.id,)
+        filters = [OrganizationInvitation.invitee_id == actor.id]
+        if status != "all":
+            filters.append(OrganizationInvitation.status == status)
         total = int(session.scalar(select(func.count()).select_from(OrganizationInvitation).where(*filters)) or 0)
         invitations = session.scalars(
             select(OrganizationInvitation)
@@ -289,7 +312,7 @@ def my_organization_invitations(
         ).all()
         return api_ok(
             {
-                "list": [invitation_to_dict(invitation) for invitation in invitations],
+                "list": [_invitation_projection(session, invitation) for invitation in invitations],
                 "total": total,
                 "page": page,
                 "page_size": page_size,
@@ -484,10 +507,15 @@ def my_organization_ownership_transfers(
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=20, ge=1, le=50),
     user_id: str = Depends(current_user_id),
+    status: str = "all",
 ) -> dict[str, Any]:
+    if status not in {"pending", "completed", "declined", "expired", "all"}:
+        raise HTTPException(status_code=400, detail="负责人转移状态不正确")
     session, actor = _current_user(user_id)
     try:
-        filters = (OrganizationOwnershipTransfer.to_owner_id == actor.id,)
+        filters = [OrganizationOwnershipTransfer.to_owner_id == actor.id]
+        if status != "all":
+            filters.append(OrganizationOwnershipTransfer.status == status)
         total = int(
             session.scalar(
                 select(func.count()).select_from(OrganizationOwnershipTransfer).where(*filters)
@@ -504,7 +532,7 @@ def my_organization_ownership_transfers(
         ).all()
         return api_ok(
             {
-                "list": [ownership_transfer_to_dict(transfer) for transfer in transfers],
+                "list": [_ownership_transfer_projection(session, transfer) for transfer in transfers],
                 "total": total,
                 "page": page,
                 "page_size": page_size,
@@ -532,5 +560,46 @@ def accept_organization_ownership_transfer(
             session.rollback()
             raise _domain_error(exc) from exc
         return api_ok(ownership_transfer_to_dict(transfer), "负责人转移已完成")
+    finally:
+        session.close()
+
+
+@router.post("/organizations/ownership-transfers/{transfer_id}/decline")
+def decline_organization_ownership_transfer(
+    transfer_id: int,
+    user_id: str = Depends(current_user_id),
+) -> dict[str, Any]:
+    session, actor = _current_user(user_id)
+    try:
+        transfer = session.get(OrganizationOwnershipTransfer, transfer_id)
+        if not transfer:
+            raise HTTPException(status_code=404, detail="负责人转移不存在")
+        if transfer.to_owner_id != actor.id:
+            raise HTTPException(status_code=403, detail="只有接任用户可以拒绝负责人转移")
+        if transfer.status != "pending" or transfer.revoked_at is not None:
+            raise HTTPException(status_code=409, detail="负责人转移已经处理")
+        transfer.status = "declined"
+        transfer.revoked_at = utcnow()
+        session.add(
+            AuditLog(
+                user_id=actor.id,
+                action="organization.ownership_transfer.decline",
+                target_type="organization_ownership_transfer",
+                target_id=str(transfer.id),
+                detail='{"status":"declined"}',
+            )
+        )
+        notify(
+            session,
+            user_id=transfer.from_owner_id,
+            event_type="organization.ownership_transfer.declined",
+            title="负责人转移邀请已被拒绝",
+            body=f"{actor.nickname} 拒绝了负责人转移邀请",
+            target_type="organization",
+            target_id=str(transfer.organization_id),
+            dedupe_key=f"organization-transfer:{transfer.id}:declined",
+        )
+        session.commit()
+        return api_ok(ownership_transfer_to_dict(transfer), "已拒绝负责人转移")
     finally:
         session.close()
