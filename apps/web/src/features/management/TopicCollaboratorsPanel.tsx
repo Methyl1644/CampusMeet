@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import { RefreshCw, Search, Trash2, UserPlus } from 'lucide-react'
 import type { CollaboratorGrant, TopicRole } from '@shared/types'
 import {
@@ -15,7 +15,13 @@ const roleDescriptions: Record<TopicRole, string> = {
   manager: '活动负责人：可增减活动协作者',
 }
 
-export default function TopicCollaboratorsPanel({ suggestedTopicId = '' }: { suggestedTopicId?: string }) {
+export default function TopicCollaboratorsPanel({
+  suggestedTopicId = '',
+  embedded = false,
+}: {
+  suggestedTopicId?: string
+  embedded?: boolean
+}) {
   const [topicId, setTopicId] = useState(suggestedTopicId)
   const [activeTopicId, setActiveTopicId] = useState('')
   const [collaborators, setCollaborators] = useState<CollaboratorGrant[]>([])
@@ -43,6 +49,12 @@ export default function TopicCollaboratorsPanel({ suggestedTopicId = '' }: { sug
       setLoading(false)
     }
   }
+
+  useEffect(() => {
+    if (embedded && suggestedTopicId) void load(suggestedTopicId)
+    // The fixed activity id only changes when navigating to another activity.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [embedded, suggestedTopicId])
 
   const invite = async (event: FormEvent) => {
     event.preventDefault()
@@ -83,13 +95,13 @@ export default function TopicCollaboratorsPanel({ suggestedTopicId = '' }: { sug
     <section aria-labelledby="topic-collaborators-title">
       <div className="border-b border-stone pb-5">
         <h2 id="topic-collaborators-title" className="text-xl font-bold text-ink">活动协作者</h2>
-        <p className="mt-1 text-sm text-ink-muted">输入官方活动 ID，设置负责人、组织者与协作成员。</p>
-        <div className="mt-4 flex max-w-xl items-end gap-2">
+        <p className="mt-1 text-sm text-ink-muted">设置负责人、组织者与协作成员；受邀者接受后权限才会生效。</p>
+        {!embedded && <div className="mt-4 flex max-w-xl items-end gap-2">
           <label className="min-w-0 flex-1 text-sm font-medium text-ink">活动 ID
             <input className="input-base mt-1.5" value={topicId} onChange={(event) => setTopicId(event.target.value)} />
           </label>
           <button type="button" className="btn-primary" disabled={loading} onClick={() => void load()}><Search aria-hidden="true" className="size-4" />加载活动</button>
-        </div>
+        </div>}
       </div>
 
       {activeTopicId && (
@@ -113,8 +125,8 @@ export default function TopicCollaboratorsPanel({ suggestedTopicId = '' }: { sug
         <div className="divide-y divide-stone">
           {collaborators.map((grant) => (
             <div key={`${grant.user_id}-${grant.role}`} className="flex flex-wrap items-center justify-between gap-3 py-4">
-              <div><p className="font-semibold text-ink">账号 {publicUserId(grant.user_id)}</p><p className="mt-1 text-sm text-ink-muted">{roleDescriptions[grant.role]} · {grant.status}</p></div>
-              {grant.status === 'active' && (revokeUserId === grant.user_id ? (
+              <div><p className="font-semibold text-ink">{grant.nickname || `账号 ${publicUserId(grant.user_id)}`}{grant.is_creator && <span className="ml-2 text-xs text-campus-green">发布者</span>}</p><p className="mt-1 text-sm text-ink-muted">{publicUserId(grant.user_id)} · {roleDescriptions[grant.role]} · {grant.status}</p></div>
+              {grant.status === 'active' && !grant.is_creator && (revokeUserId === grant.user_id ? (
                 <div className="flex gap-2"><button type="button" className="btn-danger" disabled={busy} onClick={() => void revoke()}>确认撤销</button><button type="button" className="btn-secondary" onClick={() => setRevokeUserId(null)}>取消</button></div>
               ) : (
                 <button type="button" className="icon-button text-red-700" title="撤销活动协作者" onClick={() => setRevokeUserId(grant.user_id)}><Trash2 aria-hidden="true" className="size-4" /><span className="sr-only">撤销活动协作者</span></button>

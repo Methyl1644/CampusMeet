@@ -263,6 +263,7 @@ export interface ExploreActivityCard {
 
 export interface ExploreActivityDetail extends ExploreActivityCard {
   related_groups: ExploreGroupCard[];
+  can_manage_collaborators: boolean;
 }
 
 export interface ExplorePage<T> {
@@ -702,6 +703,8 @@ export interface CollaboratorGrant extends ScopedGrant {
   role: TopicRole;
   topic_id?: string;
   accepted_at?: string | null;
+  nickname?: string | null;
+  is_creator?: boolean;
 }
 
 export interface OrganizationInvitationSummary {

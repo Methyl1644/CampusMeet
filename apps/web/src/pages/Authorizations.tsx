@@ -66,11 +66,13 @@ export default function Authorizations() {
       getMyOrganizationInvitations(),
       getMyTopicCollaborations(),
       getMyOwnershipTransfers(),
+      getProfile(),
     ])
     if (results[0].status === 'fulfilled') setPlatformRoles(results[0].value.list.filter(({ status }) => status === 'pending'))
     if (results[1].status === 'fulfilled') setOrganizationInvitations(results[1].value.list.filter(({ status }) => status === 'pending'))
     if (results[2].status === 'fulfilled') setTopicInvitations(results[2].value.list.filter(({ status }) => status === 'pending'))
     if (results[3].status === 'fulfilled') setOwnershipTransfers(results[3].value.list.filter(({ status }) => status === 'pending'))
+    if (results[4].status === 'fulfilled') setUser(results[4].value)
     const failed = results.find((result) => result.status === 'rejected')
     if (failed?.status === 'rejected') setError(getApiErrorMessage(failed.reason, '部分授权邀请暂时无法加载'))
     setLoading(false)

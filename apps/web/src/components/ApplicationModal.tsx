@@ -35,7 +35,7 @@ const unrestrictedRole = '不限角色'
 
 export default function ApplicationModal({ post, onClose, onSuccess }: ApplicationModalProps) {
   const roleOptions = post.needed_roles.length > 0 ? post.needed_roles : [unrestrictedRole]
-  const [roleWanted, setRoleWanted] = useState(post.needed_roles.length > 0 ? '' : unrestrictedRole)
+  const [roleWanted, setRoleWanted] = useState(roleOptions[0])
   const [experience, setExperience] = useState('')
   const [availableTime, setAvailableTime] = useState('')
   const [reason, setReason] = useState('')

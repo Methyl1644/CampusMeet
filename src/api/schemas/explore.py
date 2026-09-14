@@ -138,6 +138,7 @@ class ExploreActivityCard(ExploreResponseModel):
 
 class ExploreActivityDetail(ExploreActivityCard):
     related_groups: list[ExploreGroupCard] = Field(max_length=8)
+    can_manage_collaborators: bool
 
 
 class ExploreActivityPage(ExploreResponseModel):

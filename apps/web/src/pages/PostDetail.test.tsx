@@ -159,6 +159,25 @@ describe('PostDetail group experience', () => {
     expect(screen.getByText('申请审核中')).toBeTruthy()
   })
 
+  it('selects the first required role by default so a single-role application can submit', async () => {
+    vi.mocked(getExploreGroup).mockResolvedValue({
+      ...groupDetailFixture,
+      needed_roles: ['会踢前锋'],
+    })
+    renderPost()
+    fireEvent.click(await screen.findByRole('button', { name: '申请加入' }))
+
+    expect(screen.getByRole('button', { name: '会踢前锋' }).getAttribute('aria-pressed')).toBe('true')
+    fireEvent.change(screen.getByLabelText(/相关经验/), { target: { value: '有一年经验' } })
+    fireEvent.change(screen.getByLabelText(/加入原因/), { target: { value: '想参加活动' } })
+    fireEvent.click(screen.getByRole('button', { name: '提交申请' }))
+
+    await waitFor(() => expect(createApplication).toHaveBeenCalledWith(expect.objectContaining({
+      role_wanted: '会踢前锋',
+    })))
+    expect(screen.queryByText('请选择你想担任的角色')).toBeNull()
+  })
+
   it('keeps the application open and shows the backend rejection reason', async () => {
     vi.mocked(createApplication).mockRejectedValue({
       response: { data: { detail: '请先完成校园邮箱认证' } },

@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 from services.collaboration_lifecycle import PUBLIC_POST_STATUSES
 from services.identity import organization_is_active
 from services.participation import deadline_has_passed
+from services.permissions import can_manage_topic
 from storage.database.models import (
     Application,
     Organization,
@@ -829,6 +830,10 @@ def get_activity_detail(
     related_posts = [post for _topic_id, post in _related_group_rows(session, [topic.id])]
     detail["related_groups"] = project_group_cards(
         session, related_posts, user_id, now=current
+    )
+    viewer = session.get(User, user_id)
+    detail["can_manage_collaborators"] = bool(
+        viewer and can_manage_topic(session, viewer, topic, "manage_collaborators")
     )
     return detail
 

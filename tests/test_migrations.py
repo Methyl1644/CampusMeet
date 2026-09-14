@@ -948,7 +948,7 @@ def test_explore_participation_migration_preserves_legacy_rows_and_is_reversible
         ).scalar_one()
     assert tuple(topic) == ("Legacy activity", None, "open_team")
     assert tuple(post) == ("Legacy group", "team_recruitment", "application")
-    assert revision == "20260913_16"
+    assert revision == "20260914_18"
 
     with engine.begin() as connection:
         connection.execute(
@@ -1031,7 +1031,7 @@ def test_deadline_normalization_migration_streams_and_round_trips_legacy_rows(tm
         revision = connection.execute(
             text("SELECT version_num FROM alembic_version")
         ).scalar_one()
-    assert revision == "20260913_16"
+    assert revision == "20260914_18"
     assert [row.deadline for row in normalized] == [
         "2026-09-13T12:30:00Z",
         "2026-09-13T13:00:00+02:00",
@@ -1069,7 +1069,7 @@ def test_deadline_normalization_migration_streams_and_round_trips_legacy_rows(tm
         ).scalar_one() == "2026-09-13 11:00:00.000000"
         assert connection.execute(
             text("SELECT version_num FROM alembic_version")
-        ).scalar_one() == "20260913_16"
+        ).scalar_one() == "20260914_18"
 
 
 def test_explore_participation_migration_sanitizes_legacy_values_before_checks(tmp_path):
@@ -1329,3 +1329,58 @@ def test_render_runs_migrations_before_starting_the_api():
 
     assert "alembic upgrade head" in blueprint
     assert blueprint.index("alembic upgrade head") < blueprint.index("python src/main.py")
+
+
+def test_topic_manager_backfill_grants_legacy_activity_creators_without_overwriting_existing_roles(tmp_path):
+    database_url = f"sqlite:///{tmp_path / 'topic-manager-backfill.db'}"
+    engine = create_engine(database_url)
+    with engine.begin() as connection:
+        connection.execute(text("CREATE TABLE users (id INTEGER PRIMARY KEY)"))
+        connection.execute(
+            text(
+                "CREATE TABLE topics ("
+                "id INTEGER PRIMARY KEY, created_by INTEGER NOT NULL, created_at DATETIME)"
+            )
+        )
+        connection.execute(
+            text(
+                "CREATE TABLE topic_collaborators ("
+                "id INTEGER PRIMARY KEY AUTOINCREMENT, topic_id INTEGER NOT NULL, user_id INTEGER NOT NULL, "
+                "role TEXT NOT NULL, status TEXT NOT NULL, granted_by INTEGER NOT NULL, "
+                "accepted_at DATETIME, expires_at DATETIME, revoked_at DATETIME, "
+                "created_at DATETIME DEFAULT CURRENT_TIMESTAMP, updated_at DATETIME DEFAULT CURRENT_TIMESTAMP, "
+                "UNIQUE(topic_id, user_id))"
+            )
+        )
+        connection.execute(text("INSERT INTO users (id) VALUES (1), (2)"))
+        connection.execute(
+            text(
+                "INSERT INTO topics (id, created_by, created_at) VALUES "
+                "(10, 1, '2026-09-01 10:00:00'), (11, 2, '2026-09-02 10:00:00')"
+            )
+        )
+        connection.execute(
+            text(
+                "INSERT INTO topic_collaborators "
+                "(topic_id, user_id, role, status, granted_by, accepted_at) "
+                "VALUES (11, 2, 'editor', 'active', 1, '2026-09-02 10:00:00')"
+            )
+        )
+
+    config = _alembic_config(database_url)
+    command.stamp(config, "20260913_17")
+    command.upgrade(config, "head")
+
+    with engine.connect() as connection:
+        rows = connection.execute(
+            text(
+                "SELECT topic_id, user_id, role, status, granted_by "
+                "FROM topic_collaborators ORDER BY topic_id"
+            )
+        ).all()
+        revision = connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
+    assert [tuple(row) for row in rows] == [
+        (10, 1, "manager", "active", 1),
+        (11, 2, "editor", "active", 1),
+    ]
+    assert revision == "20260914_18"

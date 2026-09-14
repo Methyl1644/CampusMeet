@@ -98,7 +98,10 @@ def _grant_dict(grant: TopicCollaborator | PostCollaborator) -> dict[str, Any]:
 def _topic_grant_dict(session, grant: TopicCollaborator) -> dict[str, Any]:
     data = _grant_dict(grant)
     topic = session.get(Topic, grant.topic_id)
+    user = session.get(User, grant.user_id)
     data["topic_title"] = topic.title if topic else f"活动 #{grant.topic_id}"
+    data["nickname"] = user.nickname if user else None
+    data["is_creator"] = bool(topic and topic.created_by == grant.user_id)
     return data
 
 
@@ -174,7 +177,7 @@ def list_topic_collaborators(
         ).all()
         return api_ok(
             {
-                "list": [_grant_dict(grant) for grant in grants],
+                "list": [_topic_grant_dict(session, grant) for grant in grants],
                 "total": total,
                 "page": page,
                 "page_size": page_size,
@@ -242,7 +245,7 @@ def invite_topic_collaborator(
             dedupe_key=f"topic-grant:{grant.id}:invite:{grant.updated_at or grant.created_at}",
         )
         session.commit()
-        return api_ok(_grant_dict(grant), "话题负责人邀请已发送")
+        return api_ok(_topic_grant_dict(session, grant), "话题负责人邀请已发送")
     finally:
         session.close()
 
@@ -324,6 +327,8 @@ def revoke_topic_collaborator(
         ).scalar_one_or_none()
         if not grant:
             raise HTTPException(status_code=404, detail="话题负责人授权不存在")
+        if topic.created_by == target_user_id:
+            raise HTTPException(status_code=400, detail="活动发布者的负责人权限不能撤销")
         grant.status = "revoked"
         grant.revoked_at = datetime.datetime.now(datetime.timezone.utc)
         _audit(session, actor.id, "topic_collaborator.revoke", "topic", topic_id, _grant_dict(grant))
@@ -338,7 +343,7 @@ def revoke_topic_collaborator(
             dedupe_key=f"topic-grant:{grant.id}:revoked:{grant.revoked_at.isoformat()}",
         )
         session.commit()
-        return api_ok(_grant_dict(grant), "话题负责人权限已撤销")
+        return api_ok(_topic_grant_dict(session, grant), "话题负责人权限已撤销")
     finally:
         session.close()
 

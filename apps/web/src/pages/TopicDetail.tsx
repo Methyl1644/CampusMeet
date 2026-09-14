@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ArrowLeft, ExternalLink, Heart, MessageCircle, Plus, RefreshCw, Share2, UsersRound } from 'lucide-react'
+import { ArrowLeft, ExternalLink, Heart, MessageCircle, Plus, RefreshCw, Share2, UserCog, UsersRound } from 'lucide-react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { getExploreActivity, setActivityFavorite } from '@/api/explore'
 import ActivityFacts from '@/components/details/ActivityFacts'
@@ -9,6 +9,8 @@ import RelatedGroups from '@/components/details/RelatedGroups'
 import StickyActions from '@/components/details/StickyActions'
 import { useDetailResource } from '@/components/details/useDetailResource'
 import { useToast } from '@/components/Toast'
+import TopicCollaboratorsPanel from '@/features/management/TopicCollaboratorsPanel'
+import { publicUserId } from '@/features/identity/publicUserId'
 import type { ExploreActivityDetail } from '@shared/types'
 
 async function shareCurrentPage(title: string) {
@@ -30,6 +32,7 @@ export default function TopicDetail() {
   const { showToast } = useToast()
   const { data: activity, setData: setActivity, loading, error, retry } = useDetailResource(id, getExploreActivity)
   const [favoritePending, setFavoritePending] = useState(false)
+  const [showPersonnelManagement, setShowPersonnelManagement] = useState(false)
 
   const handleFavorite = async () => {
     if (!activity || favoritePending) return
@@ -108,6 +111,35 @@ export default function TopicDetail() {
         </section>
 
         <ParticipantPreview people={activity.participant_preview} total={activity.participant_count} />
+
+        <section aria-label="活动工作人员与权限" className="border-t border-stone pt-7">
+          <div className="flex flex-wrap items-end justify-between gap-3">
+            <div><p className="section-label">组织与执行</p><h2 className="mt-2 text-xl font-bold text-ink">活动工作人员</h2></div>
+            {activity.can_manage_collaborators && (
+              <button type="button" className="btn-secondary" onClick={() => setShowPersonnelManagement((visible) => !visible)}>
+                <UserCog aria-hidden="true" className="size-4" />{showPersonnelManagement ? '收起人员管理' : '管理活动人员'}
+              </button>
+            )}
+          </div>
+          {activity.responsible_people.length === 0 ? (
+            <p className="mt-4 text-sm text-ink-muted">暂时没有可展示的活动工作人员。</p>
+          ) : (
+            <ul className="mt-4 divide-y divide-stone border-y border-stone">
+              {activity.responsible_people.map((person) => (
+                <li key={`${person.user_id}-${person.role}`} className="flex flex-wrap items-center justify-between gap-3 py-4">
+                  <Link to={`/users/${person.user_id}`} className="min-w-0 font-semibold text-ink hover:text-primary-700">{person.nickname}</Link>
+                  <span className="text-sm text-ink-muted">{person.badge} · {publicUserId(person.user_id)}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+
+        {showPersonnelManagement && activity.can_manage_collaborators && (
+          <section className="border-t border-stone pt-7">
+            <TopicCollaboratorsPanel suggestedTopicId={activity.id} embedded />
+          </section>
+        )}
         <RelatedGroups groups={activity.related_groups} mode={activity.participation_mode} />
       </main>
 
