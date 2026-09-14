@@ -25,6 +25,7 @@ from services.content import (
     validate_tag_ids,
 )
 from services.content_moderation import ModerationContext, moderate_content
+from services.cover_generation import generate_content_cover
 from services.collaboration_lifecycle import PUBLIC_POST_STATUSES
 from services.explore import list_related_posts
 from services.moderation_cases import has_active_restriction
@@ -377,6 +378,15 @@ def publish_topic(body: TopicCreateRequest, user_id: str = Depends(current_user_
                 raise PermissionError("当前账号处于发布限制期")
             _moderate_topic(body, user_id)
             topic = create_topic(session, user, body)
+            if not topic.cover_url:
+                topic.cover_url = generate_content_cover(
+                    content_type="activity",
+                    title=topic.title,
+                    description=f"{topic.summary}\n{topic.content}",
+                    category=topic.channel,
+                    location=topic.location_name or topic.campus_scope or "",
+                    roles=[topic.organizer],
+                )
             session.commit()
         except PermissionError as exc:
             session.rollback()

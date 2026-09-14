@@ -11,6 +11,7 @@ from api.schemas.collaboration import PostCreateRequest, PostUpdateRequest
 from services.content import validate_tag_ids
 from services.publish_context import publish_context, missing_fields, inherited_tag_ids, merge_tag_ids
 from services.content_moderation import ModerationContext, moderate_content
+from services.cover_generation import generate_content_cover
 from services.deadlines import parse_deadline_at
 from services.moderation_cases import has_active_restriction
 from services.collaboration_lifecycle import PUBLIC_POST_STATUSES, transition_post
@@ -203,13 +204,24 @@ def create(body: PostCreateRequest, user_id: str = Depends(current_user_id)) -> 
         if str(tag_id) and str(tag_id) not in selected_tag_ids
     ]
     needed_roles = body.get("needed_roles") or []
+    resolved_category = body.get("main_category") or review.get("main_category") or "校园生活"
+    generated_cover_url = None
+    if not body.get("cover_upload_id"):
+        generated_cover_url = generate_content_cover(
+            content_type="post",
+            title=title,
+            description=description,
+            category=resolved_category,
+            location=body.get("school_scope", ""),
+            roles=needed_roles if isinstance(needed_roles, list) else [str(needed_roles)],
+        )
     raw = invoke_tool(
         create_post,
         {
             "user_id": user_id,
             "title": title,
             "description": description,
-            "main_category": body.get("main_category") or review.get("main_category") or "校园生活",
+            "main_category": resolved_category,
             "activity_name": body.get("activity_name") or body.get("title") or "Untitled activity",
             "target_members": int(body.get("target_members") or 1),
             "needed_roles": ",".join(needed_roles) if isinstance(needed_roles, list) else str(needed_roles),
@@ -225,6 +237,7 @@ def create(body: PostCreateRequest, user_id: str = Depends(current_user_id)) -> 
             "join_mode": body.get("join_mode") or "",
             "client_request_id": body.get("client_request_id") or "",
             "cover_upload_id": body.get("cover_upload_id") or "",
+            "generated_cover_url": generated_cover_url or "",
         },
     )
     raw_payload = json.loads(raw) if isinstance(raw, str) else raw
