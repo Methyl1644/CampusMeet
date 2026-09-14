@@ -1,6 +1,25 @@
-import { get, post } from './client'
+import { client, get, post } from './client'
 import { API_PATHS } from '@shared/constants'
 import type { Application, CreateApplicationRequest } from '@shared/types'
+
+const backendHealthAttempts = 4
+const backendHealthRetryDelayMs = 1500
+
+async function waitForBackendReady() {
+  let lastError: unknown
+  for (let attempt = 0; attempt < backendHealthAttempts; attempt += 1) {
+    try {
+      await client.get('/health', { timeout: 10000 })
+      return
+    } catch (error) {
+      lastError = error
+      if (attempt < backendHealthAttempts - 1) {
+        await new Promise((resolve) => window.setTimeout(resolve, backendHealthRetryDelayMs))
+      }
+    }
+  }
+  throw lastError
+}
 
 /** 创建申请 */
 export async function createApplication(data: CreateApplicationRequest) {
@@ -12,7 +31,7 @@ export async function createApplication(data: CreateApplicationRequest) {
       || requestError.code === 'ECONNABORTED'
       || !requestError.response
     if (!retryable) throw error
-    await new Promise((resolve) => window.setTimeout(resolve, 500))
+    await waitForBackendReady()
     return post<Application>(API_PATHS.applications.create, data)
   }
 }
