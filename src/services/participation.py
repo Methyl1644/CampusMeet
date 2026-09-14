@@ -489,6 +489,17 @@ def _prepare_team(session: Session, post: Post) -> tuple[Team, User]:
     return team, owner
 
 
+def ensure_post_owner_membership(session: Session, post: Post) -> tuple[Team, TeamMember]:
+    """Create the post's team and durable owner membership when necessary."""
+    if post.id is None:
+        flush_post_participation(session, post)
+    team, owner = _prepare_team(session, post)
+    membership = _membership(session, team.id, owner.id)
+    if membership is None:
+        raise RuntimeError("post owner membership was not created")
+    return team, membership
+
+
 def _admit_member(
     session: Session,
     post: Post,
@@ -520,6 +531,25 @@ def _admit_member(
     )
     synchronize_post_membership(session, post, team)
     return membership, created
+
+
+def admit_application_member(
+    session: Session,
+    post: Post,
+    applicant: User,
+    *,
+    suggested_role: str = "",
+) -> tuple[Team, TeamMember, bool]:
+    """Admit an accepted applicant while preserving capacity and owner membership."""
+    team, _owner = _prepare_team(session, post)
+    membership, created = _admit_member(
+        session,
+        post,
+        team,
+        applicant,
+        suggested_role=suggested_role,
+    )
+    return team, membership, created
 
 
 def _record_direct_join_effects(

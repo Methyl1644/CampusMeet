@@ -217,6 +217,16 @@ def test_personal_collection_pagination_is_bounded(client):
     assert test_client.get("/api/me/groups?page_size=41").status_code == 422
 
 
+def test_post_author_sees_owned_groups_even_before_legacy_membership_backfill(client):
+    test_client, auth = client
+    auth["user_id"] = "3"
+
+    response = test_client.get("/api/me/groups?view=joined")
+
+    assert response.status_code == 200
+    assert {item["id"] for item in response.json()["data"]["list"]} >= {"4", "5"}
+
+
 def test_public_profile_omits_hidden_fields_but_owner_sees_them(client):
     test_client, auth = client
     auth["user_id"] = "2"

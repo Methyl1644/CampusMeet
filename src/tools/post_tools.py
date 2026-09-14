@@ -21,6 +21,7 @@ from services.moderation_cases import has_active_restriction
 from services.participation import (
     ParticipationError,
     commit_post_participation,
+    ensure_post_owner_membership,
     flush_post_participation,
     validate_post_participation,
 )
@@ -287,6 +288,7 @@ def create_post(
             )
             session.add(post)
             flush_post_participation(session, post)
+            ensure_post_owner_membership(session, post)
             if cover_upload_id:
                 attach_new_post_cover(session, user, post, cover_upload_id)
             session.add_all(

@@ -599,6 +599,13 @@ def project_group_cards(
     members_by_post: dict[int, list[dict[str, Any]]] = defaultdict(list)
     for post_id, _joined_at, member in _group_member_preview_rows(session, post_ids):
         members_by_post[post_id].append(_user_summary(member))
+    for post in posts:
+        author = authors.get(post.author_id)
+        if author is not None and all(
+            member["id"] != str(author.id) for member in members_by_post[post.id]
+        ):
+            members_by_post[post.id].insert(0, _user_summary(author))
+            members_by_post[post.id] = members_by_post[post.id][:PREVIEW_LIMIT]
 
     joined_post_ids = (
         set(

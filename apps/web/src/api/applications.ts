@@ -1,6 +1,6 @@
 import { client, get, post } from './client'
 import { API_PATHS } from '@shared/constants'
-import type { Application, CreateApplicationRequest } from '@shared/types'
+import type { Application, CreateApplicationRequest, PaginatedResponse } from '@shared/types'
 
 const backendHealthAttempts = 4
 const backendHealthRetryDelayMs = 1500
@@ -38,12 +38,12 @@ export async function createApplication(data: CreateApplicationRequest) {
 
 /** 获取我的申请 */
 export function getMyApplications() {
-  return get<Application[]>(API_PATHS.applications.myApplications)
+  return get<PaginatedResponse<Application>>(API_PATHS.applications.myApplications)
 }
 
 /** 获取某帖子的申请列表（发布者视角） */
 export function getPostApplications(postId: string) {
-  return get<Application[]>(API_PATHS.applications.list, { post_id: postId })
+  return get<PaginatedResponse<Application>>(API_PATHS.applications.list, { post_id: postId })
 }
 
 /** 接受申请 */

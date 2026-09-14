@@ -51,7 +51,9 @@ beforeEach(() => {
   vi.resetAllMocks()
   vi.mocked(getProfile).mockResolvedValue(viewerFixture)
   vi.mocked(getMyPosts).mockResolvedValue([])
-  vi.mocked(getMyApplications).mockResolvedValue([])
+  vi.mocked(getMyApplications).mockResolvedValue({
+    list: [], total: 0, page: 1, page_size: 20, pages: 0,
+  })
   vi.mocked(getMyTeams)
     .mockResolvedValueOnce({
       list: Array.from({ length: 20 }, (_, index) => summary(index + 1)),

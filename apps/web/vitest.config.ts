@@ -42,6 +42,7 @@ export default defineConfig({
       'src/api/messages.test.ts',
       'src/features/identity/publicUserId.test.ts',
       'src/features/management/managementAccess.test.ts',
+      'src/features/management/PostApplicationsPanel.test.tsx',
       'src/pages/Management.test.tsx',
       'src/pages/Authorizations.test.tsx',
       'src/components/personal/NotificationItem.test.ts',

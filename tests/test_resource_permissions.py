@@ -474,7 +474,7 @@ def test_topic_coordinator_can_moderate_only_posts_linked_to_topic(monkeypatch):
 
 
 def test_application_manager_can_list_and_accept_applications(monkeypatch):
-    from storage.database.models import Conversation, PostCollaborator
+    from storage.database.models import Conversation, PostCollaborator, Team, TeamMember
     from tools import application_tools
 
     engine = create_engine("sqlite+pysqlite:///:memory:")
@@ -502,7 +502,7 @@ def test_application_manager_can_list_and_accept_applications(monkeypatch):
         session.add(PostCollaborator(post_id=post.id, user_id=manager.id, role="application_manager", status="active", granted_by=author.id))
         session.commit()
         post_id, application_id = str(post.id), str(application.id)
-        manager_id, author_id = str(manager.id), author.id
+        manager_id, author_id, applicant_id = str(manager.id), author.id, applicant.id
     monkeypatch.setattr(application_tools, "get_session", sessions)
 
     listed = json.loads(application_tools.get_applications.invoke({"user_id": manager_id, "post_id": post_id}))
@@ -514,6 +514,13 @@ def test_application_manager_can_list_and_accept_applications(monkeypatch):
     with sessions() as session:
         conversation = session.query(Conversation).one()
         assert conversation.post_author_id == author_id
+        team = session.query(Team).one()
+        memberships = session.query(TeamMember).filter_by(team_id=team.id).all()
+        assert {(member.user_id, member.member_role) for member in memberships} == {
+            (author_id, "owner"),
+            (applicant_id, "member"),
+        }
+        assert session.get(Post, int(post_id)).current_members == 2
 
 
 def test_application_manager_can_run_teammate_matching(monkeypatch):

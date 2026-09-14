@@ -24,7 +24,11 @@ from services.moderation_cases import (
 from services.permissions import can_manage_post
 from services.collaboration_lifecycle import withdraw_application as withdraw_record
 from services.notifications import notify
-from services.participation import ParticipationError, validate_application_join
+from services.participation import (
+    ParticipationError,
+    admit_application_member,
+    validate_application_join,
+)
 from tools.auth_tools import _user_brief
 
 logger = logging.getLogger(__name__)
@@ -340,6 +344,12 @@ def accept_application(user_id: str, application_id: str) -> str:
             if users_are_blocked(session, post.author_id, app.applicant_id):
                 return json.dumps({"success": False, "message": "双方存在屏蔽关系，无法接受申请"}, ensure_ascii=False)
 
+            team, membership, _created = admit_application_member(
+                session,
+                post,
+                applicant,
+                suggested_role=app.role_wanted,
+            )
             app.status = "accepted"
 
             # 创建临时会话
@@ -358,7 +368,12 @@ def accept_application(user_id: str, application_id: str) -> str:
                     action="application.accept",
                     target_type="application",
                     target_id=str(app.id),
-                    detail=json.dumps({"post_id": post.id, "post_author_id": post.author_id}),
+                    detail=json.dumps({
+                        "post_id": post.id,
+                        "post_author_id": post.author_id,
+                        "team_id": team.id,
+                        "member_id": membership.id,
+                    }),
                 )
             )
             session.flush()
@@ -378,7 +393,9 @@ def accept_application(user_id: str, application_id: str) -> str:
             return json.dumps({
                 "success": True,
                 "conversation_id": str(conv.id),
-                "message": "已接受申请，已创建临时聊天会话",
+                "team_id": str(team.id),
+                "member_id": str(membership.id),
+                "message": "已接受申请，成员已加入小组并创建聊天会话",
             }, ensure_ascii=False)
         finally:
             session.close()

@@ -52,7 +52,7 @@ export default function Profile() {
         ])
         setProfile(profileData)
         setPosts(postsData)
-        setApplications(appsData)
+        setApplications(Array.isArray(appsData) ? appsData : appsData.list)
         setTeams(teamsData.list)
         setTeamTotal(teamsData.total)
         setTeamPage(teamsData.page)

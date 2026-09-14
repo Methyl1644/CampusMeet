@@ -4,7 +4,7 @@ import datetime
 import math
 from typing import Any, Literal
 
-from sqlalchemy import func, or_, select
+from sqlalchemy import and_, func, or_, select
 from sqlalchemy.orm import Session
 
 from services.collaboration_lifecycle import PUBLIC_POST_STATUSES
@@ -119,17 +119,20 @@ def list_personal_activities(
 def _group_base(user_id: int, view: GroupView):
     if view in {"joined", "archived"}:
         base = (
-            select(Post, TeamMember.created_at.label("relation_at"))
-            .join(Team, Team.post_id == Post.id)
-            .join(TeamMember, TeamMember.team_id == Team.id)
+            select(Post, func.coalesce(TeamMember.created_at, Post.created_at).label("relation_at"))
+            .outerjoin(Team, Team.post_id == Post.id)
+            .outerjoin(
+                TeamMember,
+                and_(TeamMember.team_id == Team.id, TeamMember.user_id == user_id),
+            )
             .where(
-                TeamMember.user_id == user_id,
+                or_(TeamMember.user_id == user_id, Post.author_id == user_id),
                 Post.status.in_(PUBLIC_POST_STATUSES),
             )
         )
         if view == "joined":
             base = base.where(
-                Team.status == "active",
+                or_(Team.status == "active", Team.id.is_(None)),
                 Post.archived_at.is_(None),
                 Post.deleted_at.is_(None),
             )
