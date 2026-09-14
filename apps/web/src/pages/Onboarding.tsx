@@ -273,7 +273,9 @@ function OnboardingFlow() {
   }
 
   const handleBack = () => {
-    if (step > 1) void saveAndGo(step - 1)
+    if (step <= 1 || isSaving) return
+    setDirection(-1)
+    setStep((current) => current - 1)
   }
 
   const setAvailability = (

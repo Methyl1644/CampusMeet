@@ -725,6 +725,13 @@ export interface TopicCollaborationInvitation extends CollaboratorGrant {
   topic_title: string;
 }
 
+export interface PostCollaborationInvitation extends ScopedGrant {
+  post_id: string;
+  post_title: string;
+  role: PostRole;
+  accepted_at?: string | null;
+}
+
 export interface OwnershipTransferSummary {
   transfer_id: string;
   organization_id: string;

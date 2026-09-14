@@ -10,9 +10,11 @@ import { getProfile } from '@/api/auth'
 import {
   acceptPlatformRole,
   declineOrganizationInvitation,
+  getMyOrganizationApplications,
   getMyOrganizationInvitations,
   getMyOwnershipTransfers,
   getMyPlatformRoles,
+  getMyPostCollaborations,
   getMyTopicCollaborations,
 } from '@/api/authorizations'
 
@@ -27,9 +29,14 @@ vi.mock('@/api/authorizations', () => ({
   getMyTopicCollaborations: vi.fn(),
   acceptTopicCollaboration: vi.fn(),
   declineTopicCollaboration: vi.fn(),
+  getMyPostCollaborations: vi.fn(),
+  acceptPostCollaboration: vi.fn(),
+  declinePostCollaboration: vi.fn(),
   getMyOwnershipTransfers: vi.fn(),
   acceptOwnershipTransfer: vi.fn(),
   declineOwnershipTransfer: vi.fn(),
+  getMyOrganizationApplications: vi.fn(),
+  submitOrganizationApplication: vi.fn(),
 }))
 
 const user: User = {
@@ -45,7 +52,9 @@ beforeEach(() => {
   vi.mocked(getMyPlatformRoles).mockResolvedValue({ ...emptyPage, list: [{ grant_id: '10', user_id: '2', role: 'operator', status: 'pending', granted_by: '1' }] })
   vi.mocked(getMyOrganizationInvitations).mockResolvedValue({ ...emptyPage, list: [{ invitation_id: '20', organization_id: '3', organization_name: '校科协', inviter_id: '1', invitee_id: '2', role: 'publisher', status: 'pending', expires_at: '2026-10-01T00:00:00Z' }] })
   vi.mocked(getMyTopicCollaborations).mockResolvedValue(emptyPage)
+  vi.mocked(getMyPostCollaborations).mockResolvedValue(emptyPage)
   vi.mocked(getMyOwnershipTransfers).mockResolvedValue(emptyPage)
+  vi.mocked(getMyOrganizationApplications).mockResolvedValue(emptyPage)
   vi.mocked(getProfile).mockResolvedValue({ ...user, identity: { campus_verified: true, platform_role: 'operator', organization_roles: [], topic_roles: [], post_roles: [] } })
 })
 

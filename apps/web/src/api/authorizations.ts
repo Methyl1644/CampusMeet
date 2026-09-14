@@ -5,6 +5,8 @@ import type {
   PaginatedResponse,
   PlatformRoleGrant,
   TopicCollaborationInvitation,
+  PostCollaborationInvitation,
+  OrganizationApplicationSummary,
 } from '@shared/types'
 import { client } from './client'
 
@@ -52,6 +54,39 @@ export function acceptTopicCollaboration(topicId: string) {
 
 export function declineTopicCollaboration(topicId: string) {
   return responseData<TopicCollaborationInvitation>(client.post(`/api/topics/${topicId}/collaborators/decline`))
+}
+
+export function getMyPostCollaborations() {
+  return responseData<PaginatedResponse<PostCollaborationInvitation>>(
+    client.get('/api/posts/collaborations/my', { params: { status: 'pending' } }),
+  )
+}
+
+export function acceptPostCollaboration(postId: string) {
+  return responseData<PostCollaborationInvitation>(client.post(`/api/posts/${postId}/collaborators/accept`))
+}
+
+export function declinePostCollaboration(postId: string) {
+  return responseData<PostCollaborationInvitation>(client.post(`/api/posts/${postId}/collaborators/decline`))
+}
+
+export function getMyOrganizationApplications() {
+  return responseData<PaginatedResponse<OrganizationApplicationSummary>>(
+    client.get('/api/organizations/applications/my'),
+  )
+}
+
+export function submitOrganizationApplication(body: {
+  organization_name: string
+  org_type: 'student_org' | 'department' | 'laboratory' | 'administrative' | 'other'
+  school_scope: string
+  official_email?: string
+  official_page?: string
+  responsible_person_statement: string
+  evidence_reference?: string
+  evidence?: string
+}) {
+  return responseData<OrganizationApplicationSummary>(client.post('/api/organizations/applications', body))
 }
 
 export function getMyOwnershipTransfers() {

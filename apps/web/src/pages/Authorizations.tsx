@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { BadgeCheck, Building2, Crown, RefreshCw, ShieldCheck, UsersRound } from 'lucide-react'
+import { BadgeCheck, Building2, Crown, FileCheck2, RefreshCw, ShieldCheck, UsersRound } from 'lucide-react'
 import type {
   OrganizationInvitationSummary,
   OwnershipTransferSummary,
   PlatformRoleGrant,
   TopicCollaborationInvitation,
   IdentitySummary,
+  PostCollaborationInvitation,
+  OrganizationApplicationSummary,
 } from '@shared/types'
 import { getProfile } from '@/api/auth'
 import { getApiErrorMessage } from '@/api/auth-feedback'
@@ -14,14 +16,19 @@ import {
   acceptOwnershipTransfer,
   acceptPlatformRole,
   acceptTopicCollaboration,
+  acceptPostCollaboration,
   declineOrganizationInvitation,
   declineOwnershipTransfer,
   declinePlatformRole,
   declineTopicCollaboration,
+  declinePostCollaboration,
   getMyOrganizationInvitations,
   getMyOwnershipTransfers,
   getMyPlatformRoles,
   getMyTopicCollaborations,
+  getMyPostCollaborations,
+  getMyOrganizationApplications,
+  submitOrganizationApplication,
 } from '@/api/authorizations'
 import { useAuthStore } from '@/store/authStore'
 import { publicUserId } from '@/features/identity/publicUserId'
@@ -29,6 +36,7 @@ import { publicUserId } from '@/features/identity/publicUserId'
 const platformRoleLabels = { operator: '平台运营', senior_operator: '高级平台运营' }
 const organizationRoleLabels = { publisher: '官方活动发布者', member: '组织成员' }
 const topicRoleLabels = { manager: '活动负责人', editor: '活动组织者', coordinator: '活动协作成员' }
+const postRoleLabels = { editor: '组队帖编辑者', application_manager: '加入申请管理员' }
 
 function PendingSection({ title, description, icon: Icon, children }: { title: string; description: string; icon: typeof BadgeCheck; children: React.ReactNode }) {
   return (
@@ -53,6 +61,8 @@ export default function Authorizations() {
   const [organizationInvitations, setOrganizationInvitations] = useState<OrganizationInvitationSummary[]>([])
   const [topicInvitations, setTopicInvitations] = useState<TopicCollaborationInvitation[]>([])
   const [ownershipTransfers, setOwnershipTransfers] = useState<OwnershipTransferSummary[]>([])
+  const [postInvitations, setPostInvitations] = useState<PostCollaborationInvitation[]>([])
+  const [organizationApplications, setOrganizationApplications] = useState<OrganizationApplicationSummary[]>([])
   const [passwords, setPasswords] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(true)
   const [busyKey, setBusyKey] = useState('')
@@ -67,12 +77,16 @@ export default function Authorizations() {
       getMyTopicCollaborations(),
       getMyOwnershipTransfers(),
       getProfile(),
+      getMyPostCollaborations(),
+      getMyOrganizationApplications(),
     ])
     if (results[0].status === 'fulfilled') setPlatformRoles(results[0].value.list.filter(({ status }) => status === 'pending'))
     if (results[1].status === 'fulfilled') setOrganizationInvitations(results[1].value.list.filter(({ status }) => status === 'pending'))
     if (results[2].status === 'fulfilled') setTopicInvitations(results[2].value.list.filter(({ status }) => status === 'pending'))
     if (results[3].status === 'fulfilled') setOwnershipTransfers(results[3].value.list.filter(({ status }) => status === 'pending'))
     if (results[4].status === 'fulfilled') setUser(results[4].value)
+    if (results[5].status === 'fulfilled') setPostInvitations(results[5].value.list.filter(({ status }) => status === 'pending'))
+    if (results[6].status === 'fulfilled') setOrganizationApplications(results[6].value.list)
     const failed = results.find((result) => result.status === 'rejected')
     if (failed?.status === 'rejected') setError(getApiErrorMessage(failed.reason, '部分授权邀请暂时无法加载'))
     setLoading(false)
@@ -98,7 +112,7 @@ export default function Authorizations() {
     }
   }
 
-  const pendingCount = useMemo(() => platformRoles.length + organizationInvitations.length + topicInvitations.length + ownershipTransfers.length, [platformRoles, organizationInvitations, topicInvitations, ownershipTransfers])
+  const pendingCount = useMemo(() => platformRoles.length + organizationInvitations.length + topicInvitations.length + postInvitations.length + ownershipTransfers.length, [platformRoles, organizationInvitations, topicInvitations, postInvitations, ownershipTransfers])
 
   return (
     <div className="mx-auto max-w-4xl animate-slide-up">
@@ -109,6 +123,7 @@ export default function Authorizations() {
 
       {error && <p role="alert" className="mt-5 rounded-card border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
       {user?.identity && <ActiveAuthorizations identity={user.identity} />}
+      {user?.identity?.campus_verified && <OrganizationApplicationForm applications={organizationApplications} onSubmitted={load} />}
       {loading ? <p role="status" className="py-20 text-center text-sm text-ink-muted">正在读取授权邀请...</p> : pendingCount === 0 ? (
         <div className="py-20 text-center"><BadgeCheck aria-hidden="true" className="mx-auto size-10 text-campus-green" /><h2 className="mt-4 text-xl font-bold text-ink">所有授权都已处理</h2><p className="mt-2 text-sm text-ink-muted">收到新的身份邀请后会显示在这里。</p></div>
       ) : (
@@ -141,6 +156,15 @@ export default function Authorizations() {
             ))}
           </PendingSection>
 
+          <PendingSection title="组队帖协作者邀请" description="编辑者可以修改帖子，申请管理员可以协助处理加入申请。" icon={FileCheck2}>
+            {postInvitations.length === 0 ? <EmptyAuthorization /> : postInvitations.map((invitation) => (
+              <article key={`${invitation.post_id}-${invitation.role}`} className="flex flex-wrap items-center justify-between gap-4 rounded-card border border-stone p-4">
+                <div><p className="font-bold text-ink">{invitation.post_title}</p><p className="mt-1 text-sm text-ink-muted">{postRoleLabels[invitation.role]}</p></div>
+                <div className="flex gap-2"><button type="button" className="btn-secondary" disabled={Boolean(busyKey)} onClick={() => void run(`post-decline-${invitation.post_id}`, () => declinePostCollaboration(invitation.post_id))}>拒绝</button><button type="button" className="btn-primary" disabled={Boolean(busyKey)} onClick={() => void run(`post-accept-${invitation.post_id}`, () => acceptPostCollaboration(invitation.post_id))}>接受</button></div>
+              </article>
+            ))}
+          </PendingSection>
+
           <PendingSection title="负责人转移邀请" description="接受后你将成为组织负责人，并接管成员与官方发布者管理。" icon={Crown}>
             {ownershipTransfers.length === 0 ? <EmptyAuthorization /> : ownershipTransfers.map((transfer) => (
               <article key={transfer.transfer_id} className="flex flex-wrap items-center justify-between gap-4 rounded-card border border-stone p-4">
@@ -161,6 +185,7 @@ function ActiveAuthorizations({ identity }: { identity: IdentitySummary }) {
     ...(identity.platform_role ? [platformRoleLabels[identity.platform_role]] : []),
     ...identity.organization_roles.map((item) => `${item.organization_name} · ${item.role === 'owner' ? '负责人' : organizationRoleLabels[item.role as 'publisher' | 'member']}`),
     ...identity.topic_roles.map((item) => `${item.topic_title} · ${topicRoleLabels[item.role]}`),
+    ...identity.post_roles.map((item) => `${item.post_title} · ${postRoleLabels[item.role]}`),
   ]
   return (
     <section className="border-b border-stone py-6" aria-labelledby="active-authorizations-title">
@@ -168,4 +193,32 @@ function ActiveAuthorizations({ identity }: { identity: IdentitySummary }) {
       {roles.length === 0 ? <p className="mt-3 text-sm text-ink-muted">当前只有普通校园用户权限</p> : <div className="mt-3 flex flex-wrap gap-2">{[...new Set(roles)].map((role) => <span key={role} className="rounded-full bg-primary-100 px-3 py-1.5 text-sm font-semibold text-primary-800">{role}</span>)}</div>}
     </section>
   )
+}
+
+function OrganizationApplicationForm({ applications, onSubmitted }: { applications: OrganizationApplicationSummary[]; onSubmitted: () => Promise<void> }) {
+  const [open, setOpen] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+  const [form, setForm] = useState({ organization_name: '', org_type: 'student_org' as const, school_scope: '南京大学', official_email: '', official_page: '', responsible_person_statement: '', evidence_reference: '' })
+  const submit = async (event: React.FormEvent) => {
+    event.preventDefault(); setBusy(true); setError('')
+    try { await submitOrganizationApplication(form); setOpen(false); await onSubmitted() }
+    catch (requestError) { setError(getApiErrorMessage(requestError, '认证申请提交失败')) }
+    finally { setBusy(false) }
+  }
+  return <section className="border-b border-stone py-6" aria-labelledby="organization-application-title">
+    <div className="flex flex-wrap items-center justify-between gap-3"><div><h2 id="organization-application-title" className="text-lg font-bold text-ink">组织官方认证</h2><p className="mt-1 text-sm text-ink-muted">学生组织、院系、实验室等可申请认证并获得正式活动发布身份。</p></div><button type="button" className="btn-secondary" onClick={() => setOpen((current) => !current)}><Building2 aria-hidden="true" className="size-4" />{open ? '收起申请' : '申请认证'}</button></div>
+    {applications.length > 0 && <div className="mt-3 flex flex-wrap gap-2">{applications.map((item) => <span key={item.application_id} className="tag-chip">{item.organization_name} · {item.status}</span>)}</div>}
+    {open && <form onSubmit={submit} className="mt-5 grid gap-4 sm:grid-cols-2">
+      <label className="text-sm font-medium">组织名称<input required minLength={2} className="input-base mt-1.5" value={form.organization_name} onChange={(event) => setForm({ ...form, organization_name: event.target.value })} /></label>
+      <label className="text-sm font-medium">组织类型<select className="input-base mt-1.5" value={form.org_type} onChange={(event) => setForm({ ...form, org_type: event.target.value as typeof form.org_type })}><option value="student_org">学生组织</option><option value="department">院系</option><option value="laboratory">实验室</option><option value="administrative">行政部门</option><option value="other">其他</option></select></label>
+      <label className="text-sm font-medium">校内范围<input required minLength={2} className="input-base mt-1.5" value={form.school_scope} onChange={(event) => setForm({ ...form, school_scope: event.target.value })} /></label>
+      <label className="text-sm font-medium">官方邮箱<input type="email" className="input-base mt-1.5" value={form.official_email} onChange={(event) => setForm({ ...form, official_email: event.target.value })} /></label>
+      <label className="text-sm font-medium sm:col-span-2">官方主页（选填）<input type="url" className="input-base mt-1.5" value={form.official_page} onChange={(event) => setForm({ ...form, official_page: event.target.value })} /></label>
+      <label className="text-sm font-medium sm:col-span-2">负责人说明<textarea required minLength={10} rows={3} className="input-base mt-1.5 resize-y" placeholder="说明你的身份、职责和申请理由" value={form.responsible_person_statement} onChange={(event) => setForm({ ...form, responsible_person_statement: event.target.value })} /></label>
+      <label className="text-sm font-medium sm:col-span-2">证明材料链接或说明<textarea required rows={2} className="input-base mt-1.5 resize-y" value={form.evidence_reference} onChange={(event) => setForm({ ...form, evidence_reference: event.target.value })} /></label>
+      {error && <p role="alert" className="text-sm text-red-700 sm:col-span-2">{error}</p>}
+      <div className="sm:col-span-2"><button className="btn-primary" disabled={busy}>{busy ? '提交中...' : '提交认证申请'}</button></div>
+    </form>}
+  </section>
 }

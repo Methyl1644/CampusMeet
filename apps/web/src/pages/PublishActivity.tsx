@@ -50,6 +50,7 @@ export default function PublishActivity() {
         registration_deadline: isoOrNull(form.registration_deadline),
         activity_start_at: isoOrNull(form.activity_start_at),
         activity_end_at: isoOrNull(form.activity_end_at),
+        location_name: form.location_name.trim() || '暂无',
         capacity: form.capacity ? Number(form.capacity) : null,
         organization_id: channel === 'organization' ? Number(organizationId) : null,
         tag_ids: selectedTags,
@@ -80,6 +81,7 @@ export default function PublishActivity() {
           <label className="text-sm font-bold sm:col-span-2">活动详情<textarea required maxLength={8000} rows={8} className="input-base mt-2 resize-y" value={form.content} onChange={(e) => update('content', e.target.value)} /></label>
         </section>
         <section className="grid gap-4 border-t border-stone pt-6 sm:grid-cols-3">
+          <p className="text-sm text-ink-muted sm:col-span-3">时间尚未确定时可以留空，地点尚未确定时可填写“暂无”；活动负责人发布后可继续补充。</p>
           <label className="text-sm font-bold"><CalendarPlus className="mr-1 inline size-4" />报名截止<input type="datetime-local" className="input-base mt-2" value={form.registration_deadline} onChange={(e) => update('registration_deadline', e.target.value)} /></label>
           <label className="text-sm font-bold">活动开始<input type="datetime-local" className="input-base mt-2" value={form.activity_start_at} onChange={(e) => update('activity_start_at', e.target.value)} /></label>
           <label className="text-sm font-bold">活动结束<input type="datetime-local" className="input-base mt-2" value={form.activity_end_at} onChange={(e) => update('activity_end_at', e.target.value)} /></label>

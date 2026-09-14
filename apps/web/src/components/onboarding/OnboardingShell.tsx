@@ -105,7 +105,12 @@ export default function OnboardingShell({
                 <legend className="sr-only">资料完善第 {step} 步字段</legend>
                 {children}
               </fieldset>
-              <div className="mt-8 flex min-h-11 items-center justify-end border-t border-stone pt-5">
+              <div className="mt-8 flex min-h-11 items-center justify-between gap-3 border-t border-stone pt-5">
+                {canGoBack ? (
+                  <button type="button" onClick={onBack} disabled={isSaving} className="btn-secondary min-h-11 px-4">
+                    <ArrowLeft aria-hidden="true" className="size-[18px]" />上一步
+                  </button>
+                ) : <span />}
                 <button
                   type="button"
                   onClick={onContinue}

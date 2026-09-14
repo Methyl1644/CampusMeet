@@ -36,3 +36,7 @@ export function acceptApplication(id: string) {
 export function rejectApplication(id: string) {
   return post<{ rejected: boolean }>(API_PATHS.applications.reject.replace(':id', id))
 }
+
+export function withdrawApplication(id: string) {
+  return post<{ withdrawn: boolean }>(API_PATHS.applications.withdraw.replace(':id', id))
+}

@@ -105,6 +105,13 @@ def _topic_grant_dict(session, grant: TopicCollaborator) -> dict[str, Any]:
     return data
 
 
+def _post_grant_dict(session, grant: PostCollaborator) -> dict[str, Any]:
+    data = _grant_dict(grant)
+    post = session.get(Post, grant.post_id)
+    data["post_title"] = post.title if post else f"帖子 #{grant.post_id}"
+    return data
+
+
 def _audit(session, actor_id: int, action: str, target_type: str, target_id: int, detail: dict) -> None:
     session.add(
         AuditLog(
@@ -352,6 +359,39 @@ def _can_manage_post_collaborators(session, actor: User, post: Post) -> bool:
     return has_platform_role(session, actor) or post.author_id == actor.id
 
 
+@router.get("/posts/collaborations/my")
+def my_post_collaborations(
+    status: str = Query(default="pending"),
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=20, ge=1, le=50),
+    user_id: str = Depends(current_user_id),
+) -> dict[str, Any]:
+    if status not in {"pending", "active", "revoked", "all"}:
+        raise HTTPException(status_code=400, detail="帖子协作者邀请状态不正确")
+    session, actor = _current_user(user_id)
+    try:
+        filters = [PostCollaborator.user_id == actor.id]
+        if status != "all":
+            filters.append(PostCollaborator.status == status)
+        total = int(session.scalar(select(func.count()).select_from(PostCollaborator).where(*filters)) or 0)
+        grants = session.scalars(
+            select(PostCollaborator)
+            .where(*filters)
+            .order_by(PostCollaborator.id.desc())
+            .offset((page - 1) * page_size)
+            .limit(page_size)
+        ).all()
+        return api_ok({
+            "list": [_post_grant_dict(session, grant) for grant in grants],
+            "total": total,
+            "page": page,
+            "page_size": page_size,
+            "pages": (total + page_size - 1) // page_size,
+        })
+    finally:
+        session.close()
+
+
 @router.get("/posts/{post_id}/collaborators")
 def list_post_collaborators(
     post_id: int,
@@ -474,6 +514,27 @@ def accept_post_collaboration(post_id: int, user_id: str = Depends(current_user_
         _audit(session, actor.id, "post_collaborator.accept", "post", post_id, _grant_dict(grant))
         session.commit()
         return api_ok(_grant_dict(grant), "已接受帖子协作者邀请")
+    finally:
+        session.close()
+
+
+@router.post("/posts/{post_id}/collaborators/decline")
+def decline_post_collaboration(post_id: int, user_id: str = Depends(current_user_id)) -> dict[str, Any]:
+    session, actor = _current_user(user_id)
+    try:
+        grant = session.execute(
+            select(PostCollaborator).where(
+                PostCollaborator.post_id == post_id,
+                PostCollaborator.user_id == actor.id,
+            )
+        ).scalar_one_or_none()
+        if not grant or grant.status != "pending":
+            raise HTTPException(status_code=404, detail="没有待处理的帖子协作者邀请")
+        grant.status = "revoked"
+        grant.revoked_at = datetime.datetime.now(datetime.timezone.utc)
+        _audit(session, actor.id, "post_collaborator.decline", "post", post_id, _grant_dict(grant))
+        session.commit()
+        return api_ok(_post_grant_dict(session, grant), "已拒绝帖子协作者邀请")
     finally:
         session.close()
 

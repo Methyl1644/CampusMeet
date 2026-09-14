@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { ArrowLeft, CalendarClock, Heart, Link2, MapPin, RefreshCw, Share2, UsersRound } from 'lucide-react'
+import { Archive, ArrowLeft, CalendarClock, Heart, Link2, MapPin, RefreshCw, Settings, Share2, Trash2, UsersRound } from 'lucide-react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { getExploreGroup, joinExploreGroup, setGroupFavorite } from '@/api/explore'
 import { getMyTeams } from '@/api/teams'
@@ -9,6 +9,11 @@ import ParticipantPreview from '@/components/details/ParticipantPreview'
 import StickyActions from '@/components/details/StickyActions'
 import { useDetailResource, useRouteGeneration } from '@/components/details/useDetailResource'
 import { useToast } from '@/components/Toast'
+import { archivePost, closePost, deletePost, reopenPost, updatePost } from '@/api/posts'
+import { getApiErrorMessage } from '@/api/auth-feedback'
+import { useAuthStore } from '@/store/authStore'
+import PostCollaboratorsPanel from '@/features/management/PostCollaboratorsPanel'
+import PostApplicationsPanel from '@/features/management/PostApplicationsPanel'
 import type { ExploreGroupDetail } from '@shared/types'
 
 async function shareCurrentPage(title: string) {
@@ -34,6 +39,7 @@ export default function PostDetail() {
   const { id = '' } = useParams()
   const navigate = useNavigate()
   const { showToast } = useToast()
+  const user = useAuthStore((state) => state.user)
   const { data: group, setData: setGroup, loading, error, retry } = useDetailResource(id, getExploreGroup)
   const routeOwner = useRouteGeneration(id)
   const [favoritePending, setFavoritePending] = useState(false)
@@ -46,6 +52,10 @@ export default function PostDetail() {
     status: 'loading' | 'unresolved'
   } | null>(null)
   const teamLookupGeneration = useRef(0)
+  const [showManagement, setShowManagement] = useState(false)
+  const [managementBusy, setManagementBusy] = useState(false)
+  const [managementError, setManagementError] = useState('')
+  const [edit, setEdit] = useState({ title: '', description: '', target_members: '1', needed_roles: '', weekly_hours: '', school_scope: '', deadline: '' })
 
   const resolveJoinedTeam = useCallback(async (postId: string, routeGeneration: number) => {
     const generation = ++teamLookupGeneration.current
@@ -144,10 +154,48 @@ export default function PostDetail() {
     }
   }
 
+  const openManagement = () => {
+    if (!group) return
+    setEdit({ title: group.title, description: group.description || '', target_members: String(group.target_members), needed_roles: group.needed_roles.join('、'), weekly_hours: group.weekly_hours || '', school_scope: group.school_scope || '', deadline: group.deadline || '' })
+    setShowManagement((current) => !current)
+  }
+
+  const savePost = async () => {
+    if (!group) return
+    setManagementBusy(true); setManagementError('')
+    try {
+      await updatePost(group.id, { title: edit.title, description: edit.description, target_members: Number(edit.target_members), needed_roles: edit.needed_roles.split(/[、,，]/).map((item) => item.trim()).filter(Boolean), weekly_hours: edit.weekly_hours, school_scope: edit.school_scope, deadline: edit.deadline })
+      await retry(); showToast('组队帖已更新', 'success')
+    } catch (requestError) { setManagementError(getApiErrorMessage(requestError, '保存失败')) }
+    finally { setManagementBusy(false) }
+  }
+
+  const transitionPost = async (action: 'close' | 'reopen' | 'archive' | 'delete') => {
+    if (!group) return
+    if ((action === 'archive' || action === 'delete') && !window.confirm(action === 'delete' ? '确认删除该帖子？此操作不可恢复。' : '确认归档该帖子？')) return
+    setManagementBusy(true); setManagementError('')
+    try {
+      if (action === 'close') await closePost(group.id)
+      if (action === 'reopen') await reopenPost(group.id)
+      if (action === 'archive') await archivePost(group.id)
+      if (action === 'delete') await deletePost(group.id)
+      if (action === 'archive' || action === 'delete') navigate('/profile')
+      else await retry()
+      showToast('帖子状态已更新', 'success')
+    } catch (requestError) { setManagementError(getApiErrorMessage(requestError, '操作失败')) }
+    finally { setManagementBusy(false) }
+  }
+
   if (loading) {
     return <div role="status" aria-label="正在加载组队详情" className="py-24 text-center text-sm text-ink-muted">正在加载组队详情...</div>
   }
   if (error || !group) return <DetailError onRetry={retry} />
+
+  const postRole = user?.identity?.post_roles.find((item) => item.post_id === group.id)?.role
+  const canEditPost = group.join_state === 'owner' || postRole === 'editor' || Boolean(user?.identity?.platform_role)
+  const canManagePost = group.join_state === 'owner' || Boolean(user?.identity?.platform_role)
+  const canManageApplications = canManagePost || postRole === 'application_manager'
+  const canOpenManagement = canEditPost || canManageApplications
 
   return (
     <div data-testid="group-detail-page" className="mx-auto min-w-0 max-w-5xl overflow-x-clip pb-[calc(9rem+env(safe-area-inset-bottom))] md:pb-8">
@@ -202,6 +250,25 @@ export default function PostDetail() {
             <p className="mt-4 text-sm leading-7 text-ink-muted">{group.collaborators.map((person) => `${person.nickname} · ${person.badge}`).join('，')}</p>
           </section>
         )}
+
+        {canOpenManagement && <section id="post-management" className="scroll-mt-24 border-t border-stone pt-7">
+          <div className="flex items-center justify-between gap-3"><div><p className="section-label">发布后管理</p><h2 className="mt-2 text-xl font-bold text-ink">组队帖管理</h2></div><button type="button" className="btn-secondary" onClick={openManagement}><Settings aria-hidden="true" className="size-4" />{showManagement ? '收起管理' : '编辑与管理'}</button></div>
+          {showManagement && <div className="mt-5 space-y-6">
+            {canEditPost && <div className="grid gap-4 sm:grid-cols-2">
+              <label className="text-sm font-medium sm:col-span-2">标题<input className="input-base mt-1.5" value={edit.title} onChange={(event) => setEdit({ ...edit, title: event.target.value })} /></label>
+              <label className="text-sm font-medium sm:col-span-2">描述<textarea rows={5} className="input-base mt-1.5 resize-y" value={edit.description} onChange={(event) => setEdit({ ...edit, description: event.target.value })} /></label>
+              <label className="text-sm font-medium">目标人数<input type="number" min={1} max={100} className="input-base mt-1.5" value={edit.target_members} onChange={(event) => setEdit({ ...edit, target_members: event.target.value })} /></label>
+              <label className="text-sm font-medium">所需角色<input className="input-base mt-1.5" placeholder="用顿号分隔" value={edit.needed_roles} onChange={(event) => setEdit({ ...edit, needed_roles: event.target.value })} /></label>
+              <label className="text-sm font-medium">每周投入<input className="input-base mt-1.5" value={edit.weekly_hours} onChange={(event) => setEdit({ ...edit, weekly_hours: event.target.value })} /></label>
+              <label className="text-sm font-medium">参与范围<input className="input-base mt-1.5" value={edit.school_scope} onChange={(event) => setEdit({ ...edit, school_scope: event.target.value })} /></label>
+              <label className="text-sm font-medium sm:col-span-2">截止时间<input className="input-base mt-1.5" value={edit.deadline} onChange={(event) => setEdit({ ...edit, deadline: event.target.value })} /></label>
+            </div>}
+            {managementError && <p role="alert" className="rounded-card border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{managementError}</p>}
+            {(canEditPost || canManagePost) && <div className="flex flex-wrap gap-2">{canEditPost && <button type="button" className="btn-primary" disabled={managementBusy} onClick={() => void savePost()}>保存修改</button>}{canManagePost && <>{group.status === 'closed' ? <button type="button" className="btn-secondary" disabled={managementBusy} onClick={() => void transitionPost('reopen')}>重新开放</button> : <button type="button" className="btn-secondary" disabled={managementBusy} onClick={() => void transitionPost('close')}>关闭招募</button>}<button type="button" className="btn-secondary" disabled={managementBusy} onClick={() => void transitionPost('archive')}><Archive aria-hidden="true" className="size-4" />归档</button><button type="button" className="btn-danger" disabled={managementBusy} onClick={() => void transitionPost('delete')}><Trash2 aria-hidden="true" className="size-4" />删除</button></>}</div>}
+            {canManageApplications && <div className="border-t border-stone pt-6"><PostApplicationsPanel postId={group.id} /></div>}
+            {canManagePost && <div className="border-t border-stone pt-6"><PostCollaboratorsPanel postId={group.id} /></div>}
+          </div>}
+        </section>}
       </main>
 
       <StickyActions label="组队操作">
@@ -260,7 +327,7 @@ function JoinAction({
   onDirectJoin: () => void
   onRetryTeamLookup: () => void
 }) {
-  if (group.join_state === 'owner') return <Link to="/profile?view=posts" className="btn-primary min-h-11">管理组队</Link>
+  if (group.join_state === 'owner') return <a href="#post-management" className="btn-primary min-h-11">管理组队</a>
   if (group.join_state === 'joined') {
     if (joinedTeamId) return <Link to={`/teams/${joinedTeamId}`} className="btn-primary min-h-11">进入团队</Link>
     if (teamLookupStatus === 'unresolved') {

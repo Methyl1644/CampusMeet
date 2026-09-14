@@ -413,6 +413,10 @@ def update_topic(
             "content": 8000,
             "source_url": 500,
             "cover_url": 500,
+            "organizer": 120,
+            "edition": 40,
+            "location_name": 200,
+            "campus_scope": 120,
         }
         changed: dict[str, Any] = {}
         for field, limit in field_limits.items():
@@ -422,6 +426,11 @@ def update_topic(
                     raise HTTPException(status_code=400, detail=f"{field} 不能为空")
                 setattr(topic, field, value or None)
                 changed[field] = value
+        for field in ("registration_deadline", "activity_start_at", "activity_end_at", "capacity", "participation_mode"):
+            if field in body:
+                value = body.get(field)
+                setattr(topic, field, value)
+                changed[field] = value.isoformat() if hasattr(value, "isoformat") else value
         if "tag_ids" in body:
             tag_ids = [str(item) for item in body.get("tag_ids") or []][:8]
             invalid = validate_tag_ids(session, tag_ids)

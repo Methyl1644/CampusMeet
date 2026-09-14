@@ -1,4 +1,4 @@
-import { get, post } from './client'
+import { client, get, patch, post } from './client'
 import { API_PATHS } from '@shared/constants'
 import type { Post, PaginatedResponse, PostPurpose } from '@shared/types'
 
@@ -37,4 +37,24 @@ export function createPost(data: Partial<Post> & { purpose?: PostPurpose; client
 /** 获取我的帖子 */
 export function getMyPosts() {
   return get<Post[]>(API_PATHS.posts.myPosts)
+}
+
+export function updatePost(id: string, data: Partial<Post>) {
+  return patch<Post>(API_PATHS.posts.detail.replace(':id', id), data)
+}
+
+export function closePost(id: string) {
+  return post<Post>(API_PATHS.posts.close.replace(':id', id))
+}
+
+export function reopenPost(id: string) {
+  return post<Post>(API_PATHS.posts.reopen.replace(':id', id))
+}
+
+export function archivePost(id: string) {
+  return post<Post>(API_PATHS.posts.archive.replace(':id', id))
+}
+
+export async function deletePost(id: string) {
+  return (await client.delete(API_PATHS.posts.remove.replace(':id', id))).data.data as Post
 }
