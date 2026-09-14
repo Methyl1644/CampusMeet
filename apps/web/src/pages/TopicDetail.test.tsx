@@ -4,17 +4,25 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testi
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { MemoryRouter, Route, Routes, useNavigate } from 'react-router-dom'
 import { getExploreActivity, setActivityFavorite } from '@/api/explore'
+import { getTopicCollaborators } from '@/api/management'
 import { ToastProvider } from '@/components/Toast'
+import { useAuthStore } from '@/store/authStore'
 import TopicDetail from './TopicDetail'
 import {
   activityDetailFixture,
   discussionGroup,
   officialSignupGroup,
+  viewerFixture,
 } from './detailTestFixtures'
 
 vi.mock('@/api/explore', () => ({
   getExploreActivity: vi.fn(),
   setActivityFavorite: vi.fn(),
+}))
+vi.mock('@/api/management', () => ({
+  getTopicCollaborators: vi.fn(),
+  inviteTopicCollaborator: vi.fn(),
+  revokeTopicCollaborator: vi.fn(),
 }))
 
 function deferred<T>() {
@@ -45,12 +53,16 @@ function renderTopic(initialEntry = '/topics/activity-1') {
 
 beforeEach(() => {
   vi.resetAllMocks()
+  useAuthStore.setState({ token: null, user: null, isAuthenticated: false })
   vi.mocked(getExploreActivity).mockResolvedValue(activityDetailFixture)
   vi.mocked(setActivityFavorite).mockResolvedValue({
     topic_id: activityDetailFixture.id,
     favorite: true,
     followed: true,
     follower_count: activityDetailFixture.follower_count + 1,
+  })
+  vi.mocked(getTopicCollaborators).mockResolvedValue({
+    list: [], total: 0, page: 1, page_size: 20, pages: 0,
   })
   Object.defineProperty(navigator, 'share', { configurable: true, value: vi.fn().mockResolvedValue(undefined) })
   Object.defineProperty(navigator, 'clipboard', { configurable: true, value: undefined })
@@ -107,6 +119,39 @@ describe('TopicDetail activity experience', () => {
     expect(screen.getAllByRole('listitem', { name: /参与者/ })).toHaveLength(8)
     expect(screen.getByText('招募队友')).toBeTruthy()
     expect(heading.compareDocumentPosition(screen.getByRole('heading', { name: '活动详情' })) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  it('shows every active activity worker and gives managers an in-page authorization entry', async () => {
+    const manager = {
+      ...viewerFixture,
+      id: 'manager-1',
+      identity: {
+        campus_verified: true,
+        platform_role: null,
+        organization_roles: [],
+        topic_roles: [{ topic_id: activityDetailFixture.id, topic_title: activityDetailFixture.title, role: 'manager' as const }],
+        post_roles: [],
+      },
+    }
+    useAuthStore.setState({ token: 'token', user: manager, isAuthenticated: true })
+    vi.mocked(getExploreActivity).mockResolvedValue({
+      ...activityDetailFixture,
+      can_manage_collaborators: true,
+      responsible_people: [
+        { user_id: 'manager-1', nickname: '周宁', role: 'manager', badge: '活动负责人' },
+        { user_id: 'editor-2', nickname: '王老师', role: 'editor', badge: '活动组织者' },
+        { user_id: 'helper-3', nickname: '林同学', role: 'coordinator', badge: '活动协作成员' },
+      ],
+    })
+    renderTopic()
+
+    const staff = await screen.findByRole('region', { name: '活动工作人员与权限' })
+    expect(within(staff).getByText('周宁')).toBeTruthy()
+    expect(within(staff).getByText('王老师')).toBeTruthy()
+    expect(within(staff).getByText('林同学')).toBeTruthy()
+    fireEvent.click(within(staff).getByRole('button', { name: '管理活动人员' }))
+    expect(await screen.findByRole('heading', { name: '活动协作者' })).toBeTruthy()
+    expect(screen.queryByLabelText('活动 ID')).toBeNull()
   })
 
   it('falls back from a broken cover without changing the media frame', async () => {

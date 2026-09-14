@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { AlertCircle, CheckCircle, Clock, Edit3, FileText, LogOut, Shield, Users } from 'lucide-react'
+import { AlertCircle, CheckCircle, Clock, Edit3, FileText, LogOut, Shield, Undo2, Users } from 'lucide-react'
 import { getProfile, updateProfile } from '@/api/auth'
 import { getMyPosts } from '@/api/posts'
-import { getMyApplications } from '@/api/applications'
+import { getMyApplications, withdrawApplication } from '@/api/applications'
 import { getMyTeams, type MyTeamSummary } from '@/api/teams'
 import { useAuthStore } from '@/store/authStore'
 import { useToast } from '@/components/Toast'
@@ -121,6 +121,17 @@ export default function Profile() {
       showToast('更多团队加载失败，请重试', 'error')
     } finally {
       setLoadingMoreTeams(false)
+    }
+  }
+
+  const handleWithdraw = async (applicationId: string) => {
+    if (!window.confirm('确认撤回这份加入申请吗？')) return
+    try {
+      await withdrawApplication(applicationId)
+      setApplications((current) => current.map((item) => item.id === applicationId ? { ...item, status: 'withdrawn' } : item))
+      showToast('申请已撤回', 'success')
+    } catch {
+      showToast('撤回失败，请稍后重试', 'error')
     }
   }
 
@@ -303,16 +314,14 @@ export default function Profile() {
               <div className="divide-y divide-stone border-b border-stone">
                 {applications.map((application, index) => (
                   <Reveal key={application.id} delay={Math.min(index * 0.025, 0.2)}>
-                    <button
-                      onClick={() => navigate(`/posts/${application.post_id}`)}
-                      className="flex min-h-16 w-full items-center justify-between gap-4 px-1 py-3 text-left transition-colors hover:bg-paper"
-                    >
-                      <div className="min-w-0 flex-1">
+                    <div className="flex min-h-16 w-full items-center justify-between gap-3 px-1 py-3">
+                      <button onClick={() => navigate(`/posts/${application.post_id}`)} className="min-w-0 flex-1 text-left transition-colors hover:text-primary-700">
                         <p className="truncate text-sm font-semibold text-ink">{application.role_wanted}</p>
                         <p className="mt-1 truncate text-xs text-ink-muted">{application.reason || '暂无'}</p>
-                      </div>
+                      </button>
                       <ApplicationStatus status={application.status} />
-                    </button>
+                      {application.status === 'pending' && <button type="button" className="btn-secondary min-h-9 px-3 text-xs" onClick={() => void handleWithdraw(application.id)}><Undo2 aria-hidden="true" className="size-4" />撤回</button>}
+                    </div>
                   </Reveal>
                 ))}
               </div>

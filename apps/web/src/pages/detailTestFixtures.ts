@@ -46,6 +46,7 @@ export const activityDetailFixture: ExploreActivityDetail = {
   responsible_people: [
     { user_id: 'manager-1', nickname: '陈老师', role: 'manager', badge: '活动负责人' },
   ],
+  can_manage_collaborators: false,
   related_groups: [groupFixture, officialSignupGroup, discussionGroup],
 }
 

@@ -1,4 +1,4 @@
-import { get, post } from './client'
+import { get, patch, post } from './client'
 import { API_PATHS } from '@shared/constants'
 import type {
   PaginatedResponse,
@@ -71,4 +71,10 @@ export interface TopicCreateInput {
 
 export function createTopic(body: TopicCreateInput) {
   return post<Topic>(API_PATHS.content.topics, body)
+}
+
+export type TopicUpdateInput = Partial<Omit<TopicCreateInput, 'channel' | 'organization_id'>>
+
+export function updateTopic(id: string, body: TopicUpdateInput) {
+  return patch<Topic>(API_PATHS.content.topicDetail.replace(':id', id), body)
 }

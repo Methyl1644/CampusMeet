@@ -98,7 +98,17 @@ def _grant_dict(grant: TopicCollaborator | PostCollaborator) -> dict[str, Any]:
 def _topic_grant_dict(session, grant: TopicCollaborator) -> dict[str, Any]:
     data = _grant_dict(grant)
     topic = session.get(Topic, grant.topic_id)
+    user = session.get(User, grant.user_id)
     data["topic_title"] = topic.title if topic else f"活动 #{grant.topic_id}"
+    data["nickname"] = user.nickname if user else None
+    data["is_creator"] = bool(topic and topic.created_by == grant.user_id)
+    return data
+
+
+def _post_grant_dict(session, grant: PostCollaborator) -> dict[str, Any]:
+    data = _grant_dict(grant)
+    post = session.get(Post, grant.post_id)
+    data["post_title"] = post.title if post else f"帖子 #{grant.post_id}"
     return data
 
 
@@ -174,7 +184,7 @@ def list_topic_collaborators(
         ).all()
         return api_ok(
             {
-                "list": [_grant_dict(grant) for grant in grants],
+                "list": [_topic_grant_dict(session, grant) for grant in grants],
                 "total": total,
                 "page": page,
                 "page_size": page_size,
@@ -242,7 +252,7 @@ def invite_topic_collaborator(
             dedupe_key=f"topic-grant:{grant.id}:invite:{grant.updated_at or grant.created_at}",
         )
         session.commit()
-        return api_ok(_grant_dict(grant), "话题负责人邀请已发送")
+        return api_ok(_topic_grant_dict(session, grant), "话题负责人邀请已发送")
     finally:
         session.close()
 
@@ -324,6 +334,8 @@ def revoke_topic_collaborator(
         ).scalar_one_or_none()
         if not grant:
             raise HTTPException(status_code=404, detail="话题负责人授权不存在")
+        if topic.created_by == target_user_id:
+            raise HTTPException(status_code=400, detail="活动发布者的负责人权限不能撤销")
         grant.status = "revoked"
         grant.revoked_at = datetime.datetime.now(datetime.timezone.utc)
         _audit(session, actor.id, "topic_collaborator.revoke", "topic", topic_id, _grant_dict(grant))
@@ -338,13 +350,46 @@ def revoke_topic_collaborator(
             dedupe_key=f"topic-grant:{grant.id}:revoked:{grant.revoked_at.isoformat()}",
         )
         session.commit()
-        return api_ok(_grant_dict(grant), "话题负责人权限已撤销")
+        return api_ok(_topic_grant_dict(session, grant), "话题负责人权限已撤销")
     finally:
         session.close()
 
 
 def _can_manage_post_collaborators(session, actor: User, post: Post) -> bool:
     return has_platform_role(session, actor) or post.author_id == actor.id
+
+
+@router.get("/posts/collaborations/my")
+def my_post_collaborations(
+    status: str = Query(default="pending"),
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=20, ge=1, le=50),
+    user_id: str = Depends(current_user_id),
+) -> dict[str, Any]:
+    if status not in {"pending", "active", "revoked", "all"}:
+        raise HTTPException(status_code=400, detail="帖子协作者邀请状态不正确")
+    session, actor = _current_user(user_id)
+    try:
+        filters = [PostCollaborator.user_id == actor.id]
+        if status != "all":
+            filters.append(PostCollaborator.status == status)
+        total = int(session.scalar(select(func.count()).select_from(PostCollaborator).where(*filters)) or 0)
+        grants = session.scalars(
+            select(PostCollaborator)
+            .where(*filters)
+            .order_by(PostCollaborator.id.desc())
+            .offset((page - 1) * page_size)
+            .limit(page_size)
+        ).all()
+        return api_ok({
+            "list": [_post_grant_dict(session, grant) for grant in grants],
+            "total": total,
+            "page": page,
+            "page_size": page_size,
+            "pages": (total + page_size - 1) // page_size,
+        })
+    finally:
+        session.close()
 
 
 @router.get("/posts/{post_id}/collaborators")
@@ -469,6 +514,27 @@ def accept_post_collaboration(post_id: int, user_id: str = Depends(current_user_
         _audit(session, actor.id, "post_collaborator.accept", "post", post_id, _grant_dict(grant))
         session.commit()
         return api_ok(_grant_dict(grant), "已接受帖子协作者邀请")
+    finally:
+        session.close()
+
+
+@router.post("/posts/{post_id}/collaborators/decline")
+def decline_post_collaboration(post_id: int, user_id: str = Depends(current_user_id)) -> dict[str, Any]:
+    session, actor = _current_user(user_id)
+    try:
+        grant = session.execute(
+            select(PostCollaborator).where(
+                PostCollaborator.post_id == post_id,
+                PostCollaborator.user_id == actor.id,
+            )
+        ).scalar_one_or_none()
+        if not grant or grant.status != "pending":
+            raise HTTPException(status_code=404, detail="没有待处理的帖子协作者邀请")
+        grant.status = "revoked"
+        grant.revoked_at = datetime.datetime.now(datetime.timezone.utc)
+        _audit(session, actor.id, "post_collaborator.decline", "post", post_id, _grant_dict(grant))
+        session.commit()
+        return api_ok(_post_grant_dict(session, grant), "已拒绝帖子协作者邀请")
     finally:
         session.close()
 

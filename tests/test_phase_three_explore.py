@@ -23,6 +23,7 @@ from storage.database.models import (
     Team,
     TeamMember,
     Topic,
+    TopicCollaborator,
     TopicFollow,
     TopicTag,
     User,
@@ -293,6 +294,40 @@ def test_activity_detail_deduplicates_participants_and_bounds_previews(session, 
     assert len(detail["participant_preview"]) == 8
     assert len({item["id"] for item in detail["participant_preview"]}) == 8
     assert len(detail["related_groups"]) == 8
+
+
+def test_activity_detail_exposes_management_permission_and_all_active_workers(session, viewer):
+    explore = _explore()
+    topic = _topic(session, 1, title="校园创新赛")
+    editor = _user(2, "活动组织者")
+    session.add(editor)
+    session.flush()
+    session.add_all([
+        TopicCollaborator(
+            topic_id=topic.id,
+            user_id=viewer.id,
+            role="manager",
+            status="active",
+            granted_by=viewer.id,
+        ),
+        TopicCollaborator(
+            topic_id=topic.id,
+            user_id=editor.id,
+            role="editor",
+            status="active",
+            granted_by=viewer.id,
+        ),
+    ])
+    session.flush()
+
+    detail = explore.get_activity_detail(session, topic.id, viewer.id, now=NOW)
+
+    assert detail is not None
+    assert detail["can_manage_collaborators"] is True
+    assert [(person["nickname"], person["role"]) for person in detail["responsible_people"]] == [
+        ("浏览者", "manager"),
+        ("活动组织者", "editor"),
+    ]
 
 
 def test_explore_projection_queries_bound_fanout_rows_per_parent(

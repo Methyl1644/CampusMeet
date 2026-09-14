@@ -55,6 +55,8 @@ services:
         sync: false
       - key: COZE_TEAM_PLAN_API_URL
         sync: false
+      - key: COZE_COVER_API_URL
+        value: https://sbs68xhstz.coze.site/run
       - key: OBJECT_STORAGE_ENDPOINT
         sync: false
       - key: OBJECT_STORAGE_REGION

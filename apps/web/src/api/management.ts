@@ -10,6 +10,7 @@ import type {
   PlatformRole,
   PlatformRoleGrant,
   TopicRole,
+  PostRole,
 } from '@shared/types'
 import { client } from './client'
 
@@ -106,4 +107,18 @@ export function revokeTopicCollaborator(topicId: string, userId: string) {
   return responseData<CollaboratorGrant>(
     client.delete(`/api/topics/${topicId}/collaborators/${userId}`),
   )
+}
+
+export function getPostCollaborators(postId: string) {
+  return responseData<PaginatedResponse<CollaboratorGrant>>(
+    client.get(`/api/posts/${postId}/collaborators`),
+  )
+}
+
+export function invitePostCollaborator(postId: string, body: { user_id: number; role: PostRole }) {
+  return responseData<CollaboratorGrant>(client.post(`/api/posts/${postId}/collaborators`, body))
+}
+
+export function revokePostCollaborator(postId: string, userId: string) {
+  return responseData<CollaboratorGrant>(client.delete(`/api/posts/${postId}/collaborators/${userId}`))
 }

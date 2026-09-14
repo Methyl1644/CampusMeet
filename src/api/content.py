@@ -25,6 +25,7 @@ from services.content import (
     validate_tag_ids,
 )
 from services.content_moderation import ModerationContext, moderate_content
+from services.cover_generation import generate_content_cover
 from services.collaboration_lifecycle import PUBLIC_POST_STATUSES
 from services.explore import list_related_posts
 from services.moderation_cases import has_active_restriction
@@ -377,6 +378,15 @@ def publish_topic(body: TopicCreateRequest, user_id: str = Depends(current_user_
                 raise PermissionError("当前账号处于发布限制期")
             _moderate_topic(body, user_id)
             topic = create_topic(session, user, body)
+            if not topic.cover_url:
+                topic.cover_url = generate_content_cover(
+                    content_type="activity",
+                    title=topic.title,
+                    description=f"{topic.summary}\n{topic.content}",
+                    category=topic.channel,
+                    location=topic.location_name or topic.campus_scope or "",
+                    roles=[topic.organizer],
+                )
             session.commit()
         except PermissionError as exc:
             session.rollback()
@@ -413,6 +423,10 @@ def update_topic(
             "content": 8000,
             "source_url": 500,
             "cover_url": 500,
+            "organizer": 120,
+            "edition": 40,
+            "location_name": 200,
+            "campus_scope": 120,
         }
         changed: dict[str, Any] = {}
         for field, limit in field_limits.items():
@@ -422,6 +436,11 @@ def update_topic(
                     raise HTTPException(status_code=400, detail=f"{field} 不能为空")
                 setattr(topic, field, value or None)
                 changed[field] = value
+        for field in ("registration_deadline", "activity_start_at", "activity_end_at", "capacity", "participation_mode"):
+            if field in body:
+                value = body.get(field)
+                setattr(topic, field, value)
+                changed[field] = value.isoformat() if hasattr(value, "isoformat") else value
         if "tag_ids" in body:
             tag_ids = [str(item) for item in body.get("tag_ids") or []][:8]
             invalid = validate_tag_ids(session, tag_ids)

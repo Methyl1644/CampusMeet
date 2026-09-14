@@ -7,24 +7,35 @@ import {
   CheckCircle2,
   Circle,
   ListChecks,
+  ArrowDown,
+  ArrowUp,
+  Archive,
+  Edit3,
+  LogOut,
   MessageCircle,
+  Plus,
   Phone,
   RefreshCw,
   Sparkles,
+  Trash2,
+  UserMinus,
   Users,
 } from 'lucide-react'
 import { generateTeamPlan } from '@/api/agent'
-import { getTeamDetail, updateTask } from '@/api/teams'
+import { archiveTeam, createTask, deleteTask, editTask, getTeamDetail, leaveTeam, removeMember, reorderTasks, transferTeamOwner, updateMemberRole, updateTask } from '@/api/teams'
 import type { Team } from '@shared/types'
 import Loading from '@/components/Loading'
 import { useDetailResource, useRouteGeneration } from '@/components/details/useDetailResource'
 import { Reveal } from '@/components/motion/Reveal'
 import { useToast } from '@/components/Toast'
+import { useAuthStore } from '@/store/authStore'
+import { getApiErrorMessage } from '@/api/auth-feedback'
 
 export default function TeamDetail() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const { showToast } = useToast()
+  const user = useAuthStore((state) => state.user)
 
   const { data: team, setData: setTeam, loading, error, retry } = useDetailResource(id ?? '', getTeamDetail)
   const routeOwner = useRouteGeneration(id ?? '')
@@ -34,6 +45,10 @@ export default function TeamDetail() {
   } | null>(null)
   const taskMutationOwners = useRef(new Map<string, symbol>())
   const [pendingTaskKeys, setPendingTaskKeys] = useState<Set<string>>(() => new Set())
+  const [manageBusy, setManageBusy] = useState(false)
+  const [manageError, setManageError] = useState('')
+  const [taskForm, setTaskForm] = useState({ id: '', title: '', assignee_id: '', due_at: '' })
+  const [memberRoles, setMemberRoles] = useState<Record<string, string>>({})
 
   const handleToggleTask = async (taskId: string, currentDone: boolean) => {
     if (!team) return
@@ -143,6 +158,44 @@ export default function TeamDetail() {
     }
   }
 
+  const refreshTeam = async () => {
+    if (!team) return
+    setTeam(await getTeamDetail(team.id))
+  }
+
+  const runManagement = async (
+    operation: () => Promise<unknown>,
+    success: string,
+    refresh = true,
+    afterSuccess?: () => void,
+  ) => {
+    setManageBusy(true); setManageError('')
+    try {
+      await operation()
+      if (refresh) await refreshTeam()
+      showToast(success, 'success')
+      afterSuccess?.()
+    }
+    catch (requestError) { setManageError(getApiErrorMessage(requestError, '团队操作失败')) }
+    finally { setManageBusy(false) }
+  }
+
+  const saveTask = async () => {
+    if (!team || !taskForm.title.trim()) return
+    const body = { title: taskForm.title.trim(), assignee_id: taskForm.assignee_id ? Number(taskForm.assignee_id) : null, due_at: taskForm.due_at }
+    await runManagement(() => taskForm.id ? editTask(team.id, taskForm.id, body) : createTask(team.id, body), taskForm.id ? '任务已更新' : '任务已添加')
+    setTaskForm({ id: '', title: '', assignee_id: '', due_at: '' })
+  }
+
+  const moveTask = async (taskId: string, direction: -1 | 1) => {
+    if (!team) return
+    const ids = team.task_list.map((task) => task.id)
+    const index = ids.indexOf(taskId); const target = index + direction
+    if (index < 0 || target < 0 || target >= ids.length) return
+    ;[ids[index], ids[target]] = [ids[target], ids[index]]
+    await runManagement(() => reorderTasks(team.id, ids), '任务顺序已更新')
+  }
+
   if (loading) return <Loading />
   if (error) {
     return (
@@ -168,6 +221,7 @@ export default function TeamDetail() {
     generatingPlanFor?.teamId === team.id &&
     generatingPlanFor.routeGeneration === routeOwner.current.generation
   )
+  const isOwner = Boolean(user && (team.owner_id === user.id || team.members.some((member) => member.user.id === user.id && member.member_role === 'owner')))
 
   return (
     <div data-testid="team-detail-page" className="mx-auto min-w-0 max-w-5xl overflow-x-clip pb-8">
@@ -209,6 +263,7 @@ export default function TeamDetail() {
                   ? '重新生成规划'
                   : '生成团队规划'}
             </button>
+            {isOwner ? <button type="button" className="btn-secondary min-h-10" disabled={manageBusy} onClick={() => { if (window.confirm('确认归档该团队？')) void runManagement(() => archiveTeam(team.id), '团队已归档', false, () => navigate('/profile?view=teams')) }}><Archive aria-hidden="true" size={16} />归档团队</button> : <button type="button" className="btn-secondary min-h-10" disabled={manageBusy} onClick={() => { if (window.confirm('确认退出该团队？')) void runManagement(() => leaveTeam(team.id), '已退出团队', false, () => navigate('/profile?view=teams')) }}><LogOut aria-hidden="true" size={16} />退出团队</button>}
           </div>
         </div>
       </Reveal>
@@ -230,9 +285,7 @@ export default function TeamDetail() {
                         {member.user.major || '暂无'} · {member.user.grade || '暂无'}
                       </p>
                     </div>
-                    <span className="shrink-0 text-xs font-semibold text-primary-700">
-                      {member.suggested_role || '暂无'}
-                    </span>
+                    {isOwner && member.member_role !== 'owner' ? <div className="flex flex-wrap items-center justify-end gap-2"><input aria-label={`调整 ${member.user.nickname} 的角色`} className="input-base min-h-9 w-28 px-2 py-1 text-xs" value={memberRoles[member.user.id] ?? member.suggested_role} onChange={(event) => setMemberRoles((current) => ({ ...current, [member.user.id]: event.target.value }))} /><button type="button" className="icon-button" title="保存成员角色" disabled={manageBusy} onClick={() => void runManagement(() => updateMemberRole(team.id, member.user.id, memberRoles[member.user.id] ?? member.suggested_role), '成员角色已更新')}><Edit3 aria-hidden="true" className="size-4" /><span className="sr-only">保存成员角色</span></button><button type="button" className="icon-button" title="转让负责人" disabled={manageBusy} onClick={() => { if (window.confirm(`确认将负责人转让给 ${member.user.nickname}？`)) void runManagement(() => transferTeamOwner(team.id, member.user.id), '负责人已转让') }}><Users aria-hidden="true" className="size-4" /><span className="sr-only">转让负责人</span></button><button type="button" className="icon-button text-red-700" title="移除成员" disabled={manageBusy} onClick={() => { if (window.confirm(`确认移除 ${member.user.nickname}？`)) void runManagement(() => removeMember(team.id, member.user.id), '成员已移除') }}><UserMinus aria-hidden="true" className="size-4" /><span className="sr-only">移除成员</span></button></div> : <span className="shrink-0 text-xs font-semibold text-primary-700">{member.suggested_role || '暂无'}</span>}
                   </div>
                 ))}
               </div>
@@ -293,16 +346,15 @@ export default function TeamDetail() {
 
           <Reveal as="section" delay={0.08}>
             <SectionHeading icon={Calendar} id="tasks-title">任务清单</SectionHeading>
+            {isOwner && <div className="mt-3 grid gap-2 border-y border-stone bg-paper p-3 sm:grid-cols-[minmax(0,1fr)_minmax(9rem,0.7fr)_minmax(8rem,0.6fr)_auto]"><input aria-label="任务标题" className="input-base" placeholder="任务标题" value={taskForm.title} onChange={(event) => setTaskForm({ ...taskForm, title: event.target.value })} /><select aria-label="任务负责人" className="input-base" value={taskForm.assignee_id} onChange={(event) => setTaskForm({ ...taskForm, assignee_id: event.target.value })}><option value="">暂不分配</option>{team.members.map((member) => <option key={member.user.id} value={member.user.id}>{member.user.nickname}</option>)}</select><input aria-label="任务截止时间" className="input-base" placeholder="截止时间" value={taskForm.due_at} onChange={(event) => setTaskForm({ ...taskForm, due_at: event.target.value })} /><button type="button" className="btn-primary" disabled={manageBusy || !taskForm.title.trim()} onClick={() => void saveTask()}><Plus aria-hidden="true" className="size-4" />{taskForm.id ? '保存' : '添加'}</button></div>}
             {team.task_list.length > 0 ? (
               <div className="mt-3 divide-y divide-stone border-y border-stone">
                 {team.task_list.map((task) => (
-                  <button
+                  <div
                     key={task.id}
-                    onClick={() => handleToggleTask(task.id, task.done)}
-                    aria-pressed={task.done}
-                    disabled={pendingTaskKeys.has(`${team.id}:${routeOwner.current.generation}:${task.id}`)}
-                    className="flex min-h-16 w-full items-center gap-3 px-1 py-2 text-left transition-colors hover:bg-paper focus-visible:bg-paper"
+                    className="flex min-h-16 w-full items-center gap-2 px-1 py-2"
                   >
+                    <button onClick={() => handleToggleTask(task.id, task.done)} aria-pressed={task.done} disabled={pendingTaskKeys.has(`${team.id}:${routeOwner.current.generation}:${task.id}`)} className="flex min-w-0 flex-1 items-center gap-3 text-left">
                     {task.done ? (
                       <CheckCircle2 aria-hidden="true" size={18} className="shrink-0 text-campus-green" />
                     ) : (
@@ -316,8 +368,9 @@ export default function TeamDetail() {
                         <span>负责人：{task.assignee_name || '暂无'}</span>
                         <span>截止：{task.due_at || task.deadline || '暂无'}</span>
                       </div>
-                    </div>
-                  </button>
+                    </div></button>
+                    {isOwner && <div className="flex shrink-0"><button type="button" className="icon-button" title="编辑任务" onClick={() => setTaskForm({ id: task.id, title: task.title, assignee_id: task.assignee_id || '', due_at: task.due_at || task.deadline || '' })}><Edit3 aria-hidden="true" className="size-4" /><span className="sr-only">编辑任务</span></button><button type="button" className="icon-button" title="上移任务" onClick={() => void moveTask(task.id, -1)}><ArrowUp aria-hidden="true" className="size-4" /><span className="sr-only">上移任务</span></button><button type="button" className="icon-button" title="下移任务" onClick={() => void moveTask(task.id, 1)}><ArrowDown aria-hidden="true" className="size-4" /><span className="sr-only">下移任务</span></button><button type="button" className="icon-button text-red-700" title="删除任务" onClick={() => { if (window.confirm('确认删除该任务？')) void runManagement(() => deleteTask(team.id, task.id), '任务已删除') }}><Trash2 aria-hidden="true" className="size-4" /><span className="sr-only">删除任务</span></button></div>}
+                  </div>
                 ))}
               </div>
             ) : (
@@ -373,6 +426,7 @@ export default function TeamDetail() {
           </Reveal>
         </aside>
       </div>
+      {manageError && <p role="alert" className="mt-5 rounded-card border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{manageError}</p>}
     </div>
   )
 }

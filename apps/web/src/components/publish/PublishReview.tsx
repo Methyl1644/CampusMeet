@@ -50,7 +50,7 @@ export function PublishReview(props: Props) {
         {!attached.length && !candidates.length && <span className="text-sm text-gray-500">发布时将自动匹配</span>}
       </div>
     </section>
-    <section className="mt-6" aria-label="帖子封面"><h3 className="font-semibold mb-3">封面 <span className="text-sm font-normal text-gray-500">选填</span></h3>
+    <section className="mt-6" aria-label="帖子封面"><h3 className="font-semibold mb-3">封面 <span className="text-sm font-normal text-gray-500">选填，留空由小蓝鲸自动生成</span></h3>
       {cover ? <div className="flex flex-wrap items-start gap-3"><img src={cover.preview} alt="帖子封面预览" className="publish-cover" /><div><button className="publish-icon" title="移除封面" aria-label="移除封面" disabled={locked} onClick={removeCover}><X size={18} /></button>{uploading ? <p role="status" className="text-sm mt-2">上传中…</p> : !cover.id ? <button className="text-sm mt-2 block" onClick={() => void upload(cover.file)} disabled={locked}>重试上传</button> : <p className="text-sm text-emerald-700 mt-2">已上传</p>}</div></div> : <label className={`publish-cover-picker ${locked ? 'is-disabled' : ''}`}><ImagePlus size={20} /><span>添加封面</span><input type="file" className="sr-only" accept="image/jpeg,image/png,image/webp" aria-label="添加封面" disabled={locked} onChange={(event) => { const file = event.target.files?.[0]; if (file) void upload(file); event.target.value = '' }} /></label>}
     </section>
     <div className="flex flex-wrap gap-3 justify-between mt-8"><button className="btn btn-secondary" disabled={locked || uploading} onClick={back}><ArrowLeft size={17} />继续对话</button><button className="btn btn-primary" disabled={locked || uploading} onClick={publish}><Check size={17} />{locked ? '正在发布…' : '确认发布'}</button></div>

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ArrowLeft, ExternalLink, Heart, MessageCircle, Plus, RefreshCw, Share2, UsersRound } from 'lucide-react'
+import { ArrowLeft, ExternalLink, Heart, MessageCircle, Pencil, Plus, RefreshCw, Share2, UserCog, UsersRound } from 'lucide-react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { getExploreActivity, setActivityFavorite } from '@/api/explore'
 import ActivityFacts from '@/components/details/ActivityFacts'
@@ -9,7 +9,21 @@ import RelatedGroups from '@/components/details/RelatedGroups'
 import StickyActions from '@/components/details/StickyActions'
 import { useDetailResource } from '@/components/details/useDetailResource'
 import { useToast } from '@/components/Toast'
+import TopicCollaboratorsPanel from '@/features/management/TopicCollaboratorsPanel'
+import { publicUserId } from '@/features/identity/publicUserId'
 import type { ExploreActivityDetail } from '@shared/types'
+import { updateTopic } from '@/api/content'
+import { getApiErrorMessage } from '@/api/auth-feedback'
+
+function dateTimeLocal(value: string | null) {
+  if (!value) return ''
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return ''
+  const local = new Date(date.getTime() - date.getTimezoneOffset() * 60_000)
+  return local.toISOString().slice(0, 16)
+}
+
+function isoOrNull(value: string) { return value ? new Date(value).toISOString() : null }
 
 async function shareCurrentPage(title: string) {
   const url = window.location.href
@@ -30,6 +44,11 @@ export default function TopicDetail() {
   const { showToast } = useToast()
   const { data: activity, setData: setActivity, loading, error, retry } = useDetailResource(id, getExploreActivity)
   const [favoritePending, setFavoritePending] = useState(false)
+  const [showPersonnelManagement, setShowPersonnelManagement] = useState(false)
+  const [showEdit, setShowEdit] = useState(false)
+  const [editBusy, setEditBusy] = useState(false)
+  const [editError, setEditError] = useState('')
+  const [edit, setEdit] = useState({ title: '', short_title: '', organizer: '', edition: '', summary: '', content: '', registration_deadline: '', activity_start_at: '', activity_end_at: '', location_name: '', campus_scope: '', capacity: '', participation_mode: 'official_signup' as ExploreActivityDetail['participation_mode'] })
 
   const handleFavorite = async () => {
     if (!activity || favoritePending) return
@@ -60,6 +79,22 @@ export default function TopicDetail() {
     } catch {
       showToast('暂时无法分享，请稍后重试', 'error')
     }
+  }
+
+  const toggleEdit = () => {
+    if (!activity) return
+    setEdit({ title: activity.title, short_title: activity.short_title, organizer: activity.organizer, edition: activity.edition, summary: activity.summary, content: activity.content, registration_deadline: dateTimeLocal(activity.registration_deadline), activity_start_at: dateTimeLocal(activity.activity_start_at), activity_end_at: dateTimeLocal(activity.activity_end_at), location_name: activity.location_name || '暂无', campus_scope: activity.campus_scope || '', capacity: activity.capacity ? String(activity.capacity) : '', participation_mode: activity.participation_mode })
+    setShowEdit((current) => !current)
+  }
+
+  const saveActivity = async () => {
+    if (!activity) return
+    setEditBusy(true); setEditError('')
+    try {
+      await updateTopic(activity.id, { ...edit, registration_deadline: isoOrNull(edit.registration_deadline), activity_start_at: isoOrNull(edit.activity_start_at), activity_end_at: isoOrNull(edit.activity_end_at), location_name: edit.location_name.trim() || '暂无', capacity: edit.capacity ? Number(edit.capacity) : null })
+      await retry(); setShowEdit(false); showToast('活动信息已更新', 'success')
+    } catch (requestError) { setEditError(getApiErrorMessage(requestError, '活动信息保存失败')) }
+    finally { setEditBusy(false) }
   }
 
   if (loading) {
@@ -108,6 +143,56 @@ export default function TopicDetail() {
         </section>
 
         <ParticipantPreview people={activity.participant_preview} total={activity.participant_count} />
+
+        <section aria-label="活动工作人员与权限" className="border-t border-stone pt-7">
+          <div className="flex flex-wrap items-end justify-between gap-3">
+            <div><p className="section-label">组织与执行</p><h2 className="mt-2 text-xl font-bold text-ink">活动工作人员</h2></div>
+            {activity.can_manage_collaborators && (
+              <div className="flex flex-wrap gap-2"><button type="button" className="btn-secondary" onClick={toggleEdit}><Pencil aria-hidden="true" className="size-4" />{showEdit ? '收起编辑' : '编辑活动'}</button><button type="button" className="btn-secondary" onClick={() => setShowPersonnelManagement((visible) => !visible)}>
+                <UserCog aria-hidden="true" className="size-4" />{showPersonnelManagement ? '收起人员管理' : '管理活动人员'}
+              </button></div>
+            )}
+          </div>
+          {activity.responsible_people.length === 0 ? (
+            <p className="mt-4 text-sm text-ink-muted">暂时没有可展示的活动工作人员。</p>
+          ) : (
+            <ul className="mt-4 divide-y divide-stone border-y border-stone">
+              {activity.responsible_people.map((person) => (
+                <li key={`${person.user_id}-${person.role}`} className="flex flex-wrap items-center justify-between gap-3 py-4">
+                  <Link to={`/users/${person.user_id}`} className="min-w-0 font-semibold text-ink hover:text-primary-700">{person.nickname}</Link>
+                  <span className="text-sm text-ink-muted">{person.badge} · {publicUserId(person.user_id)}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+
+        {showEdit && activity.can_manage_collaborators && <section className="border-t border-stone pt-7" aria-label="编辑活动信息">
+          <h2 className="text-xl font-bold text-ink">补充或修改活动信息</h2><p className="mt-1 text-sm text-ink-muted">尚未确定的时间可以留空，地点可填写“暂无”，确认后再回来补充。</p>
+          <div className="mt-4 grid gap-4 sm:grid-cols-2">
+            <label className="text-sm font-medium sm:col-span-2">标题<input className="input-base mt-1.5" value={edit.title} onChange={(event) => setEdit({ ...edit, title: event.target.value })} /></label>
+            <label className="text-sm font-medium">活动简称<input className="input-base mt-1.5" value={edit.short_title} onChange={(event) => setEdit({ ...edit, short_title: event.target.value })} /></label>
+            <label className="text-sm font-medium">届次或学期<input className="input-base mt-1.5" value={edit.edition} onChange={(event) => setEdit({ ...edit, edition: event.target.value })} /></label>
+            <label className="text-sm font-medium sm:col-span-2">主办方<input className="input-base mt-1.5" value={edit.organizer} onChange={(event) => setEdit({ ...edit, organizer: event.target.value })} /></label>
+            <label className="text-sm font-medium sm:col-span-2">简介<textarea rows={3} className="input-base mt-1.5 resize-y" value={edit.summary} onChange={(event) => setEdit({ ...edit, summary: event.target.value })} /></label>
+            <label className="text-sm font-medium sm:col-span-2">详情<textarea rows={6} className="input-base mt-1.5 resize-y" value={edit.content} onChange={(event) => setEdit({ ...edit, content: event.target.value })} /></label>
+            <label className="text-sm font-medium">报名截止<input type="datetime-local" className="input-base mt-1.5" value={edit.registration_deadline} onChange={(event) => setEdit({ ...edit, registration_deadline: event.target.value })} /></label>
+            <label className="text-sm font-medium">活动开始<input type="datetime-local" className="input-base mt-1.5" value={edit.activity_start_at} onChange={(event) => setEdit({ ...edit, activity_start_at: event.target.value })} /></label>
+            <label className="text-sm font-medium">活动结束<input type="datetime-local" className="input-base mt-1.5" value={edit.activity_end_at} onChange={(event) => setEdit({ ...edit, activity_end_at: event.target.value })} /></label>
+            <label className="text-sm font-medium">地点<input className="input-base mt-1.5" value={edit.location_name} onChange={(event) => setEdit({ ...edit, location_name: event.target.value })} /></label>
+            <label className="text-sm font-medium">校区<input className="input-base mt-1.5" value={edit.campus_scope} onChange={(event) => setEdit({ ...edit, campus_scope: event.target.value })} /></label>
+            <label className="text-sm font-medium">人数上限<input type="number" min={1} max={100000} className="input-base mt-1.5" value={edit.capacity} onChange={(event) => setEdit({ ...edit, capacity: event.target.value })} /></label>
+            <label className="text-sm font-medium">参与方式<select className="input-base mt-1.5" value={edit.participation_mode} onChange={(event) => setEdit({ ...edit, participation_mode: event.target.value as ExploreActivityDetail['participation_mode'] })}><option value="official_signup">官方报名</option><option value="open_team">允许组队</option><option value="information_only">仅展示信息</option></select></label>
+          </div>
+          {editError && <p role="alert" className="mt-3 rounded-card border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{editError}</p>}
+          <button type="button" className="btn-primary mt-4" disabled={editBusy} onClick={() => void saveActivity()}>{editBusy ? '保存中...' : '保存活动信息'}</button>
+        </section>}
+
+        {showPersonnelManagement && activity.can_manage_collaborators && (
+          <section className="border-t border-stone pt-7">
+            <TopicCollaboratorsPanel suggestedTopicId={activity.id} embedded />
+          </section>
+        )}
         <RelatedGroups groups={activity.related_groups} mode={activity.participation_mode} />
       </main>
 

@@ -50,6 +50,15 @@ class TopicUpdateRequest(BaseModel):
     content: str | None = Field(default=None, min_length=1, max_length=8000)
     source_url: str | None = Field(default=None, max_length=500)
     cover_url: str | None = Field(default=None, max_length=500)
+    organizer: str | None = Field(default=None, min_length=1, max_length=120)
+    edition: str | None = Field(default=None, min_length=1, max_length=40)
+    registration_deadline: datetime.datetime | None = None
+    activity_start_at: datetime.datetime | None = None
+    activity_end_at: datetime.datetime | None = None
+    location_name: str | None = Field(default=None, max_length=200)
+    campus_scope: str | None = Field(default=None, max_length=120)
+    capacity: int | None = Field(default=None, ge=1, le=100000)
+    participation_mode: Literal["open_team", "official_signup", "information_only"] | None = None
     tag_ids: list[str] | None = Field(default=None, min_length=1, max_length=8)
 
 

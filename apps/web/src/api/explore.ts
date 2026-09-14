@@ -272,6 +272,9 @@ function decodeActivityDetail(value: unknown, path: string): ExploreActivityDeta
   return {
     ...decodeActivityCard(item, path),
     related_groups: array(item.related_groups, `${path}.related_groups`, decodeGroup, 8),
+    can_manage_collaborators: item.can_manage_collaborators === undefined
+      ? false
+      : boolean(item.can_manage_collaborators, `${path}.can_manage_collaborators`),
   }
 }
 

@@ -149,6 +149,7 @@ def create_post(
     join_mode: str = "",
     client_request_id: str = "",
     cover_upload_id: str = "",
+    generated_cover_url: str = "",
 ) -> str:
     """创建组队帖。user_id 为用户ID，title 为标题，description 为描述，main_category 为主分类，activity_name 为活动名称，target_members 为目标人数，needed_roles 为所需角色(逗号分隔)，weekly_hours 为每周时长，school_scope 为学校范围，deadline 为截止日期。"""
     ctx = request_context.get() or new_context(method="create_post")
@@ -282,6 +283,7 @@ def create_post(
                 risk_level=resolved_risk_level,
                 status="recruiting",
                 author_id=uid,
+                cover_url=generated_cover_url or None,
             )
             session.add(post)
             flush_post_participation(session, post)

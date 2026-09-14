@@ -50,6 +50,7 @@ export default function PublishActivity() {
         registration_deadline: isoOrNull(form.registration_deadline),
         activity_start_at: isoOrNull(form.activity_start_at),
         activity_end_at: isoOrNull(form.activity_end_at),
+        location_name: form.location_name.trim() || '暂无',
         capacity: form.capacity ? Number(form.capacity) : null,
         organization_id: channel === 'organization' ? Number(organizationId) : null,
         tag_ids: selectedTags,
@@ -80,6 +81,7 @@ export default function PublishActivity() {
           <label className="text-sm font-bold sm:col-span-2">活动详情<textarea required maxLength={8000} rows={8} className="input-base mt-2 resize-y" value={form.content} onChange={(e) => update('content', e.target.value)} /></label>
         </section>
         <section className="grid gap-4 border-t border-stone pt-6 sm:grid-cols-3">
+          <p className="text-sm text-ink-muted sm:col-span-3">时间尚未确定时可以留空，地点尚未确定时可填写“暂无”；活动负责人发布后可继续补充。</p>
           <label className="text-sm font-bold"><CalendarPlus className="mr-1 inline size-4" />报名截止<input type="datetime-local" className="input-base mt-2" value={form.registration_deadline} onChange={(e) => update('registration_deadline', e.target.value)} /></label>
           <label className="text-sm font-bold">活动开始<input type="datetime-local" className="input-base mt-2" value={form.activity_start_at} onChange={(e) => update('activity_start_at', e.target.value)} /></label>
           <label className="text-sm font-bold">活动结束<input type="datetime-local" className="input-base mt-2" value={form.activity_end_at} onChange={(e) => update('activity_end_at', e.target.value)} /></label>
@@ -87,7 +89,7 @@ export default function PublishActivity() {
           <label className="text-sm font-bold">校区<input maxLength={120} className="input-base mt-2" value={form.campus_scope} onChange={(e) => update('campus_scope', e.target.value)} /></label>
           <label className="text-sm font-bold">人数上限<input type="number" min={1} max={100000} className="input-base mt-2" value={form.capacity} onChange={(e) => update('capacity', e.target.value)} /></label>
           <label className="text-sm font-bold">参与方式<select className="input-base mt-2" value={form.participation_mode} onChange={(e) => update('participation_mode', e.target.value as TopicCreateInput['participation_mode'])}><option value="official_signup">官方报名</option><option value="open_team">允许发布组队帖</option><option value="information_only">仅展示信息</option></select></label>
-          <label className="text-sm font-bold"><Image className="mr-1 inline size-4" />封面图片网址<input type="url" maxLength={500} className="input-base mt-2" value={form.cover_url} onChange={(e) => update('cover_url', e.target.value)} /></label>
+          <label className="text-sm font-bold"><Image className="mr-1 inline size-4" />封面图片网址 <span className="font-normal text-ink-muted">（留空自动生成）</span><input type="url" maxLength={500} className="input-base mt-2" value={form.cover_url} onChange={(e) => update('cover_url', e.target.value)} /></label>
           <label className="text-sm font-bold">官方来源网址<input type="url" maxLength={500} className="input-base mt-2" value={form.source_url} onChange={(e) => update('source_url', e.target.value)} /></label>
         </section>
         <fieldset className="border-t border-stone pt-6"><legend className="text-sm font-bold">活动标签</legend><div className="mt-3 flex flex-wrap gap-2">{tags.map((tag) => { const selected = selectedTags.includes(tag.tag_id); return <button key={tag.tag_id} type="button" aria-pressed={selected} className={selected ? 'btn-primary' : 'btn-secondary'} onClick={() => setSelectedTags((current) => selected ? current.filter((id) => id !== tag.tag_id) : current.length < 8 ? [...current, tag.tag_id] : current)}>{selected && <Check className="size-4" />}{tag.canonical_name}</button> })}</div></fieldset>
