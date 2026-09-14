@@ -62,7 +62,7 @@ def generate_content_cover(
     roles: Iterable[str] = (),
 ) -> str | None:
     api_url = os.getenv("COZE_COVER_API_URL", "").strip()
-    token = os.getenv("COZE_DEPLOY_API_TOKEN", "").strip()
+    token = os.getenv("COZE_COVER_API_TOKEN", "").strip()
     if not api_url or not token:
         record_metric("coze.calls", workflow="COZE_COVER_API_URL", result="not_configured")
         return None
