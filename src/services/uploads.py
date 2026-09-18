@@ -30,6 +30,12 @@ LEGACY_PROVIDER = "s3"
 CLOUDINARY_PROVIDER = "cloudinary"
 UPLOAD_TICKET_TTL_SECONDS = 600
 
+CLOUDINARY_REQUIRED_ENV_KEYS = (
+    "CLOUDINARY_CLOUD_NAME",
+    "CLOUDINARY_API_KEY",
+    "CLOUDINARY_API_SECRET",
+)
+
 UPLOAD_POLICIES = {
     "post_cover": {
         "mimes": {"image/jpeg": {".jpg", ".jpeg"}, "image/png": {".png"}, "image/webp": {".webp"}},
@@ -99,16 +105,24 @@ class S3UploadStorage:
 
 
 def cloudinary_settings() -> dict[str, str] | None:
-    """Return Cloudinary credentials when all three secrets are present."""
-    cloud_name = os.getenv("CLOUDINARY_CLOUD_NAME", "").strip()
-    api_key = os.getenv("CLOUDINARY_API_KEY", "").strip()
-    api_secret = os.getenv("CLOUDINARY_API_SECRET", "").strip()
-    if not (cloud_name and api_key and api_secret):
+    """Cloudinary credentials, or None when no Cloudinary variable is set.
+
+    A *partial* configuration raises instead of returning None. Silently falling
+    back to S3 on a half-filled config only moved the failure into the browser:
+    the ticket was minted locally and succeeded, while the upload itself was
+    rejected by the storage endpoint with no clue about the real cause.
+    """
+    values = {key: os.getenv(key, "").strip() for key in CLOUDINARY_REQUIRED_ENV_KEYS}
+    present = [key for key, value in values.items() if value]
+    if not present:
         return None
+    if len(present) != len(CLOUDINARY_REQUIRED_ENV_KEYS):
+        missing = "、".join(key for key in CLOUDINARY_REQUIRED_ENV_KEYS if not values[key])
+        raise RuntimeError(f"Cloudinary 配置不完整，缺少：{missing}")
     return {
-        "cloud_name": cloud_name,
-        "api_key": api_key,
-        "api_secret": api_secret,
+        "cloud_name": values["CLOUDINARY_CLOUD_NAME"],
+        "api_key": values["CLOUDINARY_API_KEY"],
+        "api_secret": values["CLOUDINARY_API_SECRET"],
         "root_folder": os.getenv("CLOUDINARY_ROOT_FOLDER", "campusmeet").strip() or "campusmeet",
     }
 
@@ -126,7 +140,11 @@ def s3_settings() -> dict[str, str] | None:
 
 
 def get_upload_storage() -> CloudinaryUploadStorage | S3UploadStorage:
-    """Cloudinary wins when configured; S3 stays as the legacy fallback."""
+    """Cloudinary wins when configured; S3 stays as the legacy fallback.
+
+    Raises RuntimeError when nothing is configured, or when the Cloudinary
+    variables are only partially filled in.
+    """
     settings = cloudinary_settings()
     if settings is not None:
         return CloudinaryUploadStorage(**settings)

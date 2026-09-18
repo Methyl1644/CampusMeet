@@ -651,6 +651,28 @@ def test_cloudinary_wins_over_the_legacy_s3_backend(monkeypatch):
     assert uploads.storage_provider(storage) == "cloudinary"
 
 
+def test_partial_cloudinary_config_fails_loudly_instead_of_using_s3(monkeypatch):
+    for key in (
+        "CLOUDINARY_CLOUD_NAME",
+        "CLOUDINARY_API_KEY",
+        "CLOUDINARY_API_SECRET",
+        "OBJECT_STORAGE_ENDPOINT",
+        "OBJECT_STORAGE_BUCKET",
+        "OBJECT_STORAGE_ACCESS_KEY",
+        "OBJECT_STORAGE_SECRET_KEY",
+    ):
+        monkeypatch.delenv(key, raising=False)
+
+    monkeypatch.setenv("OBJECT_STORAGE_ENDPOINT", "https://s3.example")
+    monkeypatch.setenv("OBJECT_STORAGE_BUCKET", "campusmeet")
+    monkeypatch.setenv("OBJECT_STORAGE_ACCESS_KEY", "access")
+    monkeypatch.setenv("OBJECT_STORAGE_SECRET_KEY", "secret")
+    monkeypatch.setenv("CLOUDINARY_CLOUD_NAME", "test-cloud")
+
+    with pytest.raises(RuntimeError, match="CLOUDINARY_API_KEY"):
+        uploads.get_upload_storage()
+
+
 def test_upload_ticket_limiter_enforces_a_sliding_window():
     limiter = SlidingWindowLimiter(limit=3, window_seconds=100)
 

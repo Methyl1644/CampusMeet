@@ -40,13 +40,13 @@ export async function uploadPostCover(file: File): Promise<string> {
     form.append(fileField || 'file', file)
     // Content-Type is left unset so the browser writes the multipart boundary.
     const response = await fetch(url, { method: 'POST', body: form, signal: AbortSignal.timeout(60000) })
-    if (!response.ok) throw new Error('封面上传失败')
+    if (!response.ok) throw new Error(`封面上传失败（存储返回 ${response.status}）`)
     await post(`/api/uploads/${ticket.upload_id}/complete`, pickCloudinaryResult(await response.json()))
     return ticket.upload_id
   }
 
   const response = await fetch(ticket.upload.url, { method: 'PUT', headers: ticket.upload.headers, body: file, signal: AbortSignal.timeout(60000) })
-  if (!response.ok) throw new Error('封面上传失败')
+  if (!response.ok) throw new Error(`封面上传失败（存储返回 ${response.status}）`)
   await post(`/api/uploads/${ticket.upload_id}/complete`)
   return ticket.upload_id
 }
