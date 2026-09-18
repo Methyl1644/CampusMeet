@@ -29,7 +29,7 @@ export default function GroupCard({ group, favoritePending, onFavorite, favorite
   const roles = [...group.needed_roles].sort((left, right) => left.localeCompare(right, 'zh-CN')).slice(0, 3)
 
   return (
-    <article aria-label={group.title} className="group flex h-[444px] min-w-0 flex-col overflow-hidden rounded-card border border-stone bg-paper shadow-panel transition duration-feedback motion-safe:hover:-translate-y-0.5 hover:border-primary-300 hover:shadow-md">
+    <article aria-label={group.title} className="group relative flex h-[444px] min-w-0 flex-col overflow-hidden rounded-card border border-stone bg-paper shadow-panel transition duration-feedback motion-safe:hover:-translate-y-0.5 hover:border-primary-300 hover:shadow-md">
       <div data-testid="group-media" className="relative aspect-[16/9] w-full shrink-0 overflow-hidden rounded-t-[12px] bg-[#EEF0F4]">
         {showCover ? (
           <img src={group.cover_url ?? undefined} alt={`${group.title}封面`} onError={() => setFailedCoverUrl(group.cover_url)} className="size-full object-cover transition-transform duration-feedback motion-safe:group-hover:scale-[1.02]" />
@@ -43,7 +43,7 @@ export default function GroupCard({ group, favoritePending, onFavorite, favorite
           title={group.bookmark ? '取消收藏' : '收藏'}
           disabled={favoritePending}
           onClick={() => onFavorite(group.id, !group.bookmark)}
-          className="absolute right-2.5 top-2.5 inline-flex size-10 items-center justify-center rounded-full border border-white/80 bg-paper/95 text-primary-700 shadow-panel transition-colors duration-feedback hover:bg-primary-50"
+          className="absolute right-2.5 top-2.5 z-10 inline-flex size-10 items-center justify-center rounded-full border border-white/80 bg-paper/95 text-primary-700 shadow-panel transition-colors duration-feedback hover:bg-primary-50"
         >
           <Heart aria-hidden="true" className="size-[18px]" fill={group.bookmark ? 'currentColor' : 'none'} />
         </button>}
@@ -60,10 +60,10 @@ export default function GroupCard({ group, favoritePending, onFavorite, favorite
           {roles.length > 0 ? roles.map((role) => <span key={role} className="truncate rounded-full bg-[#EEF2F3] px-2.5 py-1 text-xs font-medium text-ink-muted">{role}</span>) : <span className="text-xs text-ink-muted">角色不限</span>}
         </div>
         {group.linked_activity && (
-          <Link to={`/topics/${group.linked_activity.id}`} className="mt-3 block h-5 truncate text-xs font-semibold text-primary-700 hover:text-primary-800">关联活动：{group.linked_activity.short_title}</Link>
+          <Link to={`/topics/${group.linked_activity.id}`} className="relative z-10 mt-3 block h-5 truncate text-xs font-semibold text-primary-700 hover:text-primary-800">关联活动：{group.linked_activity.short_title}</Link>
         )}
         <div className="mt-auto border-t border-stone pt-3">
-          <Link to={`/posts/${group.id}`} aria-label="查看组队详情" className="inline-flex min-h-9 items-center text-sm font-semibold text-primary-700 transition-colors duration-feedback hover:text-primary-800">查看组队详情</Link>
+          <Link to={`/posts/${group.id}`} aria-label="查看组队详情" className="inline-flex min-h-9 items-center text-sm font-semibold text-primary-700 transition-colors duration-feedback after:absolute after:inset-0 after:content-[''] hover:text-primary-800">查看组队详情</Link>
         </div>
       </div>
     </article>
