@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from services.participation import deadline_has_passed, set_post_status
 from services.notifications import notify
-from services.uploads import get_upload_storage
+from services.uploads import delete_upload_asset, get_upload_storage
 from storage.database.db import get_session
 from storage.database.models import (
     Notification,
@@ -187,6 +187,10 @@ def run_maintenance(
 
     for upload in session.scalars(select(UploadRecord).where(UploadRecord.status == "pending")):
         if _expired(upload.expires_at, current):
+            if storage is not None:
+                # The public id is minted before the browser uploads, so an
+                # abandoned ticket may still own an orphaned asset.
+                delete_upload_asset(storage, upload)
             upload.status = "abandoned"
             result["uploads_abandoned"] += 1
 
@@ -216,7 +220,7 @@ def run_maintenance(
             for upload in evidence_uploads:
                 if upload.attached_to_id not in rejected_application_ids:
                     continue
-                storage.delete(key=upload.object_key)
+                delete_upload_asset(storage, upload)
                 upload.status = "deleted"
                 result["rejected_evidence_deleted"] += 1
 

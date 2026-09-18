@@ -266,6 +266,20 @@ wheels = [
 ]
 
 [[package]]
+name = "cloudinary"
+version = "1.46.2"
+source = { registry = "https://mirrors.aliyun.com/pypi/simple/" }
+dependencies = [
+    { name = "certifi" },
+    { name = "six" },
+    { name = "urllib3" },
+]
+sdist = { url = "https://mirrors.aliyun.com/pypi/packages/d9/da/a837db79b7a233611583a0040a04ebc0c835e04e38878a4b2ca58cbe3ab9/cloudinary-1.46.2.tar.gz", hash = "sha256:491ebf4f66ded86a7cff31151e85056520e5a184caf42c7de71b3025da358b95" }
+wheels = [
+    { url = "https://mirrors.aliyun.com/pypi/packages/32/98/e68ad32066b7900200e23a457c600296ce1f8fb768f161fdbb03e5ed2633/cloudinary-1.46.2-py3-none-any.whl", hash = "sha256:c552d819cd76cb7cd3c15a8a5ea23557ed6ad0ded661ad4b3f3b46ff353fc391" },
+]
+
+[[package]]
 name = "colorama"
 version = "0.4.6"
 source = { registry = "https://mirrors.aliyun.com/pypi/simple/" }
@@ -2683,6 +2697,7 @@ dependencies = [
     { name = "alembic" },
     { name = "boto3" },
     { name = "chardet" },
+    { name = "cloudinary" },
     { name = "coze-coding-dev-sdk" },
     { name = "coze-coding-utils" },
     { name = "coze-workload-identity" },
@@ -2725,6 +2740,7 @@ requires-dist = [
     { name = "alembic", specifier = ">=1.16,<2" },
     { name = "boto3", specifier = ">=1.40,<2" },
     { name = "chardet", specifier = ">=5.2,<6" },
+    { name = "cloudinary", specifier = ">=1.46,<2" },
     { name = "coze-coding-dev-sdk", specifier = ">=0.5.21" },
     { name = "coze-coding-utils", specifier = ">=0.2.8" },
     { name = "coze-workload-identity", specifier = ">=0.1.4,<1" },
