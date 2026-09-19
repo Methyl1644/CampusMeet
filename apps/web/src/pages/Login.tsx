@@ -1,8 +1,15 @@
 import { useEffect, useRef, useState } from 'react'
-import { ArrowLeft, ArrowRight, Mail } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Mail, Rocket } from 'lucide-react'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
-import { useNavigate } from 'react-router-dom'
-import { sendCode, register, login, resetPassword } from '@/api/auth'
+import { Link, useNavigate } from 'react-router-dom'
+import {
+  getQuickExperienceStatus,
+  sendCode,
+  quickExperience,
+  register,
+  login,
+  resetPassword,
+} from '@/api/auth'
 import { getApiErrorMessage, getCodeSentMessage } from '@/api/auth-feedback'
 import CampusMark from '@/components/CampusMark'
 import { useToast } from '@/components/Toast'
@@ -42,6 +49,9 @@ export default function Login() {
   const [codeCooldown, setCodeCooldown] = useState(0)
   const [sendingCode, setSendingCode] = useState(false)
   const [submitting, setSubmitting] = useState(false)
+  const [quickExperienceAvailable, setQuickExperienceAvailable] = useState(false)
+  const [enteringExperience, setEnteringExperience] = useState(false)
+  const [acceptedTerms, setAcceptedTerms] = useState(false)
   const registrationCodeRequestGeneration = useRef(0)
   const resetCodeRequestGeneration = useRef(0)
   const [authRequestTracker] = useState(() => createAuthRequestTracker('login'))
@@ -53,6 +63,20 @@ export default function Login() {
     }, 1000)
     return () => window.clearTimeout(timer)
   }, [codeCooldown])
+
+  useEffect(() => {
+    let active = true
+    getQuickExperienceStatus()
+      .then((result) => {
+        if (active) setQuickExperienceAvailable(result.available)
+      })
+      .catch(() => {
+        if (active) setQuickExperienceAvailable(false)
+      })
+    return () => {
+      active = false
+    }
+  }, [])
 
   const goToStep = (nextStep: Step) => {
     const switchingMode = step !== nextStep
@@ -101,6 +125,10 @@ export default function Login() {
       !/\d/.test(registrationPassword)
     ) {
       showToast('密码至少 8 位，并同时包含字母和数字', 'error')
+      return false
+    }
+    if (!acceptedTerms) {
+      showToast('请先阅读并同意用户协议与隐私政策', 'error')
       return false
     }
     return true
@@ -234,6 +262,21 @@ export default function Login() {
     }
   }
 
+  const handleQuickExperience = async () => {
+    setEnteringExperience(true)
+    try {
+      const res = await quickExperience()
+      setAuth(res.token, res.user)
+      showToast('已进入评委快速体验账号', 'success')
+      const navigation = successfulAuthNavigation(res.user)
+      navigate(navigation.to, { replace: navigation.replace })
+    } catch (error) {
+      showToast(getApiErrorMessage(error, '快速体验暂不可用，请联系项目组'), 'error')
+    } finally {
+      setEnteringExperience(false)
+    }
+  }
+
   return (
     <main className="min-h-dvh bg-paper-warm lg:grid lg:grid-cols-[minmax(20rem,0.9fr)_minmax(32rem,1.1fr)]">
       <section className="relative hidden min-h-dvh overflow-hidden border-r border-primary-950/20 bg-primary-800 p-10 text-white lg:flex lg:flex-col lg:justify-between xl:p-14">
@@ -247,7 +290,7 @@ export default function Login() {
         </div>
         <div className="flex items-center justify-between border-t border-white/20 pt-5 text-xs text-primary-100">
           <span>在校园，遇见同行的人</span>
-          <span className="text-campus-gold">诚朴雄伟 · 励学敦行</span>
+          <span className="text-[#E3B458]">诚朴雄伟 · 励学敦行</span>
         </div>
       </section>
 
@@ -335,6 +378,8 @@ export default function Login() {
                         onChange={(event) => setAccount(event.target.value)}
                         autoComplete="email"
                         placeholder="学号@smail.nju.edu.cn"
+                        required
+                        maxLength={254}
                         className="input-base min-w-0 pl-9"
                       />
                     </div>
@@ -353,6 +398,10 @@ export default function Login() {
                           value={code}
                           onChange={(event) => setCode(event.target.value)}
                           autoComplete="one-time-code"
+                          required
+                          minLength={6}
+                          maxLength={6}
+                          pattern="[0-9]{6}"
                           className="input-base min-w-0"
                         />
                         <button
@@ -395,9 +444,19 @@ export default function Login() {
                         else setRegistrationPassword(event.target.value)
                       }}
                       autoComplete={step === 'login' ? 'current-password' : 'new-password'}
+                      required
+                      minLength={step === 'register' ? 8 : 1}
+                      maxLength={128}
                       className="input-base"
                     />
                   </div>
+
+                  {step === 'register' && (
+                    <label className="flex items-start gap-2 text-xs leading-5 text-ink-muted">
+                      <input type="checkbox" className="mt-0.5 size-4 accent-primary-700" checked={acceptedTerms} onChange={(event) => setAcceptedTerms(event.target.checked)} required />
+                      <span>我已阅读并同意 <Link className="font-semibold text-primary-700 underline" to="/terms">用户协议</Link> 和 <Link className="font-semibold text-primary-700 underline" to="/privacy">隐私政策</Link></span>
+                    </label>
+                  )}
 
                   <button
                     type="submit"
@@ -408,6 +467,29 @@ export default function Login() {
                     <ArrowRight size={16} />
                   </button>
                 </form>
+              )}
+
+              {(step === 'login' || step === 'register') && (
+                <p className="mt-5 text-center text-xs leading-5 text-ink-muted">
+                  登录或继续使用即表示你知悉 <Link className="font-semibold text-primary-700 underline" to="/terms">用户协议</Link> 与 <Link className="font-semibold text-primary-700 underline" to="/privacy">隐私政策</Link>
+                </p>
+              )}
+
+              {(step === 'login' || step === 'register') && quickExperienceAvailable && (
+                <div className="mt-6 border-t border-stone pt-5">
+                  <button
+                    type="button"
+                    onClick={() => void handleQuickExperience()}
+                    disabled={enteringExperience || submitting}
+                    className="btn-secondary min-h-11 w-full"
+                  >
+                    <Rocket aria-hidden="true" size={16} />
+                    {enteringExperience ? '正在进入...' : '快速体验'}
+                  </button>
+                  <p className="mt-2 text-center text-xs text-ink-muted">
+                    课程评审入口，无需注册或填写资料
+                  </p>
+                </div>
               )}
 
               {step === 'reset' && (

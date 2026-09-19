@@ -11,6 +11,7 @@ from storage.database.db import get_session
 from storage.database.models.user import User
 from storage.database.models.post import Post
 from storage.database.models.conversation import Conversation, Message
+from storage.database.models.team import Team
 from services.content_moderation import ModerationContext, moderate_content
 from services.abuse_monitoring import check_and_record
 from services.moderation_cases import (
@@ -26,7 +27,13 @@ from tools.auth_tools import _user_brief
 logger = logging.getLogger(__name__)
 
 
-def _conversation_to_dict(conv: Conversation, other_user: User | None = None, post: Post | None = None) -> dict:
+def _conversation_to_dict(
+    conv: Conversation,
+    other_user: User | None = None,
+    post: Post | None = None,
+    current_user_id: int | None = None,
+    team_id: int | None = None,
+) -> dict:
     data = {
         "id": str(conv.id),
         "post_id": str(conv.post_id),
@@ -35,11 +42,18 @@ def _conversation_to_dict(conv: Conversation, other_user: User | None = None, po
         "last_message": conv.last_message,
         "last_message_at": conv.last_message_at.isoformat() if conv.last_message_at else None,
         "created_at": conv.created_at.isoformat() if conv.created_at else None,
+        "team_id": str(team_id) if team_id is not None else None,
     }
     if other_user:
         data["other_user"] = _user_brief(other_user)
     if post:
         data["post_title"] = post.title
+    if current_user_id is not None:
+        data["my_confirmed"] = bool(
+            conv.author_confirmed
+            if current_user_id == conv.post_author_id
+            else conv.applicant_confirmed
+        )
     return data
 
 
@@ -53,6 +67,61 @@ def _message_to_dict(msg: Message, is_mine: bool) -> dict:
         "read_at": msg.read_at.isoformat() if msg.read_at else None,
         "is_mine": is_mine,
     }
+
+
+def _conversation_detail(session, conv: Conversation, uid: int) -> dict:
+    other_id = conv.applicant_id if conv.post_author_id == uid else conv.post_author_id
+    other_user = session.scalar(select(User).where(User.id == other_id))
+    post = session.scalar(select(Post).where(Post.id == conv.post_id))
+    team_id = session.scalar(select(Team.id).where(Team.post_id == conv.post_id))
+    item = _conversation_to_dict(conv, other_user, post, uid, team_id)
+    item["unread_count"] = int(
+        session.scalar(
+            select(func.count()).select_from(Message).where(
+                Message.conversation_id == conv.id,
+                Message.sender_id != uid,
+                Message.read_at.is_(None),
+            )
+        )
+        or 0
+    )
+    return item
+
+
+@tool
+def get_conversation(user_id: str, conversation_id: str) -> str:
+    """获取当前用户可访问的单个会话状态。"""
+    ctx = request_context.get() or new_context(method="get_conversation")
+    try:
+        session = get_session()
+        try:
+            uid, cid = int(user_id), int(conversation_id)
+            conv = session.scalar(
+                select(Conversation).where(
+                    Conversation.id == cid,
+                    or_(
+                        Conversation.post_author_id == uid,
+                        Conversation.applicant_id == uid,
+                    ),
+                )
+            )
+            if conv is None:
+                return json.dumps(
+                    {"success": False, "message": "会话不存在或无权访问"},
+                    ensure_ascii=False,
+                )
+            return json.dumps(
+                {"success": True, **_conversation_detail(session, conv, uid)},
+                ensure_ascii=False,
+            )
+        finally:
+            session.close()
+    except Exception as e:
+        logger.error(f"get_conversation error: {e}")
+        return json.dumps(
+            {"success": False, "message": f"获取会话失败: {str(e)}"},
+            ensure_ascii=False,
+        )
 
 
 @tool
@@ -77,21 +146,7 @@ def get_conversations(user_id: str, page: int = 1, page_size: int = 20) -> str:
 
             convs = []
             for conv in results:
-                other_id = conv.applicant_id if conv.post_author_id == uid else conv.post_author_id
-                other_user = session.execute(select(User).where(User.id == other_id)).scalar_one_or_none()
-                post = session.execute(select(Post).where(Post.id == conv.post_id)).scalar_one_or_none()
-                item = _conversation_to_dict(conv, other_user, post)
-                item["unread_count"] = int(
-                    session.scalar(
-                        select(func.count()).select_from(Message).where(
-                            Message.conversation_id == conv.id,
-                            Message.sender_id != uid,
-                            Message.read_at.is_(None),
-                        )
-                    )
-                    or 0
-                )
-                convs.append(item)
+                convs.append(_conversation_detail(session, conv, uid))
 
             return json.dumps(
                 {
@@ -115,7 +170,15 @@ def get_conversations(user_id: str, page: int = 1, page_size: int = 20) -> str:
 
 
 @tool
-def get_messages(user_id: str, conversation_id: str, page: int = 1, page_size: int = 50) -> str:
+def get_messages(
+    user_id: str,
+    conversation_id: str,
+    page: int = 1,
+    page_size: int = 50,
+    latest: bool = False,
+    before_id: str = "",
+    after_id: str = "",
+) -> str:
     """获取聊天消息。user_id 为当前用户ID，conversation_id 为会话ID。"""
     ctx = request_context.get() or new_context(method="get_messages")
     try:
@@ -134,23 +197,38 @@ def get_messages(user_id: str, conversation_id: str, page: int = 1, page_size: i
             total = session.scalar(
                 select(func.count()).select_from(Message).where(Message.conversation_id == cid)
             ) or 0
+            query = select(Message).where(Message.conversation_id == cid)
+            if after_id:
+                cursor = int(after_id)
+                results = session.execute(
+                    query.where(Message.id > cursor)
+                    .order_by(Message.id)
+                    .limit(page_size)
+                ).scalars().all()
+            elif before_id:
+                cursor = int(before_id)
+                results = session.execute(
+                    query.where(Message.id < cursor)
+                    .order_by(desc(Message.id))
+                    .limit(page_size)
+                ).scalars().all()
+                results.reverse()
+            elif latest:
+                results = session.execute(
+                    query.order_by(desc(Message.id)).limit(page_size)
+                ).scalars().all()
+                results.reverse()
+            else:
+                results = session.execute(
+                    query.order_by(Message.created_at, Message.id)
+                    .offset((page - 1) * page_size)
+                    .limit(page_size)
+                ).scalars().all()
+
             now = datetime.datetime.now(datetime.timezone.utc)
-            unread = session.execute(
-                select(Message).where(
-                    Message.conversation_id == cid,
-                    Message.sender_id != uid,
-                    Message.read_at.is_(None),
-                )
-            ).scalars().all()
-            for message in unread:
-                message.read_at = now
-            results = session.execute(
-                select(Message)
-                .where(Message.conversation_id == cid)
-                .order_by(Message.created_at, Message.id)
-                .offset((page - 1) * page_size)
-                .limit(page_size)
-            ).scalars().all()
+            for message in results:
+                if message.sender_id != uid and message.read_at is None:
+                    message.read_at = now
             session.commit()
 
             messages = [_message_to_dict(m, m.sender_id == uid) for m in results]

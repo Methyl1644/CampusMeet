@@ -394,18 +394,9 @@ def login_user(
             return json.dumps({"success": False, "message": "请输入密码"}, ensure_ascii=False)
         session = get_session()
         try:
-            result = session.execute(
-                select(User).where((User.email == account) | (User.phone == account))
-            )
-            user = result.scalar_one_or_none()
-            if not user:
-                return json.dumps({"success": False, "message": "账号不存在"}, ensure_ascii=False)
-            if user.account_status != "active":
-                return json.dumps({"success": False, "message": "账号当前不可登录"}, ensure_ascii=False)
-
             abuse = check_and_record(
                 session,
-                user_id=user.id,
+                user_id=None,
                 event_type="login",
                 target_id="account",
                 content=account,
@@ -421,6 +412,15 @@ def login_user(
                     },
                     ensure_ascii=False,
                 )
+            result = session.execute(
+                select(User).where((User.email == account) | (User.phone == account))
+            )
+            user = result.scalar_one_or_none()
+            if not user:
+                session.commit()
+                return json.dumps({"success": False, "message": "账号或密码错误"}, ensure_ascii=False)
+            if user.account_status != "active":
+                return json.dumps({"success": False, "message": "账号当前不可登录"}, ensure_ascii=False)
 
             now = datetime.datetime.now(datetime.timezone.utc)
             locked_until = user.locked_until
@@ -437,7 +437,7 @@ def login_user(
                     user.failed_login_attempts = 0
                     user.locked_until = now + datetime.timedelta(minutes=PASSWORD_LOCK_MINUTES)
                 session.commit()
-                return json.dumps({"success": False, "message": "密码错误"}, ensure_ascii=False)
+                return json.dumps({"success": False, "message": "账号或密码错误"}, ensure_ascii=False)
             user.failed_login_attempts = 0
             user.locked_until = None
             promote_allowlisted_legacy_user(session, user)

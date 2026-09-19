@@ -6,13 +6,18 @@ import json
 import secrets
 import logging
 
+from utils.runtime import UNSAFE_JWT_SECRETS
+
 logger = logging.getLogger(__name__)
 
 # JWT 简易实现（不依赖外部 JWT 库的复杂配置）
 # 使用 HMAC-SHA256 签名
 
 def _get_jwt_secret() -> str:
-    return os.getenv("JWT_SECRET", "campusmate_default_secret_2026")
+    secret = os.getenv("JWT_SECRET", "").strip()
+    if secret in UNSAFE_JWT_SECRETS or len(secret) < 32:
+        raise RuntimeError("JWT_SECRET must be configured with at least 32 random characters")
+    return secret
 
 
 def _b64encode(data: bytes) -> str:
@@ -46,7 +51,7 @@ def verify_password(password: str, stored_hash: str) -> bool:
         if algorithm != "pbkdf2_sha256":
             return False
         dk = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt.encode("utf-8"), int(iterations))
-        return dk.hex() == hash_val
+        return secrets.compare_digest(dk.hex(), hash_val)
     except Exception as e:
         logger.error(f"Password verification error: {e}")
         return False

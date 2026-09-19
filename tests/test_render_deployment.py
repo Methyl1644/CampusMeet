@@ -194,6 +194,34 @@ def test_resend_failure_does_not_fall_back_to_returning_the_code(monkeypatch):
     assert "654321" not in json.dumps(result, ensure_ascii=False)
 
 
+def test_missing_mail_provider_fails_closed_without_explicit_test_mode(monkeypatch):
+    for key in (
+        "BREVO_API_KEY", "BREVO_FROM_EMAIL", "RESEND_API_KEY", "RESEND_FROM_EMAIL",
+        "SMTP_HOST", "SMTP_USER", "SMTP_PASSWORD", "SMTP_SENDER", "AUTH_TEST_MODE",
+    ):
+        monkeypatch.delenv(key, raising=False)
+
+    result = send_verification_email("student@smail.nju.edu.cn", "654321", "注册")
+
+    assert result["sent"] is False
+    assert "code" not in result
+    assert "654321" not in json.dumps(result, ensure_ascii=False)
+
+
+def test_missing_mail_provider_returns_code_only_in_explicit_test_mode(monkeypatch):
+    for key in (
+        "BREVO_API_KEY", "BREVO_FROM_EMAIL", "RESEND_API_KEY", "RESEND_FROM_EMAIL",
+        "SMTP_HOST", "SMTP_USER", "SMTP_PASSWORD", "SMTP_SENDER",
+    ):
+        monkeypatch.delenv(key, raising=False)
+    monkeypatch.setenv("AUTH_TEST_MODE", "true")
+
+    result = send_verification_email("student@smail.nju.edu.cn", "654321", "注册")
+
+    assert result["sent"] is True
+    assert result["code"] == "654321"
+
+
 def test_render_blueprint_defines_public_api_and_static_frontend():
     blueprint = (REPOSITORY_ROOT / "render.yaml").read_text(encoding="utf-8")
 
@@ -212,6 +240,16 @@ def test_render_blueprint_defines_public_api_and_static_frontend():
     assert "staticPublishPath: apps/web/dist" in blueprint
     assert "source: /*" in blueprint
     assert "destination: /index.html" in blueprint
+
+
+def test_render_static_site_sets_security_and_immutable_asset_headers():
+    blueprint = (REPOSITORY_ROOT / "render.yaml").read_text(encoding="utf-8")
+
+    assert "name: X-Frame-Options" in blueprint
+    assert "name: Content-Security-Policy" in blueprint
+    assert "name: Referrer-Policy" in blueprint
+    assert "path: /assets/*" in blueprint
+    assert "public, max-age=31536000, immutable" in blueprint
 
 
 def test_render_blueprint_keeps_external_credentials_out_of_git():

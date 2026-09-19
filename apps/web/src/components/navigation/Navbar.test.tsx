@@ -153,7 +153,7 @@ describe('responsive application navigation', () => {
     const items = within(menu).getAllByRole('menuitem')
     expect(items.map((item) => item.textContent)).toEqual([
       '我的活动',
-      '我的小组',
+      '我的组队与发布',
       '查看个人主页',
       '我的授权',
       '设置',
@@ -176,7 +176,7 @@ describe('responsive application navigation', () => {
     fireEvent.keyDown(trigger, { key: 'ArrowDown' })
 
     const firstItem = await screen.findByRole('menuitem', { name: '我的活动' })
-    const secondItem = screen.getByRole('menuitem', { name: '我的小组' })
+    const secondItem = screen.getByRole('menuitem', { name: '我的组队与发布' })
     await waitFor(() => expect(document.activeElement).toBe(firstItem))
 
     fireEvent.keyDown(firstItem, { key: 'ArrowDown' })
@@ -322,7 +322,7 @@ describe('responsive application navigation', () => {
       '通知',
       '教程',
       '我的活动',
-      '我的小组',
+      '我的组队与发布',
       '查看个人主页',
       '我的授权',
       '设置',

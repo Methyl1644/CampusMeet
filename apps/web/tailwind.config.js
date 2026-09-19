@@ -35,8 +35,8 @@ export default {
         stone: '#DDD7DF',
       },
       fontFamily: {
-        sans: ['"Noto Sans SC"', '"Microsoft YaHei"', 'sans-serif'],
-        serif: ['"Noto Serif SC"', 'SimSun', 'serif'],
+        sans: ['system-ui', '-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', '"PingFang SC"', '"Microsoft YaHei"', 'sans-serif'],
+        serif: ['"Songti SC"', 'STSong', 'SimSun', 'serif'],
       },
       borderRadius: {
         card: '8px',

@@ -32,6 +32,13 @@ def test_backend_management_lists_expose_page_and_page_size_query_parameters():
         assert {"page", "page_size"} <= query_names, path
 
 
+def test_public_post_list_has_a_bounded_page_size():
+    parameters = app.openapi()["paths"]["/api/posts"]["get"]["parameters"]
+    page_size = next(item for item in parameters if item["name"] == "page_size")
+
+    assert page_size["schema"]["maximum"] == 40
+
+
 def test_notification_read_all_static_route_precedes_dynamic_read_route(monkeypatch):
     paths = list(app.openapi()["paths"])
 

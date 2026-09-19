@@ -127,6 +127,39 @@ def _decision(
         if count >= 5:
             return AbuseDecision("cooldown", "registration_burst", 600)
 
+    if event_type == "login":
+        counts = []
+        if network_hash:
+            counts.append(
+                _count(
+                    session,
+                    event_type=event_type,
+                    network_hash=network_hash,
+                    since=now - datetime.timedelta(minutes=10),
+                )
+            )
+        if fingerprint:
+            counts.append(
+                _count(
+                    session,
+                    event_type=event_type,
+                    fingerprint=fingerprint,
+                    since=now - datetime.timedelta(minutes=10),
+                )
+            )
+        if counts and max(counts) >= 10:
+            return AbuseDecision("cooldown", "login_burst", 900)
+
+    if event_type == "agent" and user_id is not None:
+        count = _count(
+            session,
+            event_type=event_type,
+            user_id=user_id,
+            since=now - datetime.timedelta(minutes=10),
+        )
+        if count >= 20:
+            return AbuseDecision("cooldown", "agent_quota", 600)
+
     return AbuseDecision("allow")
 
 

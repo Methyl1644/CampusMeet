@@ -16,6 +16,35 @@ UNSAFE_JWT_SECRETS = {
 }
 
 
+def fastapi_documentation_urls(
+    environment: Mapping[str, str] | None = None,
+) -> dict[str, str | None]:
+    env = environment if environment is not None else os.environ
+    if env.get("APP_ENV", "").strip().lower() == "production":
+        return {"docs_url": None, "redoc_url": None, "openapi_url": None}
+    return {
+        "docs_url": "/docs",
+        "redoc_url": "/redoc",
+        "openapi_url": "/openapi.json",
+    }
+
+
+def api_security_headers(
+    environment: Mapping[str, str] | None = None,
+) -> dict[str, str]:
+    env = environment if environment is not None else os.environ
+    headers = {
+        "X-Content-Type-Options": "nosniff",
+        "X-Frame-Options": "DENY",
+        "Referrer-Policy": "no-referrer",
+        "Permissions-Policy": "camera=(), microphone=(), geolocation=(), payment=()",
+        "Content-Security-Policy": "default-src 'none'; frame-ancestors 'none'; base-uri 'none'",
+    }
+    if env.get("APP_ENV", "").strip().lower() == "production":
+        headers["Strict-Transport-Security"] = "max-age=63072000; includeSubDomains"
+    return headers
+
+
 def _configured_pair(environment: Mapping[str, str], first: str, second: str) -> bool:
     return bool(environment.get(first, "").strip() and environment.get(second, "").strip())
 

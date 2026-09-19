@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Save, ShieldAlert } from 'lucide-react'
-import { changePassword, deactivateAccount } from '@/api/auth'
+import { changePassword, deactivateAccount, requestAccountAction } from '@/api/auth'
 import { getPersonalSettings, updatePersonalProfile, updatePersonalSettings } from '@/api/personal'
 import SettingsSection from '@/components/personal/SettingsSection'
 import { useToast } from '@/components/Toast'
@@ -60,12 +60,18 @@ export default function Settings() {
       <SettingsSection title="主页隐私" description="关闭后，对应字段不会出现在其他同学看到的主页响应中。">
         <div className="divide-y divide-stone">{Object.entries(visibilityLabels).map(([key, label]) => <Toggle key={key} label={label} checked={Boolean(draft.profile_visibility[key as keyof ProfileVisibility])} onChange={(checked) => setDraft({ ...draft, profile_visibility: { ...draft.profile_visibility, [key]: checked } })} />)}</div>
       </SettingsSection>
+      <SettingsSection title="队友推荐" description="开启后，你的已公开技能、兴趣、参与目标和时间可用于组队帖的队友推荐；联系方式不会发送给推荐服务。">
+        <Toggle label="允许将我推荐给合适的组队帖" checked={draft.profile_visibility.matching === true} onChange={(checked) => setDraft({ ...draft, profile_visibility: { ...draft.profile_visibility, matching: checked } })} />
+      </SettingsSection>
       <SettingsSection title="通知偏好" description="选择希望在站内通知中心接收的提醒。">
         <div className="divide-y divide-stone">{Object.entries(preferenceLabels).map(([key, label]) => <Toggle key={key} label={label} checked={draft.notification_preferences[key as keyof NotificationPreferences]} onChange={(checked) => setDraft({ ...draft, notification_preferences: { ...draft.notification_preferences, [key]: checked } })} />)}</div>
       </SettingsSection>
       <div className="flex justify-end py-6"><button type="button" className="btn-primary" disabled={saving} onClick={save}><Save aria-hidden="true" className="size-4" />{saving ? '保存中...' : '保存设置'}</button></div>
       <SettingsSection title="修改密码" description="修改后需要使用新密码重新登录。">
         <div className="grid gap-3 sm:grid-cols-2"><input aria-label="当前密码" type="password" className="input-base" placeholder="当前密码" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} /><input aria-label="新密码" type="password" className="input-base" placeholder="至少 8 位，同时包含字母和数字" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} /><button type="button" className="btn-secondary sm:col-span-2 sm:justify-self-start" onClick={async () => { try { await changePassword(currentPassword, newPassword); logout(); window.location.href = '/login' } catch { showToast('密码修改失败，请检查当前密码和新密码', 'error') } }}>修改密码</button></div>
+      </SettingsSection>
+      <SettingsSection title="数据与账号权利" description="提交后由平台运营人员处理；重复申请不会加快处理速度。">
+        <div className="flex flex-wrap gap-3"><button type="button" className="btn-secondary" onClick={async () => { try { await requestAccountAction('data_export'); showToast('数据导出申请已提交', 'success') } catch { showToast('申请提交失败，请稍后重试', 'error') } }}>申请导出我的数据</button><button type="button" className="btn-secondary text-red-800" onClick={async () => { if (!window.confirm('确认申请永久删除账号及相关个人数据？')) return; try { await requestAccountAction('account_deletion'); showToast('账号删除申请已提交', 'success') } catch { showToast('申请提交失败，请稍后重试', 'error') } }}>申请永久删除账号</button></div>
       </SettingsSection>
       <SettingsSection title="停用账号" description="停用会立即退出当前账号，重新启用需要联系平台运营人员。" danger>
         <div className="flex flex-col gap-3 sm:flex-row"><input aria-label="停用账号当前密码" type="password" className="input-base" placeholder="输入当前密码确认" value={deactivatePassword} onChange={(e) => setDeactivatePassword(e.target.value)} /><button type="button" className="btn-secondary shrink-0 text-red-800" onClick={async () => { if (!window.confirm('确认停用账号？')) return; try { await deactivateAccount(deactivatePassword); logout(); window.location.href = '/login' } catch { showToast('账号停用失败', 'error') } }}><ShieldAlert aria-hidden="true" className="size-4" />停用账号</button></div>

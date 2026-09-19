@@ -114,6 +114,11 @@ def update_team_task(user_id: str, team_id: str, task_id: str, done: bool) -> st
             updated = False
             for task in task_list:
                 if isinstance(task, dict) and task.get("id") == task_id:
+                    if _owner_id(session, team) != uid and str(task.get("assignee_id") or "") != str(uid):
+                        return json.dumps(
+                            {"success": False, "message": "只能更新分配给自己的任务"},
+                            ensure_ascii=False,
+                        )
                     task["done"] = done
                     updated = True
                     break
@@ -412,6 +417,8 @@ def edit_team_task(
             return json.dumps({"success": False, "message": "无权操作此团队"}, ensure_ascii=False)
         if team.status != "active":
             return json.dumps({"success": False, "message": "团队已归档"}, ensure_ascii=False)
+        if _owner_id(session, team) != uid:
+            return json.dumps({"success": False, "message": "仅队长可以编辑团队任务"}, ensure_ascii=False)
         resolved_assignee = int(assignee_id) if assignee_id else None
         if resolved_assignee is not None and not _member(session, tid, resolved_assignee):
             return json.dumps({"success": False, "message": "任务负责人不是团队成员"}, ensure_ascii=False)
@@ -446,6 +453,8 @@ def reorder_team_tasks(user_id: str, team_id: str, task_ids: str) -> str:
         team = session.get(Team, tid)
         if not team or not _member(session, tid, uid):
             return json.dumps({"success": False, "message": "无权操作此团队"}, ensure_ascii=False)
+        if _owner_id(session, team) != uid:
+            return json.dumps({"success": False, "message": "仅队长可以调整任务顺序"}, ensure_ascii=False)
         requested = [item.strip() for item in task_ids.split(",") if item.strip()]
         tasks = [dict(item) for item in (team.task_list or []) if isinstance(item, dict)]
         task_map = {str(item.get("id")): item for item in tasks}

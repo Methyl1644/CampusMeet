@@ -38,6 +38,17 @@ def _factory():
                     major="软件工程",
                     grade="大三",
                     skills=["Python", "算法"],
+                    interests=["竞赛与项目"],
+                    looking_for=["竞赛队友"],
+                    availability={"weekend_daytime": True, "weekly_hours": "每周 4-6 小时"},
+                    profile_visibility={
+                        "major": False,
+                        "grade": True,
+                        "interests": True,
+                        "skills": True,
+                        "availability": True,
+                        "matching": True,
+                    },
                 ),
                 User(
                     id=3,
@@ -68,7 +79,6 @@ def _factory():
         session.add_all(
             [
                 TeamMember(team_id=1, user_id=1, member_role="owner", suggested_role="队长"),
-                TeamMember(team_id=1, user_id=2, member_role="member", suggested_role="开发"),
             ]
         )
         session.commit()
@@ -96,13 +106,68 @@ def test_deployed_match_receives_only_controlled_candidates_and_validates_output
     monkeypatch.setattr(ai_tools, "_try_coze_deployed_api", fake_call)
     result = json.loads(ai_tools.ai_match_teammates.invoke({"post_id": "1"}))
 
-    assert result["matches"] == [{"user_id": "2", "score": 100, "reason": "技能匹配"}]
+    assert len(result["matches"]) == 1
+    assert result["matches"][0]["user_id"] == "2"
+    assert result["matches"][0]["score"] == 100
+    assert result["matches"][0]["reason"] == "技能匹配"
+    assert result["matches"][0]["nickname"] == "candidate"
     assert captured["key"] == "COZE_MATCH_API_URL"
     serialized = json.dumps(captured["parameters"], ensure_ascii=False)
     assert "candidate@nju.edu.cn" not in serialized
     assert "candidate-secret" not in serialized
     assert "13900139000" not in serialized
     assert '"user_id": "3"' not in serialized
+    candidate = captured["parameters"]["candidates"][0]
+    assert "major" not in candidate
+    assert "grade" not in candidate
+    assert candidate["skills"] == ["Python", "算法"]
+    assert candidate["interests"] == ["竞赛与项目"]
+    assert candidate["availability"]["weekly_hours"] == "每周 4-6 小时"
+
+
+def test_match_excludes_existing_team_members(monkeypatch):
+    factory = _factory()
+    monkeypatch.setattr(ai_tools, "get_session", factory)
+    with factory() as session:
+        session.add(TeamMember(team_id=1, user_id=2, member_role="member"))
+        session.commit()
+
+    result = json.loads(ai_tools.ai_match_teammates.invoke({"post_id": "1"}))
+
+    assert result["success"] is True
+    assert result["matches"] == []
+
+
+def test_match_excludes_inactive_accounts(monkeypatch):
+    factory = _factory()
+    monkeypatch.setattr(ai_tools, "get_session", factory)
+    with factory() as session:
+        candidate = session.get(User, 2)
+        candidate.account_status = "deactivated"
+        session.commit()
+
+    result = json.loads(ai_tools.ai_match_teammates.invoke({"post_id": "1"}))
+
+    assert result["success"] is True
+    assert result["matches"] == []
+
+
+def test_match_excludes_users_who_did_not_opt_in(monkeypatch):
+    factory = _factory()
+    monkeypatch.setattr(ai_tools, "get_session", factory)
+    with factory() as session:
+        candidate = session.get(User, 2)
+        candidate.profile_visibility = {
+            **candidate.profile_visibility,
+            "matching": False,
+        }
+        session.commit()
+
+    result = json.loads(ai_tools.ai_match_teammates.invoke({"post_id": "1"}))
+
+    assert result["success"] is True
+    assert result["matches"] == []
+    assert "暂无" in result["message"]
 
 
 def test_deployed_team_plan_is_validated_and_persisted(monkeypatch):
@@ -216,4 +281,5 @@ def test_malformed_match_output_uses_deterministic_candidate_fallback(monkeypatc
     assert result["success"] is True
     assert result["matches"]
     assert result["matches"][0]["user_id"] == "2"
-    assert 0 <= result["matches"][0]["score"] <= 100
+    assert result["matches"][0]["score"] <= 40
+    assert "信息不足" in result["matches"][0]["reason"]

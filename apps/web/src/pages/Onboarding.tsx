@@ -68,6 +68,7 @@ const DEFAULT_VISIBILITY: ProfileVisibility = {
   skills: true,
   availability: false,
   contact: false,
+  matching: false,
 }
 
 const STEP_META = [
@@ -583,6 +584,18 @@ function OnboardingFlow() {
                 ))}
               </div>
             </fieldset>
+            <label className="mt-5 flex items-start gap-2.5 text-sm leading-6 text-ink">
+              <input
+                type="checkbox"
+                checked={draft.profile_visibility.matching === true}
+                onChange={(event) => setDraft({
+                  ...draft,
+                  profile_visibility: { ...draft.profile_visibility, matching: event.target.checked },
+                })}
+                className="mt-1 size-4 accent-primary-600"
+              />
+              允许根据我已公开的技能、兴趣、目标和时间推荐合适组队
+            </label>
           </div>
 
           <section className="rounded-card border border-stone bg-paper p-4 shadow-panel" aria-label="公开资料预览">

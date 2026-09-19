@@ -792,6 +792,12 @@ def test_match_falls_back_to_database_and_llm_without_coze_configuration(
                 major="英语",
                 grade="大三",
                 skills=["英文写作"],
+                profile_visibility={
+                    "major": True,
+                    "grade": True,
+                    "skills": True,
+                    "matching": True,
+                },
                 auth_status="campus_verified",
             ),
         ]
@@ -812,10 +818,12 @@ def test_match_falls_back_to_database_and_llm_without_coze_configuration(
 
     result = json.loads(ai_tools.ai_match_teammates.invoke({"post_id": "1"}))
 
-    assert result == {
-        "success": True,
-        "matches": [{"user_id": "2", "score": 92, "reason": "英文写作能力匹配"}],
-    }
+    assert result["success"] is True
+    assert len(result["matches"]) == 1
+    assert result["matches"][0]["user_id"] == "2"
+    assert result["matches"][0]["score"] == 92
+    assert result["matches"][0]["reason"] == "英文写作能力匹配"
+    assert result["matches"][0]["nickname"] == "小李"
 
 
 def test_team_plan_falls_back_to_database_and_persists_plan_without_coze_configuration(

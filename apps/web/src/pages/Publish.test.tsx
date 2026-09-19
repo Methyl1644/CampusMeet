@@ -78,6 +78,23 @@ describe('conversational publishing', () => {
     expect(vi.mocked(createPost).mock.calls[0][0].client_request_id).toBe(vi.mocked(createPost).mock.calls[1][0].client_request_id)
     expect(sessionStorage.length).toBe(0)
   })
+  it('explains a long publish and protects the in-flight submission from accidental unload', async () => {
+    let resolve!: (value: { id: string }) => void
+    vi.mocked(postDraft).mockResolvedValue(completeResponse)
+    vi.mocked(createPost).mockReturnValue(new Promise((done) => { resolve = done }) as never)
+    await open(); await send()
+    fireEvent.click(await screen.findByRole('button', { name: '确认发布' }))
+
+    expect(await screen.findByText('正在校验并保存内容')).toBeTruthy()
+    expect(screen.getByText(/内容已保留/)).toBeTruthy()
+    expect((screen.getByRole('button', { name: '正在安全提交' }) as HTMLButtonElement).disabled).toBe(true)
+    const unload = new Event('beforeunload', { cancelable: true })
+    window.dispatchEvent(unload)
+    expect(unload.defaultPrevented).toBe(true)
+
+    await act(async () => resolve({ id: '44' }))
+    expect(await screen.findByText('发布成功，等伙伴来相遇')).toBeTruthy()
+  })
   it('supports discussion without requiring hidden recruitment fields', async () => {
     vi.mocked(createPost).mockResolvedValue({ id: '43' } as never)
     await open(); fireEvent.click(screen.getByRole('button', { name: '经验交流' }))

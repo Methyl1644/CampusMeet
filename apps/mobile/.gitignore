@@ -1,0 +1,7 @@
+.gradle/
+.mobile-tools/
+.signing/
+app/build/
+build/
+local.properties
+output/

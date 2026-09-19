@@ -19,6 +19,8 @@ services:
         value: "86400"
       - key: ABUSE_HASH_SECRET
         generateValue: true
+      - key: TRUST_PROXY_HEADERS
+        value: "true"
       - key: AUTH_TEST_MODE
         value: "false"
       - key: AUTH_ACCESS_MODE
@@ -31,6 +33,14 @@ services:
         sync: false
       - key: STAFF_EMAILS
         sync: false
+      - key: REVIEW_DEMO_ENABLED
+        sync: false
+      - key: REVIEW_DEMO_EMAIL
+        sync: false
+      - key: REVIEW_DEMO_EXPIRES_AT
+        sync: false
+      - key: REVIEW_DEMO_SESSION_TTL_SECONDS
+        value: "7200"
       - key: FRONTEND_ORIGINS
         sync: false
       - key: DB_POOL_SIZE
@@ -82,6 +92,25 @@ services:
     buildCommand: npm --prefix apps/web ci && npm --prefix apps/web run build
     staticPublishPath: apps/web/dist
     autoDeployTrigger: commit
+    headers:
+      - path: /*
+        name: X-Content-Type-Options
+        value: nosniff
+      - path: /*
+        name: X-Frame-Options
+        value: DENY
+      - path: /*
+        name: Referrer-Policy
+        value: strict-origin-when-cross-origin
+      - path: /*
+        name: Permissions-Policy
+        value: camera=(), microphone=(), geolocation=(), payment=()
+      - path: /*
+        name: Content-Security-Policy
+        value: "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; connect-src 'self' https:; font-src 'self' data:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'"
+      - path: /assets/*
+        name: Cache-Control
+        value: public, max-age=31536000, immutable
     routes:
       - type: rewrite
         source: /*

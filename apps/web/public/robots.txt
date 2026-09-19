@@ -1,0 +1,7 @@
+User-agent: *
+Allow: /
+Disallow: /management
+Disallow: /settings
+Disallow: /authorizations
+
+Sitemap: https://campusmate-web.onrender.com/sitemap.xml

@@ -1,8 +1,43 @@
 from __future__ import annotations
 
+import json
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+
+
+MAX_AGENT_STRUCTURE_BYTES = 32_768
+MAX_AGENT_STRUCTURE_DEPTH = 6
+MAX_AGENT_COLLECTION_ITEMS = 100
+MAX_AGENT_VALUE_LENGTH = 8_000
+
+
+def _validate_structure(value: Any, *, depth: int = 0) -> Any:
+    if depth > MAX_AGENT_STRUCTURE_DEPTH:
+        raise ValueError("structured context is too deeply nested")
+    if isinstance(value, dict):
+        if len(value) > MAX_AGENT_COLLECTION_ITEMS:
+            raise ValueError("structured context contains too many fields")
+        for key, item in value.items():
+            if len(str(key)) > 120:
+                raise ValueError("structured context contains an oversized field name")
+            _validate_structure(item, depth=depth + 1)
+    elif isinstance(value, list):
+        if len(value) > MAX_AGENT_COLLECTION_ITEMS:
+            raise ValueError("structured context contains too many items")
+        for item in value:
+            _validate_structure(item, depth=depth + 1)
+    elif isinstance(value, str) and len(value) > MAX_AGENT_VALUE_LENGTH:
+        raise ValueError("structured context contains an oversized value")
+    return value
+
+
+def _validate_agent_context(value: Any) -> Any:
+    _validate_structure(value)
+    encoded = json.dumps(value, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+    if len(encoded) > MAX_AGENT_STRUCTURE_BYTES:
+        raise ValueError("structured context is too large")
+    return value
 
 
 class PostDraftAgentRequest(BaseModel):
@@ -16,6 +51,22 @@ class PostDraftAgentRequest(BaseModel):
     workflow_field_states: dict[str, Any] = Field(default_factory=dict)
     purpose: Literal["team_recruitment", "official_signup", "discussion"] | None = None
     publish_context_revision: str | None = Field(default=None, max_length=64)
+
+    @field_validator("draft", "field_states", "workflow_draft", "workflow_field_states")
+    @classmethod
+    def validate_structured_context(cls, value: Any) -> Any:
+        return _validate_agent_context(value)
+
+    @field_validator("user_skills")
+    @classmethod
+    def validate_user_skills(cls, value: list[str] | str) -> list[str] | str:
+        if isinstance(value, str):
+            if len(value) > 4_000:
+                raise ValueError("user skill context is too large")
+            return value
+        if len(value) > 40 or any(len(item) > 120 for item in value):
+            raise ValueError("user skill context is too large")
+        return value
 
 
 class ClassifyReviewRequest(BaseModel):

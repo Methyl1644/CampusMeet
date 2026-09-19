@@ -187,13 +187,18 @@ def send_verification_email(to_email: str, code: str, purpose: str = "注册") -
 
     config = _get_smtp_config()
     if not config:
-        # SMTP 未配置，降级返回验证码
-        logger.info("SMTP not configured, returning code directly for testing")
-        return {
-            "sent": True,
-            "message": f"验证码已发送至 {to_email}（SMTP未配置，测试模式直接返回）",
-            "code": code,
+        test_mode = os.getenv("AUTH_TEST_MODE", "").strip().lower() in {
+            "1", "true", "yes", "on",
         }
+        if test_mode:
+            logger.info("Email delivery not configured; returning code in explicit test mode")
+            return {
+                "sent": True,
+                "message": f"验证码已生成（测试模式）",
+                "code": code,
+            }
+        logger.error("Verification email delivery is not configured")
+        return {"sent": False, "message": "验证码邮件服务暂不可用，请稍后重试"}
 
     msg = MIMEMultipart("alternative")
     msg["Subject"] = subject
@@ -220,7 +225,7 @@ def send_verification_email(to_email: str, code: str, purpose: str = "注册") -
     except Exception as e:
         logger.error(f"Send email failed: {e}")
         record_metric("email.delivery", provider="smtp", result="failure")
-        if os.getenv("AUTH_TEST_MODE", "true").strip().lower() not in {
+        if os.getenv("AUTH_TEST_MODE", "").strip().lower() not in {
             "1",
             "true",
             "yes",

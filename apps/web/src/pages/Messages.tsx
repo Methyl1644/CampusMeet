@@ -1,12 +1,20 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { motion, useReducedMotion } from 'motion/react'
 import { ArrowLeft, Handshake, Lock, Send, XCircle } from 'lucide-react'
-import { closeConversation, confirmTeam, getConversations, getMessages, sendMessage } from '@/api/messages'
+import { closeConversation, confirmTeam, getConversation, getConversations, getMessages, sendMessage } from '@/api/messages'
 import type { Conversation, Message } from '@shared/types'
 import Loading from '@/components/Loading'
 import EmptyState from '@/components/EmptyState'
 import { useToast } from '@/components/Toast'
-import { useNavigate, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
+
+const messagePageSize = 30
+
+function mergeMessages(current: Message[], incoming: Message[]) {
+  const byId = new Map(current.map((message) => [message.id, message]))
+  for (const message of incoming) byId.set(message.id, message)
+  return [...byId.values()].sort((left, right) => Number(left.id) - Number(right.id))
+}
 
 export default function Messages() {
   const { conversationId } = useParams()
@@ -21,8 +29,15 @@ export default function Messages() {
   const [loading, setLoading] = useState(true)
   const [sending, setSending] = useState(false)
   const [mobileChatOpen, setMobileChatOpen] = useState(false)
+  const [hasOlder, setHasOlder] = useState(false)
+  const [loadingOlder, setLoadingOlder] = useState(false)
+  const [teamId, setTeamId] = useState<string | null>(null)
 
   const scrollRef = useRef<HTMLDivElement>(null)
+  const messagesRef = useRef<Message[]>([])
+  const stickToBottomRef = useRef(true)
+  const historyScrollRef = useRef<{ height: number; top: number } | null>(null)
+  const activeConversationId = activeConv?.id
 
   useEffect(() => {
     const fetchConversations = async () => {
@@ -47,23 +62,73 @@ export default function Messages() {
   }, [conversationId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    if (!activeConv) return
+    if (!activeConversationId) return
+    let cancelled = false
+    const currentConversationId = activeConversationId
     const fetchMessages = async () => {
       try {
-        const data = await getMessages(activeConv.id)
-        setMessages(data)
+        const page = await getMessages(currentConversationId, { latest: true, page_size: messagePageSize })
+        if (cancelled) return
+        messagesRef.current = page.list
+        setMessages(page.list)
+        setHasOlder(page.total > page.list.length)
       } catch {
-        showToast('加载消息失败', 'error')
+        if (!cancelled) showToast('加载消息失败', 'error')
       }
     }
-    fetchMessages()
-  }, [activeConv]) // eslint-disable-line react-hooks/exhaustive-deps
+    messagesRef.current = []
+    stickToBottomRef.current = true
+    historyScrollRef.current = null
+    setMessages([])
+    setTeamId(activeConv?.team_id ?? null)
+    void fetchMessages()
 
-  useEffect(() => {
-    scrollRef.current?.scrollTo({
-      top: scrollRef.current.scrollHeight,
-      behavior: shouldReduceMotion ? 'auto' : 'smooth',
-    })
+    const interval = window.setInterval(async () => {
+      if (document.visibilityState === 'hidden') return
+      const lastMessage = messagesRef.current[messagesRef.current.length - 1]
+      try {
+        const page = await getMessages(currentConversationId, lastMessage ? {
+            after_id: lastMessage.id,
+            page_size: messagePageSize,
+          } : { latest: true, page_size: messagePageSize })
+        if (!cancelled && page.list.length > 0) {
+          const merged = mergeMessages(messagesRef.current, page.list)
+          messagesRef.current = merged
+          setMessages(merged)
+        }
+        const refreshedActive = await getConversation(currentConversationId)
+        if (cancelled) return
+        setConversations((current) => current.map((item) => (
+          item.id === currentConversationId ? refreshedActive : item
+        )))
+        setActiveConv(refreshedActive)
+        setTeamId(refreshedActive.team_id ?? null)
+      } catch {
+        // The next interval retries; avoid repeated interruption to the conversation.
+      }
+    }, 5000)
+
+    return () => {
+      cancelled = true
+      window.clearInterval(interval)
+    }
+  }, [activeConversationId]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  useLayoutEffect(() => {
+    const container = scrollRef.current
+    if (!container) return
+    const historyScroll = historyScrollRef.current
+    if (historyScroll) {
+      container.scrollTop = historyScroll.top + container.scrollHeight - historyScroll.height
+      historyScrollRef.current = null
+      return
+    }
+    if (stickToBottomRef.current) {
+      container.scrollTo?.({
+        top: container.scrollHeight,
+        behavior: shouldReduceMotion ? 'auto' : 'smooth',
+      })
+    }
   }, [messages, shouldReduceMotion])
 
   const handleSend = async () => {
@@ -73,7 +138,9 @@ export default function Messages() {
     setInput('')
     try {
       const msg = await sendMessage(activeConv.id, content)
-      setMessages((prev) => [...prev, msg])
+      const merged = mergeMessages(messagesRef.current, [msg])
+      messagesRef.current = merged
+      setMessages(merged)
     } catch {
       showToast('发送失败', 'error')
       setInput(content)
@@ -85,9 +152,29 @@ export default function Messages() {
   const handleConfirmTeam = async () => {
     if (!activeConv) return
     try {
-      await confirmTeam(activeConv.id)
-      showToast('已确认组队意愿', 'success')
-      setActiveConv((prev) => prev ? { ...prev, status: 'team_confirmed' } : null)
+      const result = await confirmTeam(activeConv.id)
+      if (result.contact_unlocked && result.team_id) {
+        setTeamId(result.team_id)
+        setActiveConv((prev) => prev ? {
+          ...prev, status: 'team_confirmed', contact_unlocked: true,
+          my_confirmed: true, team_id: result.team_id,
+        } : null)
+        showToast('双方已确认，团队空间已创建', 'success')
+      } else {
+        setActiveConv((prev) => prev ? { ...prev, my_confirmed: true } : null)
+        showToast('已确认，等待对方确认', 'success')
+      }
+      setConversations((current) => current.map((conversation) => (
+        conversation.id === activeConv.id
+          ? {
+              ...conversation,
+              status: result.contact_unlocked ? 'team_confirmed' : conversation.status,
+              contact_unlocked: Boolean(result.contact_unlocked),
+              my_confirmed: true,
+              team_id: result.team_id ?? conversation.team_id,
+            }
+          : conversation
+      )))
     } catch {
       showToast('操作失败', 'error')
     }
@@ -112,6 +199,30 @@ export default function Messages() {
     setActiveConv(conv)
     setMobileChatOpen(true)
     navigate(`/messages/${conv.id}`)
+  }
+
+  const loadOlderMessages = async () => {
+    if (!activeConv || loadingOlder || messages.length === 0) return
+    const container = scrollRef.current
+    if (container) {
+      historyScrollRef.current = { height: container.scrollHeight, top: container.scrollTop }
+      stickToBottomRef.current = false
+    }
+    setLoadingOlder(true)
+    try {
+      const page = await getMessages(activeConv.id, {
+        before_id: messages[0].id,
+        page_size: messagePageSize,
+      })
+      const merged = mergeMessages(page.list, messagesRef.current)
+      messagesRef.current = merged
+      setMessages(merged)
+      setHasOlder(merged.length < page.total && page.list.length > 0)
+    } catch {
+      showToast('加载历史消息失败', 'error')
+    } finally {
+      setLoadingOlder(false)
+    }
   }
 
   if (loading) return <Loading />
@@ -185,7 +296,7 @@ export default function Messages() {
                   <p className="mt-0.5 truncate text-xs text-ink-muted">{activeConv.post_title}</p>
                 </div>
                 <div className="flex shrink-0 gap-1.5">
-                  {activeConv.status === 'active' && (
+                  {activeConv.status === 'active' && !activeConv.my_confirmed && (
                     <button onClick={handleConfirmTeam} className="btn-secondary min-h-9 px-2.5 text-xs sm:px-3">
                       <Handshake aria-hidden="true" size={14} />
                       <span className="hidden sm:inline">愿意组队</span>
@@ -200,8 +311,22 @@ export default function Messages() {
               </div>
             </header>
 
-            <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto bg-paper-warm/45 px-3 py-4 sm:px-5">
+            <div
+              ref={scrollRef}
+              className="min-h-0 flex-1 overflow-y-auto bg-paper-warm/45 px-3 py-4 sm:px-5"
+              onScroll={(event) => {
+                const target = event.currentTarget
+                stickToBottomRef.current = target.scrollHeight - target.scrollTop - target.clientHeight < 80
+              }}
+            >
               <div className="space-y-3" aria-live="polite">
+                {hasOlder && (
+                  <div className="flex justify-center">
+                    <button type="button" className="btn-secondary min-h-8 px-3 text-xs" disabled={loadingOlder} onClick={() => void loadOlderMessages()}>
+                      {loadingOlder ? '加载中...' : '查看更早消息'}
+                    </button>
+                  </div>
+                )}
                 {messages.map((msg) => (
                   <motion.div
                     key={msg.id}
@@ -228,15 +353,18 @@ export default function Messages() {
               <div className="shrink-0 border-t border-stone p-3 text-center text-sm text-ink-muted">
                 对话已结束
               </div>
-            ) : activeConv.status === 'team_confirmed' ? (
-              <div className="shrink-0 border-t border-stone p-3">
-                <div className="flex min-h-10 items-center justify-center gap-2 bg-green-50 px-3 text-sm font-medium text-campus-green">
-                  <Lock aria-hidden="true" size={14} />
-                  组队确认中
-                </div>
-              </div>
             ) : (
               <div className="shrink-0 border-t border-stone bg-paper p-3">
+                {activeConv.status === 'team_confirmed' && teamId ? (
+                  <div className="mb-3 flex min-h-10 items-center justify-between gap-3 bg-green-50 px-3 text-sm font-medium text-campus-green">
+                    <span className="inline-flex items-center gap-2"><Lock aria-hidden="true" size={14} />双方已确认组队</span>
+                    <Link to={`/teams/${teamId}`} className="font-semibold underline underline-offset-4">进入团队空间</Link>
+                  </div>
+                ) : activeConv.my_confirmed ? (
+                  <div className="mb-3 flex min-h-10 items-center justify-center gap-2 bg-primary-50 px-3 text-sm font-medium text-primary-700">
+                    <Handshake aria-hidden="true" size={14} />已确认，等待对方确认
+                  </div>
+                ) : null}
                 <div className="flex min-w-0 gap-2">
                   <label htmlFor="message-input" className="sr-only">输入消息</label>
                   <input

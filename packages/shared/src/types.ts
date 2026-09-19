@@ -328,6 +328,7 @@ export interface ProfileVisibility {
   contact: boolean;
   activities?: boolean;
   groups?: boolean;
+  matching?: boolean;
 }
 
 /** 帖子结构 */
@@ -513,6 +514,13 @@ export interface MatchResult {
   matched_reasons?: string[];
   potential_risks?: string[];
   suggested_questions?: string[];
+  nickname?: string;
+  major?: string;
+  grade?: string;
+  interests?: string[];
+  skills?: string[];
+  availability?: OnboardingAvailability;
+  goals?: string[];
 }
 
 export interface MatchResponse {
@@ -563,6 +571,8 @@ export interface Conversation {
   unread_count: number;
   status: 'active' | 'team_confirmed' | 'closed';
   contact_unlocked: boolean;
+  my_confirmed?: boolean;
+  team_id?: string | null;
 }
 
 /** 团队 */

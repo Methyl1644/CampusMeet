@@ -1,4 +1,5 @@
 import pytest
+from pydantic import ValidationError
 
 from tools.ai_tools import _valid_post_draft_result
 from api.schemas.agent import PostDraftAgentRequest
@@ -69,3 +70,22 @@ def test_section_nine_regression_outputs_are_accepted(result, expected_missing, 
 
 def test_blank_message_reaches_workflow_degradation_path():
     assert PostDraftAgentRequest(message="").message == ""
+
+
+def test_agent_request_rejects_oversized_or_deep_structured_context():
+    with pytest.raises(ValidationError):
+        PostDraftAgentRequest(message="hello", draft={"description": "x" * 40_000})
+
+    nested = {"value": "ok"}
+    for _ in range(8):
+        nested = {"child": nested}
+    with pytest.raises(ValidationError):
+        PostDraftAgentRequest(message="hello", field_states=nested)
+
+
+def test_agent_request_bounds_user_skill_context():
+    with pytest.raises(ValidationError):
+        PostDraftAgentRequest(message="hello", user_skills=["skill"] * 41)
+
+    with pytest.raises(ValidationError):
+        PostDraftAgentRequest(message="hello", user_skills=["x" * 121])

@@ -6,7 +6,7 @@
   :root {
     color: #211D24;
     background: #F7F5F1;
-    font-family: 'Noto Sans SC', 'Microsoft YaHei', sans-serif;
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
     font-synthesis: none;
     text-rendering: optimizeLegibility;
   }

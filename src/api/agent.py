@@ -14,6 +14,7 @@ from api.schemas.agent import (
     TeamPlanRequest,
 )
 from services.content import tag_suggestions
+from services.abuse_monitoring import check_and_record
 from services.publish_context import publish_context, reconcile_draft, missing_fields, required_fields
 from services.content_moderation import ModerationContext, ModerationDecision, moderate_content
 from services.permissions import can_manage_post
@@ -175,6 +176,22 @@ def _require_verified_user(session, user_id: str) -> User:
     return user
 
 
+def _require_agent_quota(session, user_id: int, surface: str) -> None:
+    decision = check_and_record(
+        session,
+        user_id=user_id,
+        event_type="agent",
+        target_id=f"surface:{surface}",
+    )
+    session.commit()
+    if decision.action == "cooldown":
+        raise HTTPException(
+            status_code=429,
+            detail="AI 使用较为频繁，请稍后再试",
+            headers={"Retry-After": str(decision.retry_after_seconds)},
+        )
+
+
 def _require_post_owner(session, user_id: str, post_id: str) -> Post:
     user = _require_verified_user(session, user_id)
     post = session.get(Post, _positive_id(post_id, "帖子编号"))
@@ -265,20 +282,21 @@ def post_draft(body: PostDraftAgentRequest, user_id: str = Depends(current_user_
     previous_workflow_draft = _draft_object(body.get("workflow_draft"))
     workflow_field_states = body.get("workflow_field_states") if isinstance(body.get("workflow_field_states"), dict) else {}
     message = str(body.get("message") or "")
-    input_decision = moderate_content(
-        message,
-        ModerationContext(
-            surface="post_draft",
-            user_id=user_id,
-            structured_fields=previous_draft,
-        ),
-    )
-    if input_decision.action != "allow":
-        return _moderation_response(input_decision, previous_draft, field_states)
 
     session = get_session()
     try:
         actor = _require_verified_user(session, user_id)
+        _require_agent_quota(session, actor.id, "post_draft")
+        input_decision = moderate_content(
+            message,
+            ModerationContext(
+                surface="post_draft",
+                user_id=user_id,
+                structured_fields=previous_draft,
+            ),
+        )
+        if input_decision.action != "allow":
+            return _moderation_response(input_decision, previous_draft, field_states)
         kind = str(body.get("kind") or "casual_invitation")
         if kind not in {"topic_team", "casual_invitation"}:
             raise HTTPException(status_code=400, detail="帖子类型不正确")
@@ -377,7 +395,8 @@ def classify_review(body: ClassifyReviewRequest, user_id: str = Depends(current_
     description_screen = screen_content(description)
     session = get_session()
     try:
-        _require_verified_user(session, user_id)
+        actor = _require_verified_user(session, user_id)
+        _require_agent_quota(session, actor.id, "classify_review")
         candidates = _candidate_tags(session, f"{title} {description}")
     finally:
         session.close()
@@ -417,6 +436,7 @@ def match(body: MatchRequest, user_id: str = Depends(current_user_id)) -> dict[s
     session = get_session()
     try:
         _require_post_owner(session, user_id, post_id)
+        _require_agent_quota(session, _positive_id(user_id, "用户编号"), "match")
     finally:
         session.close()
     raw = invoke_tool(ai_match_teammates, {"post_id": post_id})
@@ -431,6 +451,7 @@ def team_plan(body: TeamPlanRequest, user_id: str = Depends(current_user_id)) ->
     session = get_session()
     try:
         _require_team_member(session, user_id, team_id)
+        _require_agent_quota(session, _positive_id(user_id, "用户编号"), "team_plan")
     finally:
         session.close()
     raw = invoke_tool(ai_team_plan, {"team_id": team_id})

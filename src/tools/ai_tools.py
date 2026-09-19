@@ -23,6 +23,7 @@ from storage.database.models.team import (
     normalize_team_task_list,
 )
 from services.observability import record_metric
+from services.onboarding import normalized_profile_visibility
 from tools.auth_tools import _user_brief, _user_to_dict
 from services.content import OPTIONAL_POST_FIELDS, POST_FIELDS, build_post_draft
 from services.tag_governance import sanitize_unknown_concepts
@@ -381,8 +382,12 @@ def _deterministic_matches(post: Post, candidates: list[dict[str, Any]]) -> list
     for candidate in candidates:
         skills = {str(item).strip().casefold() for item in candidate.get("skills", []) if str(item).strip()}
         overlap = len(desired.intersection(skills))
-        score = min(95, 60 + overlap * 15 + min(len(skills), 5) * 2)
-        reason = "候选人的公开技能与组队需求匹配"
+        if overlap:
+            score = min(95, 65 + overlap * 15)
+            reason = "公开技能与帖子所需角色存在直接匹配"
+        else:
+            score = 35
+            reason = "公开资料与所需角色没有直接交集，信息不足，建议先沟通确认"
         ranked.append({"user_id": str(candidate["user_id"]), "score": score, "reason": reason})
     return sorted(ranked, key=lambda item: (-item["score"], item["user_id"]))[:5]
 
@@ -805,27 +810,40 @@ def ai_match_teammates(post_id: str) -> str:
 
             users = session.execute(
                 select(User)
-                .where(User.auth_status != "unverified")
+                .where(User.auth_status.in_({"verified", "campus_verified", "organization"}))
+                .where(User.account_status == "active")
                 .where(User.id != post.author_id)
             ).scalars().all()
+            existing_member_ids = set(
+                session.scalars(
+                    select(TeamMember.user_id)
+                    .join(Team, TeamMember.team_id == Team.id)
+                    .where(Team.post_id == post.id)
+                ).all()
+            )
             candidates = [
                 user
                 for user in users
-                if not users_are_blocked(session, post.author_id, user.id)
+                if user.id not in existing_member_ids
+                and not users_are_blocked(session, post.author_id, user.id)
                 and not has_active_restriction(session, user.id, "all_interactions")
+                and normalized_profile_visibility(user.profile_visibility).get("matching", False)
             ][:20]
             if not candidates:
                 return json.dumps({"success": True, "matches": [], "message": "暂无可匹配的用户"}, ensure_ascii=False)
             needed_roles = post.needed_roles or []
             candidate_info = []
             for u in candidates:
-                candidate_info.append({
+                visibility = normalized_profile_visibility(u.profile_visibility)
+                info = {
                     "user_id": str(u.id),
                     "nickname": u.nickname,
-                    "major": u.major,
-                    "grade": u.grade,
-                    "skills": u.skills or [],
-                })
+                    "goals": u.looking_for or [],
+                }
+                for field in ("major", "interests", "skills", "availability"):
+                    if visibility.get(field, False):
+                        info[field] = getattr(u, field) or ([] if field in {"interests", "skills"} else {})
+                candidate_info.append(info)
 
             controlled_context = {
                 "post": {
@@ -845,9 +863,9 @@ def ai_match_teammates(post_id: str) -> str:
             system_prompt = """你是梧桐遇 CampusMeet AI 匹配引擎。根据帖子需求，为每个候选用户生成匹配分数(0-100)和推荐理由。
 
 匹配逻辑:
-1. 技能匹配: 用户技能是否覆盖所需角色
-2. 专业相关性: 专业是否与活动领域相关
-3. 经验推断: 年级越高经验通常越丰富
+1. 技能匹配: 用户公开技能是否覆盖所需角色
+2. 目标与时间: 用户公开的参与目标、兴趣和空闲时间是否契合
+3. 证据约束: 只能使用输入中明确提供的字段；缺少信息时必须说明“信息不足”，不得从年级推断经验
 
 你必须返回 JSON 格式:
 {
@@ -877,6 +895,12 @@ def ai_match_teammates(post_id: str) -> str:
             matches = _validated_matches(coze_result, allowed_ids)
             if not matches:
                 matches = _deterministic_matches(post, candidate_info)
+            candidate_by_id = {str(item["user_id"]): item for item in candidate_info}
+            for match in matches:
+                candidate = candidate_by_id.get(str(match.get("user_id")), {})
+                for field in ("nickname", "major", "interests", "skills", "availability", "goals"):
+                    if field in candidate:
+                        match[field] = candidate[field]
             return json.dumps({"success": True, "matches": matches}, ensure_ascii=False)
         finally:
             session.close()
