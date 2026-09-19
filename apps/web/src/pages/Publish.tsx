@@ -115,11 +115,12 @@ function PublishSession({ userId, kind, topicId, canPublishActivity }: { userId:
       }
       setTags((old) => [...new Set([...old, ...(response.suggested_tag_ids || [])])].filter((id) => !context.inherited_tags.some((tag) => tag.tag_id === id)).slice(0, Math.max(0, 8 - context.inherited_tags.length)))
       setMessages((old) => [...old, { role: 'assistant', content: response.reply, timestamp: new Date().toISOString() }])
-      setDegraded(Boolean(response.degraded))
+      const responseDegraded = Boolean(response.degraded)
+      setDegraded(responseDegraded)
       const workflowComplete = Boolean(response.workflow_draft) && response.is_complete
       const legacyComplete = !response.workflow_draft && response.is_complete && missingFields(nextDraft, nextStates, context, purpose).length === 0
       setPhase(workflowComplete || legacyComplete ? 'review' : 'conversation')
-      retryMessage.current = ''
+      if (!responseDegraded) retryMessage.current = ''
     } catch (err) {
       if (sequence !== generation.current) return
       setError(requestError(err, '暂时没有收到回复，你的内容已保留。请重试或手动完善。')); setPhase('conversation')
@@ -208,7 +209,7 @@ function PublishSession({ userId, kind, topicId, canPublishActivity }: { userId:
         {phase === 'thinking' && <WhaleWaiting />}
       </div>
       {error && <div className="publish-feedback" role="alert"><p>{error}</p><div className="flex gap-4 mt-2">{retryMessage.current && phase === 'conversation' && <button onClick={() => void send(true)}>重试回复</button>}{error.includes('规则') && <button onClick={() => { setRestorable(false); void loadContext() }}>刷新活动规则</button>}</div></div>}
-      {degraded && phase === 'conversation' && <p className="px-6 pt-3 text-sm text-gray-500">AI 暂不可用，正在使用基础整理功能。也可以直接手动完善。</p>}
+      {degraded && phase === 'conversation' && <p className="px-6 pt-3 text-sm text-gray-500">AI 服务暂时未响应，当前内容已经保留。<button className="ml-2 font-semibold text-purple-700 hover:text-purple-900" onClick={() => void send(true)}>重试 AI</button></p>}
       <PlantBorder progress={progress} />
     </div>
     <div className="text-center mt-3 min-h-6">{phase === 'conversation' && <button className="text-sm text-gray-500 hover:text-gray-900" disabled={restorable} onClick={() => setPhase('review')}>手动完善资料</button>}</div>
