@@ -85,4 +85,27 @@ describe('conversational publishing', () => {
     expect(missingFields(completeDraft, { needed_roles: { value: [], status: 'none' }, school_scope: { value: '仙林', status: 'unknown' } }, context, 'team_recruitment')).toEqual(['school_scope'])
     expect(completeness(completeDraft, { needed_roles: { value: [], status: 'none' } }, context, 'team_recruitment')).toBe(1)
   })
+  it('preserves the four-field workflow state between turns and trusts its completion flag', async () => {
+    const workflowDraft = {
+      activity: { value: '玄武湖散步', raw_text: '去玄武湖散步', confidence: 0.98 },
+      time: { value: '周末', raw_text: '周末', normalized_time: '', precision: 'fuzzy', confidence: 0.9 },
+      location: { value: '玄武湖', raw_text: '玄武湖', normalized_location: '', confidence: 0.8 },
+      people: { total_people: 4, current_people: 1, recruit_people: 3, min_people: 4, max_people: 4, raw_text: '4个人', confidence: 0.98 },
+    }
+    const workflowStates = {
+      activity: { value: '玄武湖散步', status: 'confirmed' as const },
+      time: { value: '周末', status: 'confirmed' as const },
+      location: { value: '玄武湖', status: 'pending' as const },
+      people: { value: 4, status: 'confirmed' as const },
+    }
+    vi.mocked(postDraft)
+      .mockResolvedValueOnce({ ...completeResponse, is_complete: false, reply: '请确认城市', workflow_draft: workflowDraft, workflow_field_states: workflowStates })
+      .mockResolvedValueOnce({ ...completeResponse, draft: { ...completeDraft, needed_roles: ['不限'] }, is_complete: true, workflow_draft: workflowDraft, workflow_field_states: { ...workflowStates, location: { value: '南京玄武湖', status: 'confirmed' } } })
+    await open(); await send()
+    fireEvent.change(screen.getByLabelText('描述你的想法'), { target: { value: '南京' } })
+    fireEvent.click(screen.getByRole('button', { name: '发送' }))
+    await screen.findByRole('heading', { name: '请检查和修改' })
+    expect(vi.mocked(postDraft).mock.calls[1][0].workflow_draft).toEqual(workflowDraft)
+    expect(vi.mocked(postDraft).mock.calls[1][0].workflow_field_states).toEqual(workflowStates)
+  })
 })

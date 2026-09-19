@@ -32,6 +32,16 @@ def test_post_draft_delivery_contract_matches_backend_parameters():
         "topic_id",
     }
     assert output_schema["properties"]["suggested_tag_ids"]["maxItems"] == 4
+    assert set(output_schema["properties"]["draft"]["properties"]).issuperset(
+        {"activity", "time", "location", "people"}
+    )
+    assert set(output_schema["properties"]["missing_fields"]["items"]["enum"]) == {
+        "activity",
+        "time",
+        "location",
+        "people",
+    }
+    assert input_schema["properties"]["message"]["minLength"] == 0
     statuses = output_schema["properties"]["field_states"]["additionalProperties"]["properties"]["status"]["enum"]
     assert set(statuses) == {"confirmed", "none", "unknown", "skipped", "pending"}
 

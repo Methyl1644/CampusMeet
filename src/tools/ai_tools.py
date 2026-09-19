@@ -48,6 +48,9 @@ POST_DRAFT_KEYS = {
     "deadline",
     "description",
 }
+WORKFLOW_DRAFT_KEYS = {"activity", "time", "location", "people", "kind", "topic_id", "description"}
+WORKFLOW_CORE_FIELDS = ("activity", "time", "location", "people")
+FIELD_STATUSES = {"confirmed", "none", "unknown", "skipped", "pending"}
 
 
 def _get_text_content(content) -> str:
@@ -198,7 +201,35 @@ def _valid_post_draft_result(
     ):
         return False
     draft = result["draft"]
-    if kind in POST_FIELDS:
+    is_new_contract = set(draft).issubset(WORKFLOW_DRAFT_KEYS) and (
+        bool(set(draft).intersection(WORKFLOW_CORE_FIELDS)) or result.get("degraded") is True
+    )
+    if is_new_contract:
+        structured_fields = [field for field in WORKFLOW_CORE_FIELDS if field in draft]
+        if not all(isinstance(draft[field], dict) for field in structured_fields):
+            return False
+        if any(field not in WORKFLOW_CORE_FIELDS for field in result["field_states"]):
+            return False
+        if not all(
+            isinstance(value, dict)
+            and "value" in value
+            and value.get("status") in FIELD_STATUSES
+            for value in result["field_states"].values()
+        ):
+            return False
+        missing_fields = result.get("missing_fields", [])
+        if not (
+            isinstance(missing_fields, list)
+            and len(missing_fields) == len(set(missing_fields))
+            and all(field in WORKFLOW_CORE_FIELDS for field in missing_fields)
+        ):
+            return False
+        next_field = result.get("next_field")
+        if next_field in (None, "", {}, []):
+            next_field = None
+        if next_field is not None and next_field not in WORKFLOW_CORE_FIELDS:
+            return False
+    elif kind in POST_FIELDS:
         draft_valid = bool(
             set(draft) == POST_DRAFT_KEYS
             and isinstance(draft.get("activity_name"), str)
@@ -216,14 +247,13 @@ def _valid_post_draft_result(
         if not draft_valid:
             return False
 
-    valid_statuses = {"confirmed", "none", "unknown", "skipped", "pending"}
     fields_valid = all(
         isinstance(value, dict)
         and "value" in value
-        and value.get("status") in valid_statuses
+        and value.get("status") in FIELD_STATUSES
         for value in result["field_states"].values()
     )
-    if kind in POST_FIELDS:
+    if kind in POST_FIELDS and not is_new_contract:
         fields_valid = fields_valid and set(result["field_states"]) == set(POST_FIELDS[kind])
         if fields_valid:
             required_fields = [field for field in POST_FIELDS[kind] if field != "description"]
@@ -483,8 +513,24 @@ def ai_post_draft(
     """AI 对话式发帖助手。用户输入一句话描述组队需求，AI 追问缺失信息并生成结构化草稿。message 为用户输入，draft 为当前草稿(JSON字符串)，user_skills 为用户技能(逗号分隔)。返回追问回复和结构化草稿。"""
     ctx = request_context.get() or new_context(method="ai_post_draft")
 
-    parsed_fields = json.loads(field_states) if field_states else {}
-    parsed_candidates = json.loads(candidate_tags) if candidate_tags else []
+    try:
+        parsed_fields = json.loads(field_states) if field_states else {}
+    except (TypeError, json.JSONDecodeError):
+        parsed_fields = {}
+    try:
+        parsed_candidates = json.loads(candidate_tags) if candidate_tags else []
+    except (TypeError, json.JSONDecodeError):
+        parsed_candidates = []
+    try:
+        parsed_draft = json.loads(draft) if draft else {}
+    except (TypeError, json.JSONDecodeError):
+        parsed_draft = {}
+    if not isinstance(parsed_fields, dict):
+        parsed_fields = {}
+    if not isinstance(parsed_candidates, list):
+        parsed_candidates = []
+    if not isinstance(parsed_draft, dict):
+        parsed_draft = {}
     local_result = None
     if kind in POST_FIELDS:
         local_result = build_post_draft(
@@ -493,9 +539,6 @@ def ai_post_draft(
             previous_fields=parsed_fields,
             candidates=parsed_candidates,
         )
-        if _local_draft_made_progress(kind, parsed_fields, local_result):
-            local_result["degraded"] = False
-            return json.dumps(local_result, ensure_ascii=False)
 
     model_candidates = parsed_candidates[:COZE_POST_DRAFT_CANDIDATE_LIMIT]
     coze_params = {
@@ -536,6 +579,12 @@ def ai_post_draft(
             coze_result = None
     if coze_result:
         if kind in POST_FIELDS:
+            coze_result = {**coze_result, "candidate_tags": parsed_candidates}
+        is_new_contract = set(coze_result.get("draft", {})).issubset(WORKFLOW_DRAFT_KEYS) and (
+            bool(set(coze_result.get("draft", {})).intersection(WORKFLOW_CORE_FIELDS))
+            or coze_result.get("degraded") is True
+        )
+        if kind in POST_FIELDS and not is_new_contract:
             pending_fields = [
                 field
                 for field in POST_FIELDS[kind]
@@ -544,7 +593,6 @@ def ai_post_draft(
             ]
             coze_result = {
                 **coze_result,
-                "candidate_tags": parsed_candidates,
                 "next_field": pending_fields[0] if pending_fields else None,
                 "missing_fields": pending_fields,
             }
@@ -553,9 +601,8 @@ def ai_post_draft(
         if kind:
             returned_ids = coze_result.get("suggested_tag_ids", [])
             returned_fields = coze_result.get("field_states", {})
-            valid_statuses = {"confirmed", "none", "unknown", "skipped", "pending"}
             fields_valid = isinstance(returned_fields, dict) and all(
-                isinstance(value, dict) and value.get("status") in valid_statuses
+                isinstance(value, dict) and value.get("status") in FIELD_STATUSES
                 for value in returned_fields.values()
             )
             tags_valid = isinstance(returned_ids, list) and all(str(tag_id) in allowed_ids for tag_id in returned_ids)
@@ -565,6 +612,27 @@ def ai_post_draft(
         else:
             return json.dumps(coze_result, ensure_ascii=False)
 
+    if kind and set(parsed_draft).intersection(WORKFLOW_CORE_FIELDS):
+        previous_missing = [
+            field
+            for field in WORKFLOW_CORE_FIELDS
+            if isinstance(parsed_fields.get(field), dict)
+            and parsed_fields[field].get("status") in {"pending", "unknown", "skipped"}
+        ]
+        return json.dumps(
+            {
+                "reply": "AI 暂时没有返回有效结果，已保留上一轮内容，请重试。",
+                "draft": parsed_draft,
+                "is_complete": False,
+                "field_states": parsed_fields,
+                "suggested_tag_ids": [],
+                "candidate_tags": parsed_candidates,
+                "next_field": previous_missing[0] if previous_missing else None,
+                "missing_fields": previous_missing,
+                "degraded": True,
+            },
+            ensure_ascii=False,
+        )
     if kind:
         return json.dumps(local_result, ensure_ascii=False)
 

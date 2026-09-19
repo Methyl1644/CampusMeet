@@ -33,7 +33,7 @@ def _disable_coze(monkeypatch):
         monkeypatch.delenv(key, raising=False)
 
 
-def test_post_draft_uses_local_fast_path_for_clear_message(monkeypatch):
+def test_post_draft_prefers_new_deployed_workflow_over_local_parser(monkeypatch):
     candidates = [
         {
             "tag_id": "activity_badminton",
@@ -45,16 +45,37 @@ def test_post_draft_uses_local_fast_path_for_clear_message(monkeypatch):
     _disable_coze(monkeypatch)
     monkeypatch.setenv("COZE_DEPLOY_API_TOKEN", "deploy-token")
     monkeypatch.setenv("COZE_POST_DRAFT_API_URL", "https://example.coze.site/run")
-    monkeypatch.setattr(
-        ai_tools,
-        "_try_coze_deployed_api",
-        lambda *_args, **_kwargs: pytest.fail("clear input should not call Coze"),
-    )
+    called = {}
+
+    def fake_deployed(_key, parameters):
+        called.update(parameters)
+        return {
+            "reply": "还差活动城市，玄武湖是指南京吗？",
+            "draft": {
+                "activity": {"value": "去玄武湖边走走", "raw_text": "周末去玄武湖边走走", "confidence": 0.98},
+                "time": {"value": "周末", "raw_text": "周末", "normalized_time": "", "precision": "fuzzy", "confidence": 0.9},
+                "location": {"value": "玄武湖", "raw_text": "玄武湖边", "normalized_location": "", "confidence": 0.8},
+                "people": {"total_people": 3, "current_people": 1, "recruit_people": 2, "min_people": 3, "max_people": 3, "raw_text": "找两个搭子", "confidence": 0.98},
+            },
+            "is_complete": False,
+            "field_states": {
+                "activity": {"value": "去玄武湖边走走", "status": "confirmed"},
+                "time": {"value": "周末", "status": "confirmed"},
+                "location": {"value": "玄武湖", "status": "pending"},
+                "people": {"value": 3, "status": "confirmed"},
+            },
+            "suggested_tag_ids": ["activity_badminton"],
+            "missing_fields": ["location"],
+            "next_field": "location",
+            "degraded": False,
+        }
+
+    monkeypatch.setattr(ai_tools, "_try_coze_deployed_api", fake_deployed)
 
     result = json.loads(
         ai_tools.ai_post_draft.invoke(
             {
-                "message": "找两个羽毛球搭子，周末下午，技术和性别不限",
+                "message": "周末去玄武湖边走走，找两个搭子",
                 "draft": "",
                 "user_skills": "",
                 "kind": "casual_invitation",
@@ -65,11 +86,86 @@ def test_post_draft_uses_local_fast_path_for_clear_message(monkeypatch):
         )
     )
 
-    assert result["draft"]["activity_name"] == "羽毛球"
-    assert result["draft"]["target_members"] == 3
-    assert result["draft"]["weekly_hours"] == "周末下午"
-    assert result["next_field"] == "school_scope"
+    assert called["message"] == "周末去玄武湖边走走，找两个搭子"
+    assert result["draft"]["activity"]["value"] == "去玄武湖边走走"
+    assert result["draft"]["people"]["recruit_people"] == 2
+    assert result["next_field"] == "location"
+    assert result["missing_fields"] == ["location"]
+    assert result["candidate_tags"] == candidates
     assert result["degraded"] is False
+
+
+def test_post_draft_preserves_previous_workflow_state_when_deployed_call_degrades(monkeypatch):
+    previous_draft = {
+        "activity": {"value": "数学建模", "raw_text": "数学建模", "confidence": 0.99},
+        "time": {"value": "周日下午", "raw_text": "周日下午", "normalized_time": "", "precision": "fuzzy", "confidence": 0.9},
+        "location": {"value": "仙林校区", "raw_text": "仙林校区", "normalized_location": "南京大学仙林校区", "confidence": 0.95},
+        "people": {"total_people": 3, "current_people": 1, "recruit_people": 2, "min_people": 3, "max_people": 3, "raw_text": "再找2人", "confidence": 0.98},
+    }
+    previous_states = {
+        "activity": {"value": "数学建模", "status": "confirmed"},
+        "time": {"value": "周日下午", "status": "confirmed"},
+        "location": {"value": "仙林校区", "status": "confirmed"},
+        "people": {"value": 3, "status": "confirmed"},
+    }
+    _disable_coze(monkeypatch)
+    monkeypatch.setenv("COZE_DEPLOY_API_TOKEN", "deploy-token")
+    monkeypatch.setenv("COZE_POST_DRAFT_API_URL", "https://example.coze.site/run")
+    monkeypatch.setattr(ai_tools, "_try_coze_deployed_api", lambda *_args, **_kwargs: None)
+
+    result = json.loads(
+        ai_tools.ai_post_draft.invoke(
+            {
+                "message": "改成周六下午",
+                "draft": json.dumps(previous_draft, ensure_ascii=False),
+                "user_skills": "",
+                "kind": "topic_team",
+                "field_states": json.dumps(previous_states, ensure_ascii=False),
+                "candidate_tags": "[]",
+                "topic_id": "12",
+            }
+        )
+    )
+
+    assert result["degraded"] is True
+    assert result["draft"] == previous_draft
+    assert result["field_states"] == previous_states
+    assert result["is_complete"] is False
+
+
+def test_post_draft_accepts_blank_input_degradation_contract(monkeypatch):
+    _disable_coze(monkeypatch)
+    monkeypatch.setenv("COZE_DEPLOY_API_TOKEN", "deploy-token")
+    monkeypatch.setenv("COZE_POST_DRAFT_API_URL", "https://example.coze.site/run")
+    monkeypatch.setattr(
+        ai_tools,
+        "_try_coze_deployed_api",
+        lambda *_args, **_kwargs: {
+            "reply": "请输入组队需求",
+            "draft": {},
+            "is_complete": True,
+            "field_states": {},
+            "suggested_tag_ids": [],
+            "missing_fields": [],
+            "next_field": "",
+            "degraded": True,
+        },
+    )
+
+    result = json.loads(
+        ai_tools.ai_post_draft.invoke(
+            {
+                "message": "",
+                "draft": "",
+                "kind": "casual_invitation",
+                "field_states": "{}",
+                "candidate_tags": "[]",
+            }
+        )
+    )
+
+    assert result["draft"] == {}
+    assert result["degraded"] is True
 
 
 def test_post_draft_sends_only_top_candidates_to_coze_but_returns_full_catalog(monkeypatch):

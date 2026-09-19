@@ -10,7 +10,7 @@ import { PublishReview } from '@/components/publish/PublishReview'
 import { completeness, emptyDraft, missingFields, normalizeDraft, purposeLabels, requestError } from '@/features/publish/publishState'
 import type { FieldStates, PublishContext, PublishPhase } from '@/features/publish/publishState'
 import { useAuthStore } from '@/store/authStore'
-import type { ChatMessage, PostDraft, PostDraftRequest, PostPurpose, StandardTag } from '@shared/types'
+import type { ChatMessage, PostDraft, PostDraftRequest, PostPurpose, StandardTag, WorkflowFieldStates, WorkflowPostDraft } from '@shared/types'
 
 export default function Publish() {
   const [params] = useSearchParams()
@@ -29,6 +29,8 @@ function PublishSession({ userId, kind, topicId, canPublishActivity }: { userId:
   const [phase, setPhase] = useState<PublishPhase>('conversation')
   const [draft, setDraft] = useState<PostDraft>({ ...emptyDraft })
   const [states, setStates] = useState<FieldStates>({})
+  const [workflowDraft, setWorkflowDraft] = useState<WorkflowPostDraft>({})
+  const [workflowStates, setWorkflowStates] = useState<WorkflowFieldStates>({})
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [input, setInput] = useState('')
   const [error, setError] = useState('')
@@ -76,8 +78,8 @@ function PublishSession({ userId, kind, topicId, canPublishActivity }: { userId:
   useEffect(() => () => { if (coverPreview) URL.revokeObjectURL(coverPreview) }, [coverPreview])
   useEffect(() => {
     if (!context || restorable || phase === 'published' || (!messages.length && !draft.activity_name && !input)) return
-    try { sessionStorage.setItem(storageKey, JSON.stringify({ draft, states, messages: messages.slice(-30), input, purpose, tags, requestId: requestId.current, revision: context.revision, savedAt: Date.now() })) } catch { /* Optional storage. */ }
-  }, [context, restorable, phase, draft, states, messages, input, purpose, tags, storageKey])
+    try { sessionStorage.setItem(storageKey, JSON.stringify({ draft, states, workflowDraft, workflowStates, messages: messages.slice(-30), input, purpose, tags, requestId: requestId.current, revision: context.revision, savedAt: Date.now() })) } catch { /* Optional storage. */ }
+  }, [context, restorable, phase, draft, states, workflowDraft, workflowStates, messages, input, purpose, tags, storageKey])
   useEffect(() => useAuthStore.subscribe((next) => {
     if (!next.isAuthenticated) { try { sessionStorage.removeItem(storageKey) } catch { /* Optional storage. */ } }
   }), [storageKey])
@@ -98,7 +100,7 @@ function PublishSession({ userId, kind, topicId, canPublishActivity }: { userId:
     setInput('')
     try {
       const response = await postDraft({
-        message: text, draft, kind, topic_id: topicId, purpose, publish_context_revision: context.revision,
+        message: text, draft, workflow_draft: workflowDraft, workflow_field_states: workflowStates, kind, topic_id: topicId, purpose, publish_context_revision: context.revision,
         field_states: Object.fromEntries(Object.entries(states).map(([key, state]) => [key, { ...state, value: Array.isArray(state.value) ? state.value.join('、') : state.value }])) as PostDraftRequest['field_states'],
       })
       if (sequence !== generation.current) return
@@ -107,10 +109,16 @@ function PublishSession({ userId, kind, topicId, canPublishActivity }: { userId:
       if (context.activity) nextDraft.activity_name = context.activity.title
       const nextStates = response.field_states || {}
       setDraft(nextDraft); setStates(nextStates); setCandidates(response.candidate_tags || [])
+      if (!response.degraded) {
+        setWorkflowDraft(response.workflow_draft || workflowDraft)
+        setWorkflowStates(response.workflow_field_states || workflowStates)
+      }
       setTags((old) => [...new Set([...old, ...(response.suggested_tag_ids || [])])].filter((id) => !context.inherited_tags.some((tag) => tag.tag_id === id)).slice(0, Math.max(0, 8 - context.inherited_tags.length)))
       setMessages((old) => [...old, { role: 'assistant', content: response.reply, timestamp: new Date().toISOString() }])
       setDegraded(Boolean(response.degraded))
-      setPhase(response.is_complete && missingFields(nextDraft, nextStates, context, purpose).length === 0 ? 'review' : 'conversation')
+      const workflowComplete = Boolean(response.workflow_draft) && response.is_complete
+      const legacyComplete = !response.workflow_draft && response.is_complete && missingFields(nextDraft, nextStates, context, purpose).length === 0
+      setPhase(workflowComplete || legacyComplete ? 'review' : 'conversation')
       retryMessage.current = ''
     } catch (err) {
       if (sequence !== generation.current) return
@@ -151,6 +159,7 @@ function PublishSession({ userId, kind, topicId, canPublishActivity }: { userId:
       if (!context || !Number.isFinite(saved.savedAt) || Date.now() - saved.savedAt > 86400000 || saved.revision !== context.revision || !context.allowed_purposes.includes(saved.purpose)) throw new Error('stale')
       setDraft({ ...normalizeDraft(saved.draft || {}), ...(context.activity ? { activity_name: context.activity.title } : {}) })
       setStates(saved.states || {}); setPurpose(saved.purpose)
+      setWorkflowDraft(saved.workflowDraft || {}); setWorkflowStates(saved.workflowStates || {})
       setMessages(Array.isArray(saved.messages) ? saved.messages.filter((m: ChatMessage) => ['user', 'assistant'].includes(m.role) && typeof m.content === 'string') : [])
       setInput(typeof saved.input === 'string' ? saved.input : '')
       setTags(Array.isArray(saved.tags) ? saved.tags.filter((tag: unknown) => typeof tag === 'string').slice(0, 8) : [])
@@ -162,7 +171,7 @@ function PublishSession({ userId, kind, topicId, canPublishActivity }: { userId:
   const reset = () => {
     if (!window.confirm('清空本次对话和草稿，重新开始？')) return
     generation.current++; uploadSequence.current++; busy.current = false
-    setDraft({ ...emptyDraft, ...context?.defaults }); setStates({})
+    setDraft({ ...emptyDraft, ...context?.defaults }); setStates({}); setWorkflowDraft({}); setWorkflowStates({})
     setMessages([]); setInput(''); setError(''); setTags([]); setCover(null); setUploading(false)
     setRestorable(false); setDegraded(false); setPhase('conversation'); setResult(null)
     requestId.current = crypto.randomUUID(); retryMessage.current = ''

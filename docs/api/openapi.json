@@ -3540,7 +3540,7 @@
           },
           "message": {
             "maxLength": 4000,
-            "minLength": 1,
+            "minLength": 0,
             "title": "Message",
             "type": "string"
           },
@@ -3591,6 +3591,16 @@
               }
             ],
             "title": "User Skills"
+          },
+          "workflow_draft": {
+            "additionalProperties": true,
+            "title": "Workflow Draft",
+            "type": "object"
+          },
+          "workflow_field_states": {
+            "additionalProperties": true,
+            "title": "Workflow Field States",
+            "type": "object"
           }
         },
         "required": [
@@ -6369,6 +6379,52 @@
           }
         },
         "summary": "Update Profile",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/auth/quick-experience": {
+      "post": {
+        "operationId": "quick_experience_api_auth_quick_experience_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Quick Experience Api Auth Quick Experience Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Quick Experience",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/auth/quick-experience/status": {
+      "get": {
+        "operationId": "review_demo_status_api_auth_quick_experience_status_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Review Demo Status Api Auth Quick Experience Status Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Review Demo Status",
         "tags": [
           "auth"
         ]
@@ -12023,6 +12079,66 @@
         "summary": "Revoke Post Collaborator",
         "tags": [
           "permissions"
+        ]
+      }
+    },
+    "/api/posts/{post_id}/cover/regenerate": {
+      "post": {
+        "operationId": "regenerate_cover_api_posts__post_id__cover_regenerate_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "post_id",
+            "required": true,
+            "schema": {
+              "title": "Post Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Regenerate Cover Api Posts  Post Id  Cover Regenerate Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Regenerate Cover",
+        "tags": [
+          "posts"
         ]
       }
     },

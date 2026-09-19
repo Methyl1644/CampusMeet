@@ -452,6 +452,18 @@ export interface PostDraft {
   description?: string;
 }
 
+export interface WorkflowPostDraft {
+  activity?: { value?: string | null; raw_text?: string; confidence?: number };
+  time?: { value?: string | null; raw_text?: string; normalized_time?: string; precision?: string; confidence?: number };
+  location?: { value?: string | null; raw_text?: string; normalized_location?: string; confidence?: number };
+  people?: { total_people?: number | null; current_people?: number | null; recruit_people?: number | null; min_people?: number | null; max_people?: number | null; raw_text?: string; confidence?: number };
+  kind?: PostKind;
+  topic_id?: string;
+  description?: string;
+}
+
+export type WorkflowFieldStates = Record<string, { value: unknown; status: FieldStatus }>;
+
 /** AI 对话消息 */
 export interface ChatMessage {
   role: 'user' | 'assistant';
@@ -470,6 +482,8 @@ export interface PostDraftRequest {
   kind?: PostKind;
   topic_id?: string;
   field_states?: Record<string, { value: string | number | null; status: FieldStatus }>;
+  workflow_draft?: WorkflowPostDraft;
+  workflow_field_states?: WorkflowFieldStates;
 }
 
 export interface PostDraftResponse {
@@ -479,6 +493,8 @@ export interface PostDraftResponse {
   draft: PostDraft;
   is_complete: boolean;
   field_states?: Record<string, { value: string | number | string[] | null; status: FieldStatus }>;
+  workflow_draft?: WorkflowPostDraft;
+  workflow_field_states?: WorkflowFieldStates;
   suggested_tag_ids?: string[];
   candidate_tags?: StandardTag[];
   next_field?: string | null;

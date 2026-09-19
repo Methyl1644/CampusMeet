@@ -7,7 +7,7 @@
   "required": ["message", "kind", "field_states", "candidate_tags"],
   "additionalProperties": false,
   "properties": {
-    "message": { "type": "string", "minLength": 1, "maxLength": 2000 },
+    "message": { "type": "string", "minLength": 0, "maxLength": 2000 },
     "draft": { "type": "string", "description": "当前草稿的 JSON 字符串；首轮为空字符串。" },
     "user_skills": { "type": "string", "description": "用户技能，以逗号分隔。" },
     "kind": { "type": "string", "enum": ["topic_team", "casual_invitation"] },
