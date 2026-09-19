@@ -50,6 +50,15 @@ describe('conversational publishing', () => {
     await waitFor(() => expect(postDraft).toHaveBeenCalledTimes(2))
     expect(screen.getAllByText('周末想打羽毛球')).toHaveLength(1)
   })
+  it('keeps a one-click AI retry after a degraded response', async () => {
+    vi.mocked(postDraft)
+      .mockResolvedValueOnce({ ...completeResponse, is_complete: false, degraded: true, reply: '暂时使用基础整理。' })
+      .mockResolvedValueOnce({ ...completeResponse, is_complete: false, degraded: false, reply: 'AI 已恢复。' })
+    await open(); await send()
+    fireEvent.click(await screen.findByRole('button', { name: '重试 AI' }))
+    await waitFor(() => expect(postDraft).toHaveBeenCalledTimes(2))
+    expect(screen.getAllByText('周末想打羽毛球')).toHaveLength(1)
+  })
   it('does not trust a complete flag when required data is missing', async () => {
     vi.mocked(postDraft).mockResolvedValue({ ...completeResponse, draft: { ...completeDraft, target_members: 0 } })
     await open(); await send()

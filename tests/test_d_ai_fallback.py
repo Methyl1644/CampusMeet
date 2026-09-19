@@ -1,6 +1,7 @@
 import json
 
 import pytest
+import requests
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
@@ -31,6 +32,55 @@ def _disable_coze(monkeypatch):
         monkeypatch.delenv(key, raising=False)
     for key in DEPLOYED_API_KEYS:
         monkeypatch.delenv(key, raising=False)
+
+
+def test_deployed_api_allows_the_multi_node_workflow_to_finish(monkeypatch):
+    _disable_coze(monkeypatch)
+    monkeypatch.setenv("COZE_DEPLOY_API_TOKEN", "deploy-token")
+    monkeypatch.setenv("COZE_POST_DRAFT_API_URL", "https://example.coze.site/run")
+    captured = {}
+
+    class Response:
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return {"reply": "ok"}
+
+    def post(*_args, **kwargs):
+        captured.update(kwargs)
+        return Response()
+
+    monkeypatch.setattr(requests, "post", post)
+
+    assert ai_tools._try_coze_deployed_api("COZE_POST_DRAFT_API_URL", {}) == {"reply": "ok"}
+    assert captured["timeout"] == (5, 50)
+
+
+def test_deployed_api_retries_one_transient_connection_failure(monkeypatch):
+    _disable_coze(monkeypatch)
+    monkeypatch.setenv("COZE_DEPLOY_API_TOKEN", "deploy-token")
+    monkeypatch.setenv("COZE_POST_DRAFT_API_URL", "https://example.coze.site/run")
+    attempts = 0
+
+    class Response:
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return {"reply": "recovered"}
+
+    def post(*_args, **_kwargs):
+        nonlocal attempts
+        attempts += 1
+        if attempts == 1:
+            raise requests.ConnectionError("temporary connection failure")
+        return Response()
+
+    monkeypatch.setattr(requests, "post", post)
+
+    assert ai_tools._try_coze_deployed_api("COZE_POST_DRAFT_API_URL", {}) == {"reply": "recovered"}
+    assert attempts == 2
 
 
 def test_post_draft_prefers_new_deployed_workflow_over_local_parser(monkeypatch):
@@ -349,7 +399,7 @@ def test_post_draft_prefers_deployed_coze_api_and_normalizes_empty_next_field(mo
     assert "13812345678" not in captured["json"]["message"]
     assert "138****5678" in captured["json"]["message"]
     assert "13912345678" not in captured["json"]["field_states"]["description"]["value"]
-    assert captured["timeout"] == 15
+    assert captured["timeout"] == (5, 50)
     assert result["reply"] == "信息已齐全"
     assert result["next_field"] is None
 

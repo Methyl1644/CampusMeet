@@ -32,7 +32,7 @@ from utils.security import screen_content
 logger = logging.getLogger(__name__)
 
 MODEL_ID = "doubao-seed-2-0-pro-260215"
-COZE_DEPLOY_TIMEOUT_SECONDS = 15
+COZE_DEPLOY_TIMEOUT_SECONDS = 50
 COZE_LEGACY_TIMEOUT_SECONDS = 25
 COZE_CHAINED_LEGACY_TIMEOUT_SECONDS = 7
 COZE_POST_DRAFT_CANDIDATE_LIMIT = 20
@@ -161,27 +161,39 @@ def _try_coze_deployed_api(api_url_env_key: str, parameters: dict) -> dict | Non
         logger.warning("Rejected invalid Coze deployment URL in %s", api_url_env_key)
         record_metric("coze.calls", workflow=api_url_env_key, result="invalid_url")
         return None
-    try:
-        import requests
-        resp = requests.post(
-            api_url,
-            headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
-            json=parameters,
-            timeout=COZE_DEPLOY_TIMEOUT_SECONDS,
-        )
-        if callable(getattr(resp, "raise_for_status", None)):
-            resp.raise_for_status()
-        payload = resp.json()
-        if isinstance(payload, dict) and payload.get("code") not in (None, 0):
-            logger.warning("Coze deployed API %s returned code %s", api_url_env_key, payload.get("code"))
-            record_metric("coze.calls", workflow=api_url_env_key, result="provider_error")
-            return None
-        record_metric("coze.calls", workflow=api_url_env_key, result="success")
-        return _unwrap_coze_result(payload)
-    except Exception as e:
-        logger.warning("Coze deployed API %s call failed: %s", api_url_env_key, e)
-        record_metric("coze.calls", workflow=api_url_env_key, result="timeout_or_error")
-        return None
+    import requests
+    for attempt in range(2):
+        try:
+            resp = requests.post(
+                api_url,
+                headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
+                json=parameters,
+                timeout=(5, COZE_DEPLOY_TIMEOUT_SECONDS),
+            )
+            if callable(getattr(resp, "raise_for_status", None)):
+                resp.raise_for_status()
+            payload = resp.json()
+            if isinstance(payload, dict) and payload.get("code") not in (None, 0):
+                logger.warning("Coze deployed API %s returned code %s", api_url_env_key, payload.get("code"))
+                record_metric("coze.calls", workflow=api_url_env_key, result="provider_error")
+                return None
+            record_metric("coze.calls", workflow=api_url_env_key, result="success")
+            return _unwrap_coze_result(payload)
+        except requests.Timeout as e:
+            logger.warning("Coze deployed API %s timed out: %s", api_url_env_key, e)
+            break
+        except requests.ConnectionError as e:
+            if attempt == 0:
+                logger.warning("Coze deployed API %s connection failed; retrying once: %s", api_url_env_key, e)
+                record_metric("coze.calls", workflow=api_url_env_key, result="retry")
+                continue
+            logger.warning("Coze deployed API %s call failed after retry: %s", api_url_env_key, e)
+            break
+        except Exception as e:
+            logger.warning("Coze deployed API %s call failed: %s", api_url_env_key, e)
+            break
+    record_metric("coze.calls", workflow=api_url_env_key, result="timeout_or_error")
+    return None
 
 
 def _valid_post_draft_result(
