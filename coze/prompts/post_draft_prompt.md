@@ -1,4 +1,6 @@
-# 需求拆解与发帖 Prompt
+# 需求拆解与发帖 Prompt（旧七字段归档）
+
+> 此文件仅保留旧版参考，不对应当前已部署的四字段工作流。请勿用它覆盖线上节点配置；当前合同见 `coze/workflows/01_post_draft.md` 与 `coze/schemas/post_draft.output.json`。
 
 你是 CampusMate 的发帖助手。你的任务是从用户自然语言中提取组队需求，保留用户已经确认或主动跳过的内容，并一次只追问最重要的缺失字段。
 

@@ -81,6 +81,107 @@ def test_ai_cannot_override_activity_or_claim_false_completion(sessions):
     assert not result['is_complete']
 
 
+def test_new_workflow_result_projects_to_publish_form_without_recomputing_completion(sessions):
+    workflow_draft = {
+        'activity': {'value': '新街口火锅', 'raw_text': '去新街口吃火锅', 'confidence': 0.99},
+        'time': {'value': '明天晚上7点', 'raw_text': '明天晚上7点', 'normalized_time': '2026-09-20T19:00:00+08:00', 'precision': 'exact', 'confidence': 0.99},
+        'location': {'value': '新街口', 'raw_text': '新街口', 'normalized_location': '南京市新街口', 'confidence': 0.99},
+        'people': {'total_people': 3, 'current_people': 1, 'recruit_people': 2, 'min_people': 3, 'max_people': 3, 'raw_text': '找2个饭搭子', 'confidence': 0.99},
+        'description': '明天晚上去新街口吃火锅，再找2位伙伴。',
+    }
+    result = agent_api._project_workflow_result(
+        {
+            'reply': '资料整理好了',
+            'draft': workflow_draft,
+            'field_states': {key: {'value': value, 'status': 'confirmed'} for key, value in {'activity': '新街口火锅', 'time': '明天晚上7点', 'location': '新街口', 'people': 3}.items()},
+            'is_complete': True,
+            'missing_fields': [],
+            'next_field': '',
+            'suggested_tag_ids': [],
+            'degraded': False,
+        },
+        {},
+        {},
+        context(sessions),
+        'team_recruitment',
+    )
+
+    assert result['is_complete'] is True
+    assert result['draft']['activity_name'] == '新街口火锅'
+    assert result['draft']['target_members'] == 3
+    assert result['draft']['weekly_hours'] == '明天晚上7点'
+    assert result['draft']['school_scope'] == '新街口'
+    assert result['draft']['description'] == workflow_draft['description']
+    assert result['workflow_draft'] == workflow_draft
+    assert result['missing_fields'] == []
+
+
+def test_post_draft_passes_exact_workflow_state_to_the_next_turn(sessions, monkeypatch):
+    workflow_draft = {
+        'activity': {'value': '玄武湖散步'},
+        'time': {'value': '周末'},
+        'location': {'value': '玄武湖'},
+        'people': {'total_people': 4, 'current_people': 1, 'recruit_people': 3},
+    }
+    workflow_states = {
+        'activity': {'value': '玄武湖散步', 'status': 'confirmed'},
+        'time': {'value': '周末', 'status': 'confirmed'},
+        'location': {'value': '玄武湖', 'status': 'pending'},
+        'people': {'value': 4, 'status': 'confirmed'},
+    }
+    captured = {}
+
+    def fake_invoke(_tool, payload):
+        captured.update(payload)
+        return json.dumps({
+            'reply': '请确认城市', 'draft': workflow_draft, 'field_states': workflow_states,
+            'is_complete': False, 'missing_fields': ['location'], 'next_field': 'location',
+            'suggested_tag_ids': [], 'degraded': False,
+        }, ensure_ascii=False)
+
+    monkeypatch.setattr(agent_api, 'invoke_tool', fake_invoke)
+    value = context(sessions)
+    result = agent_api.post_draft({
+        'message': '是南京', 'draft': {'activity_name': '玄武湖散步'},
+        'workflow_draft': workflow_draft, 'workflow_field_states': workflow_states,
+        'kind': 'casual_invitation', 'purpose': 'team_recruitment',
+        'publish_context_revision': value['revision'],
+    }, '901')
+
+    assert json.loads(captured['draft']) == workflow_draft
+    assert json.loads(captured['field_states']) == workflow_states
+    assert result['data']['workflow_draft'] == workflow_draft
+
+
+def test_topic_workflow_state_cannot_override_the_linked_activity(sessions):
+    value = context(sessions, 'topic_team', '901')
+    result = agent_api._project_workflow_result(
+        {
+            'reply': '请补充时间',
+            'draft': {
+                'activity': {'value': '伪造活动'},
+                'time': {'value': ''},
+                'location': {'value': '仙林'},
+                'people': {'total_people': 3, 'current_people': 1, 'recruit_people': 2},
+            },
+            'field_states': {'activity': {'value': '伪造活动', 'status': 'confirmed'}},
+            'is_complete': False,
+            'missing_fields': ['time'],
+            'next_field': 'time',
+            'suggested_tag_ids': [],
+            'degraded': False,
+        },
+        {},
+        {},
+        value,
+        'team_recruitment',
+    )
+
+    assert result['draft']['activity_name'] == '校园编程活动'
+    assert result['workflow_draft']['activity']['value'] == '校园编程活动'
+    assert result['workflow_field_states']['activity'] == {'value': '校园编程活动', 'status': 'confirmed'}
+
+
 def test_tag_merge_preserves_inherited_and_rejects_overflow():
     assert merge_tag_ids(['a'], ['b', 'a'], ['c']) == ['a', 'b', 'c']
     with pytest.raises(ValueError):

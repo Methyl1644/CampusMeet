@@ -14,7 +14,7 @@ from api.schemas.agent import (
     TeamPlanRequest,
 )
 from services.content import tag_suggestions
-from services.publish_context import publish_context, reconcile_draft, missing_fields
+from services.publish_context import publish_context, reconcile_draft, missing_fields, required_fields
 from services.content_moderation import ModerationContext, ModerationDecision, moderate_content
 from services.permissions import can_manage_post
 from services.tag_governance import sanitize_unknown_concepts, submit_tag_proposal
@@ -31,6 +31,7 @@ from utils.security import screen_content
 router = APIRouter(prefix="/agent", tags=["agent"])
 
 VERIFIED_STATUSES = {"verified", "organization", "campus_verified"}
+WORKFLOW_FIELDS = {"activity", "time", "location", "people"}
 
 
 def _draft_object(value: Any) -> dict[str, Any]:
@@ -43,6 +44,95 @@ def _draft_object(value: Any) -> dict[str, Any]:
             return {}
         return parsed if isinstance(parsed, dict) else {}
     return {}
+
+
+def _workflow_value(draft: dict[str, Any], field: str, *fallback_keys: str) -> Any:
+    item = draft.get(field)
+    if not isinstance(item, dict):
+        return None
+    value = item.get("value")
+    if value not in (None, "", []):
+        return value
+    for key in fallback_keys:
+        value = item.get(key)
+        if value not in (None, "", []):
+            return value
+    return None
+
+
+def _project_workflow_result(
+    data: dict[str, Any],
+    previous_draft: dict[str, Any],
+    previous_states: dict[str, Any],
+    context: dict[str, Any],
+    purpose: str,
+) -> dict[str, Any]:
+    """Project the new four-field workflow state onto the existing post form."""
+    workflow_draft = dict(_draft_object(data.get("draft")))
+    workflow_states = dict(data.get("field_states")) if isinstance(data.get("field_states"), dict) else {}
+    draft = {
+        "activity_name": "",
+        "target_members": 0,
+        "needed_roles": [],
+        "weekly_hours": "",
+        "school_scope": "",
+        "deadline": "",
+        "description": "",
+        **context.get("defaults", {}),
+        **previous_draft,
+    }
+    states = dict(previous_states)
+
+    activity = _workflow_value(workflow_draft, "activity")
+    time_value = _workflow_value(workflow_draft, "time", "normalized_time")
+    location = _workflow_value(workflow_draft, "location", "normalized_location")
+    people = workflow_draft.get("people") if isinstance(workflow_draft.get("people"), dict) else {}
+    total_people = people.get("total_people")
+    if type(total_people) is not int:
+        current_people = people.get("current_people")
+        recruit_people = people.get("recruit_people")
+        if type(current_people) is int and type(recruit_people) is int:
+            total_people = current_people + recruit_people
+
+    mapped = {
+        "activity_name": activity,
+        "target_members": total_people,
+        "weekly_hours": time_value,
+        "school_scope": location,
+        "description": workflow_draft.get("description"),
+    }
+    for field, value in mapped.items():
+        if value not in (None, "", []):
+            draft[field] = value
+            states[field] = {"value": value, "status": "confirmed"}
+    if context.get("activity"):
+        activity_title = context["activity"]["title"]
+        draft["activity_name"] = activity_title
+        states["activity_name"] = {"value": draft["activity_name"], "status": "confirmed"}
+        workflow_draft["activity"] = {
+            **(workflow_draft.get("activity") if isinstance(workflow_draft.get("activity"), dict) else {}),
+            "value": activity_title,
+        }
+        workflow_draft["kind"] = context["kind"]
+        workflow_draft["topic_id"] = context["topic_id"] or ""
+        workflow_states["activity"] = {"value": activity_title, "status": "confirmed"}
+    if not draft.get("needed_roles"):
+        states["needed_roles"] = {"value": [], "status": "none"}
+
+    next_field = data.get("next_field")
+    result = dict(data)
+    result.update(
+        draft=draft,
+        field_states=states,
+        workflow_draft=workflow_draft,
+        workflow_field_states=workflow_states,
+        next_field=None if next_field in (None, "", {}, []) else next_field,
+        required_fields=required_fields(context["kind"], purpose),
+        purpose=purpose,
+        publish_context_revision=context["revision"],
+        inherited_tags=context["inherited_tags"],
+    )
+    return result
 
 
 def _moderation_response(
@@ -172,6 +262,8 @@ def post_draft(body: PostDraftAgentRequest, user_id: str = Depends(current_user_
     body = body.model_dump() if isinstance(body, PostDraftAgentRequest) else body
     previous_draft = _draft_object(body.get("draft"))
     field_states = body.get("field_states") if isinstance(body.get("field_states"), dict) else {}
+    previous_workflow_draft = _draft_object(body.get("workflow_draft"))
+    workflow_field_states = body.get("workflow_field_states") if isinstance(body.get("workflow_field_states"), dict) else {}
     message = str(body.get("message") or "")
     input_decision = moderate_content(
         message,
@@ -203,7 +295,7 @@ def post_draft(body: PostDraftAgentRequest, user_id: str = Depends(current_user_
             raise HTTPException(409, "活动发布规则已更新，请重新加载")
     finally:
         session.close()
-    draft = body.get("draft") or ""
+    draft = previous_workflow_draft
     next_required = None
     if context:
         previous_draft = {**context["defaults"], **previous_draft}
@@ -212,23 +304,22 @@ def post_draft(body: PostDraftAgentRequest, user_id: str = Depends(current_user_
         if body["purpose"] == "team_recruitment" and not previous_draft.get("description"):
             previous_draft["description"] = message.strip()
         pending = missing_fields(previous_draft, field_states, kind, body["purpose"])
-        next_required = pending[0] if pending else None
+        next_required = "description" if body["purpose"] == "discussion" and "description" in pending else None
         field_states = dict(field_states)
         for key, value in previous_draft.items():
             if key in pending:
                 field_states[key] = {"value": value, "status": "pending"}
             elif key not in field_states or key == "activity_name" and context["activity"]:
                 field_states[key] = {"value": value, "status": "none" if key == "needed_roles" and not value else "confirmed"}
-        draft = previous_draft
     skills = body.get("user_skills") or ""
     raw = invoke_tool(
         ai_post_draft,
         {
             "message": body.get("message", ""),
-            "draft": draft if isinstance(draft, str) else json.dumps(draft, ensure_ascii=False),
+            "draft": "" if not draft else json.dumps(draft, ensure_ascii=False),
             "user_skills": ",".join(skills) if isinstance(skills, list) else str(skills),
             "kind": kind,
-            "field_states": json.dumps(field_states, ensure_ascii=False),
+            "field_states": json.dumps(workflow_field_states, ensure_ascii=False),
             "candidate_tags": json.dumps(suggested, ensure_ascii=False),
             "topic_id": topic_id,
         },
@@ -250,7 +341,30 @@ def post_draft(body: PostDraftAgentRequest, user_id: str = Depends(current_user_
     if output_decision.action != "allow":
         return _moderation_response(output_decision, previous_draft, field_states)
     if context:
-        result["data"] = reconcile_draft(data, previous_draft, context, body["purpose"], field_states)
+        returned_draft = _draft_object(data.get("draft"))
+        returned_missing = data.get("missing_fields") if isinstance(data.get("missing_fields"), list) else []
+        is_workflow_result = (
+            bool(set(returned_draft).intersection(WORKFLOW_FIELDS))
+            or bool(previous_workflow_draft)
+            or data.get("degraded") is True and set(returned_missing).issubset(WORKFLOW_FIELDS)
+        )
+        if is_workflow_result:
+            if data.get("degraded"):
+                data = {
+                    **data,
+                    "draft": previous_workflow_draft,
+                    "field_states": workflow_field_states,
+                    "is_complete": False,
+                }
+            result["data"] = _project_workflow_result(
+                data,
+                previous_draft,
+                field_states,
+                context,
+                body["purpose"],
+            )
+        else:
+            result["data"] = reconcile_draft(data, previous_draft, context, body["purpose"], field_states)
     return result
 
 

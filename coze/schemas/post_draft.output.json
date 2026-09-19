@@ -10,29 +10,60 @@
     "reply": { "type": "string", "maxLength": 500 },
     "draft": {
       "type": "object",
-      "required": [
-        "activity_name",
-        "target_members",
-        "needed_roles",
-        "weekly_hours",
-        "school_scope",
-        "deadline",
-        "description"
-      ],
       "additionalProperties": false,
       "properties": {
-        "activity_name": { "type": "string" },
-        "target_members": { "type": "integer", "minimum": 0 },
-        "needed_roles": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
-        "weekly_hours": { "type": "string" },
-        "school_scope": { "type": "string" },
-        "deadline": { "type": "string" },
+        "activity": {
+          "type": "object",
+          "additionalProperties": true,
+          "properties": {
+            "value": { "type": ["string", "null"] },
+            "raw_text": { "type": "string" },
+            "confidence": { "type": "number", "minimum": 0, "maximum": 1 }
+          }
+        },
+        "time": {
+          "type": "object",
+          "additionalProperties": true,
+          "properties": {
+            "value": { "type": ["string", "null"] },
+            "raw_text": { "type": "string" },
+            "normalized_time": { "type": "string" },
+            "precision": { "type": "string" },
+            "confidence": { "type": "number", "minimum": 0, "maximum": 1 }
+          }
+        },
+        "location": {
+          "type": "object",
+          "additionalProperties": true,
+          "properties": {
+            "value": { "type": ["string", "null"] },
+            "raw_text": { "type": "string" },
+            "normalized_location": { "type": "string" },
+            "confidence": { "type": "number", "minimum": 0, "maximum": 1 }
+          }
+        },
+        "people": {
+          "type": "object",
+          "additionalProperties": true,
+          "properties": {
+            "total_people": { "type": ["integer", "null"], "minimum": 0 },
+            "current_people": { "type": ["integer", "null"], "minimum": 0 },
+            "recruit_people": { "type": ["integer", "null"], "minimum": 0 },
+            "min_people": { "type": ["integer", "null"], "minimum": 0 },
+            "max_people": { "type": ["integer", "null"], "minimum": 0 },
+            "raw_text": { "type": "string" },
+            "confidence": { "type": "number", "minimum": 0, "maximum": 1 }
+          }
+        },
+        "kind": { "type": "string", "enum": ["topic_team", "casual_invitation"] },
+        "topic_id": { "type": "string" },
         "description": { "type": "string" }
       }
     },
     "is_complete": { "type": "boolean" },
     "field_states": {
       "type": "object",
+      "propertyNames": { "enum": ["activity", "time", "location", "people"] },
       "additionalProperties": {
         "type": "object",
         "required": ["value", "status"],
@@ -45,8 +76,8 @@
     },
     "suggested_tag_ids": { "type": "array", "items": { "type": "string" }, "maxItems": 4, "uniqueItems": true },
     "candidate_tags": { "type": "array", "items": { "type": "object" }, "maxItems": 120 },
-    "next_field": { "type": ["string", "null"] },
-    "missing_fields": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+    "next_field": { "type": ["string", "null"], "enum": ["activity", "time", "location", "people", "", null] },
+    "missing_fields": { "type": "array", "items": { "type": "string", "enum": ["activity", "time", "location", "people"] }, "uniqueItems": true },
     "degraded": { "type": "boolean" }
   }
 }

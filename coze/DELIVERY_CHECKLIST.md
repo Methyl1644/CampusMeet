@@ -5,9 +5,9 @@
 ## 一、创建 `campusmate_post_draft`
 
 1. 在 Coze 新建工作流，名称填 `campusmate_post_draft`。
-2. 按 `workflows/01_post_draft.md` 创建开始、输入整理、大模型、输出校验、安全兜底、结束节点。
+2. 按 `workflows/01_post_draft.md` 核对四字段状态、搜索子图、路由判断、卡片生成和降级分支。
 3. 开始和结束变量分别照 `schemas/post_draft.input.json`、`schemas/post_draft.output.json` 建立。
-4. 大模型节点提示词依次粘贴 `prompts/system_rules.md`、`prompts/safety_rules.md`、`prompts/post_draft_prompt.md`。
+4. 使用当前已部署节点配置中的提示词；不要再粘贴旧七字段 `post_draft_prompt.md` 覆盖新配置。
 5. `next_field` 在 Coze 结束节点设为可选 String；没有下一字段时输出空字符串，后端会转换为 `null`。
 6. 用 `evals/post_draft_cases.jsonl` 逐条试运行；全部通过后发布并复制 `/run` API 地址。
 
@@ -34,7 +34,7 @@ COZE_CLASSIFY_REVIEW_API_URL=<第二个工作流的 https://...coze.site/run 地
 ## 四、网站验收
 
 1. 登录已完成校园邮箱验证的账号。
-2. 在发帖页输入一句不完整需求，确认 AI 能逐项追问并保留前面答案。
+2. 在发帖页输入一句不完整需求，确认 AI 只追问四字段中的关键缺失信息，并保留前面答案。
 3. 完整填写后确认推荐标签都来自标准标签库。
 4. 提交普通内容，确认返回低风险；再用测试用例中的高风险文案，确认给出风险提示。
 5. 在 Render 日志中确认 Coze 请求成功；临时把某个 API URL 填错，确认网站仍能降级工作而不是阻断发帖。
