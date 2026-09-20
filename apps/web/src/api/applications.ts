@@ -48,7 +48,7 @@ export function getPostApplications(postId: string) {
 
 /** 接受申请 */
 export function acceptApplication(id: string) {
-  return post<{ accepted: boolean }>(API_PATHS.applications.accept.replace(':id', id))
+  return post<{ accepted: boolean; conversation_id: string }>(API_PATHS.applications.accept.replace(':id', id))
 }
 
 /** 拒绝申请 */

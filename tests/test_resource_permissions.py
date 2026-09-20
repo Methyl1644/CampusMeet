@@ -514,13 +514,42 @@ def test_application_manager_can_list_and_accept_applications(monkeypatch):
     with sessions() as session:
         conversation = session.query(Conversation).one()
         assert conversation.post_author_id == author_id
-        team = session.query(Team).one()
-        memberships = session.query(TeamMember).filter_by(team_id=team.id).all()
-        assert {(member.user_id, member.member_role) for member in memberships} == {
-            (author_id, "owner"),
-            (applicant_id, "member"),
-        }
-        assert session.get(Post, int(post_id)).current_members == 2
+        assert session.query(Team).count() == 0
+        assert session.query(TeamMember).count() == 0
+        assert session.get(Post, int(post_id)).current_members == 1
+
+
+def test_post_owner_can_replace_an_uploaded_cover(monkeypatch):
+    from api import posts as posts_api
+    from storage.database.models import UploadRecord
+
+    engine = create_engine("sqlite+pysqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    sessions = sessionmaker(bind=engine)
+    with sessions() as session:
+        author = _user("cover-owner@nju.edu.cn")
+        session.add(author)
+        session.flush()
+        post = _post(author.id)
+        session.add(post)
+        session.flush()
+        session.add_all([
+            UploadRecord(id="old-cover", owner_id=author.id, purpose="post_cover", object_key="public/post-covers/old.png", original_filename="old.png", mime_type="image/png", expected_size=10, status="attached", private=False, attached_to_type="post_cover", attached_to_id=str(post.id)),
+            UploadRecord(id="new-cover", owner_id=author.id, purpose="post_cover", object_key="public/post-covers/new.png", original_filename="new.png", mime_type="image/png", expected_size=10, status="completed", private=False),
+        ])
+        session.commit()
+        post_id, author_id = post.id, str(author.id)
+
+    monkeypatch.setenv("OBJECT_STORAGE_PUBLIC_BASE_URL", "https://media.example.test")
+    monkeypatch.setattr(posts_api, "get_session", sessions)
+    monkeypatch.setattr(posts_api, "_moderate_post", lambda *args, **kwargs: None)
+
+    result = posts_api.update(post_id, {"cover_upload_id": "new-cover"}, author_id)
+
+    assert result["data"]["cover_url"] == "https://media.example.test/public/post-covers/new.png"
+    with sessions() as session:
+        assert session.get(UploadRecord, "old-cover").status == "replaced"
+        assert session.get(UploadRecord, "new-cover").status == "attached"
 
 
 def test_application_manager_can_run_teammate_matching(monkeypatch):

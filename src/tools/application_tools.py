@@ -24,9 +24,9 @@ from services.moderation_cases import (
 from services.permissions import can_manage_post
 from services.collaboration_lifecycle import withdraw_application as withdraw_record
 from services.notifications import notify
+from services.onboarding import normalized_profile_visibility
 from services.participation import (
     ParticipationError,
-    admit_application_member,
     validate_application_join,
 )
 from tools.auth_tools import _user_brief
@@ -72,7 +72,12 @@ def _application_to_dict(app: Application, applicant: User | None = None) -> dic
         "created_at": app.created_at.isoformat() if app.created_at else None,
     }
     if applicant:
-        data["applicant"] = _user_brief(applicant)
+        visibility = normalized_profile_visibility(applicant.profile_visibility)
+        brief = _user_brief(applicant)
+        for field in ("major", "grade"):
+            if not visibility[field]:
+                brief.pop(field, None)
+        data["applicant"] = brief
     return data
 
 
@@ -220,8 +225,8 @@ def create_application(
                 event_type="application.created",
                 title="收到新申请",
                 body=f"{user.nickname} 申请加入「{post.title}」",
-                target_type="application",
-                target_id=str(app.id),
+                target_type="post",
+                target_id=str(post.id),
                 dedupe_key=f"application:{app.id}:created",
             )
             session.commit()
@@ -344,12 +349,6 @@ def accept_application(user_id: str, application_id: str) -> str:
             if users_are_blocked(session, post.author_id, app.applicant_id):
                 return json.dumps({"success": False, "message": "双方存在屏蔽关系，无法接受申请"}, ensure_ascii=False)
 
-            team, membership, _created = admit_application_member(
-                session,
-                post,
-                applicant,
-                suggested_role=app.role_wanted,
-            )
             app.status = "accepted"
 
             # 创建临时会话
@@ -362,6 +361,7 @@ def accept_application(user_id: str, application_id: str) -> str:
                 contact_unlocked=False,
             )
             session.add(conv)
+            session.flush()
             session.add(
                 AuditLog(
                     user_id=uid,
@@ -371,12 +371,10 @@ def accept_application(user_id: str, application_id: str) -> str:
                     detail=json.dumps({
                         "post_id": post.id,
                         "post_author_id": post.author_id,
-                        "team_id": team.id,
-                        "member_id": membership.id,
+                        "conversation_id": conv.id,
                     }),
                 )
             )
-            session.flush()
 
             notify(
                 session,
@@ -393,9 +391,7 @@ def accept_application(user_id: str, application_id: str) -> str:
             return json.dumps({
                 "success": True,
                 "conversation_id": str(conv.id),
-                "team_id": str(team.id),
-                "member_id": str(membership.id),
-                "message": "已接受申请，成员已加入小组并创建聊天会话",
+                "message": "已同意申请并创建临时会话，双方确认后正式加入小组",
             }, ensure_ascii=False)
         finally:
             session.close()
@@ -430,10 +426,10 @@ def reject_application(user_id: str, application_id: str) -> str:
                 session,
                 user_id=app.applicant_id,
                 event_type="application.rejected",
-                title="申请未通过",
-                body=f"你对「{post.title}」的申请未通过",
-                target_type="application",
-                target_id=str(app.id),
+                title="你的申请被拒绝",
+                body=f"你对「{post.title}」的加入申请被拒绝",
+                target_type="post",
+                target_id=str(post.id),
                 dedupe_key=f"application:{app.id}:rejected",
             )
             session.add(

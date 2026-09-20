@@ -25,6 +25,7 @@ from services.participation import (
 )
 from storage.database.db import get_session
 from storage.database.models import AuditLog, Post, PostTag, User
+from services.uploads import attach_new_post_cover
 from tools.post_tools import _post_to_dict, create_post, get_my_posts, get_post_detail, list_posts
 from utils.security import screen_post_content
 
@@ -285,6 +286,7 @@ def update(post_id: int, body: PostUpdateRequest, user_id: str = Depends(current
             "tag_ids",
             "purpose",
             "join_mode",
+            "cover_upload_id",
         }
         requested_content = content_fields.intersection(body)
         if requested_content and not can_manage_post(session, user, post, "edit_post"):
@@ -355,6 +357,12 @@ def update(post_id: int, body: PostUpdateRequest, user_id: str = Depends(current
                 changed["purpose"] = str(participation.purpose)
             if "join_mode" in body:
                 changed["join_mode"] = str(participation.join_mode)
+        if body.get("cover_upload_id"):
+            try:
+                attach_new_post_cover(session, user, post, str(body["cover_upload_id"]))
+            except ValueError as exc:
+                raise HTTPException(status_code=400, detail=str(exc)) from exc
+            changed["cover_upload_id"] = str(body["cover_upload_id"])
         _moderate_post(
             {
                 "activity_name": post.activity_name,

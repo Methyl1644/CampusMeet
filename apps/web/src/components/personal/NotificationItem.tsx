@@ -15,6 +15,9 @@ export function notificationTarget(item: Notification): string | null {
     return '/authorizations'
   }
   if (!item.target_id) return null
+  if (item.event_type === 'application.created' && item.target_type === 'post') {
+    return `/posts/${item.target_id}?manage=applications#post-management`
+  }
   const routes: Record<string, string> = {
     topic: `/topics/${item.target_id}`,
     post: `/posts/${item.target_id}`,

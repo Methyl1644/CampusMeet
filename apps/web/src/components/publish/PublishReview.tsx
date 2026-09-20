@@ -1,6 +1,7 @@
 import type { RefObject } from 'react'
 import { ArrowLeft, Check, ImagePlus, LoaderCircle, X } from 'lucide-react'
 import type { PostDraft, PostPurpose, StandardTag } from '@shared/types'
+import CampusOrLocationField from '@/components/forms/CampusOrLocationField'
 import { fieldLabels, missingFields, requiredFields } from '@/features/publish/publishState'
 import type { FieldStates, PublishContext } from '@/features/publish/publishState'
 
@@ -36,7 +37,7 @@ export function PublishReview(props: Props) {
     <fieldset disabled={locked} className="publish-review-fields">
       {fields.map((field) => <div key={field} className={field === 'description' || field === 'needed_roles' ? 'publish-field-wide' : ''}>
         <label htmlFor={`publish-${field}`} className="publish-field-label">{purpose === 'official_signup' && field === 'target_members' ? '报名人数上限' : fieldLabels[field]}{required.includes(field) && <span aria-hidden="true" className="text-rose-600"> *</span>}</label>
-        {field === 'needed_roles' ? <>
+        {field === 'school_scope' ? <CampusOrLocationField id={`publish-${field}`} label="" value={draft.school_scope} onChange={(value) => updateField(field, value)} required={required.includes(field)} /> : field === 'needed_roles' ? <>
           <input id={`publish-${field}`} value={draft.needed_roles.join('、')} onChange={(event) => updateField(field, event.target.value.split(/[、,，]/).map((v) => v.trim()).filter(Boolean))} maxLength={400} aria-invalid={missing.includes(field)} placeholder="策划、设计、开发…" />
           <label className="flex items-center gap-2 mt-2 text-sm text-gray-600"><input type="checkbox" checked={states.needed_roles?.status === 'none'} onChange={(event) => updateField(field, event.target.checked ? [] : [''])} />没有特定角色要求</label>
         </> : field === 'description' ? <textarea id={`publish-${field}`} rows={4} value={draft.description} maxLength={5000} onChange={(event) => updateField(field, event.target.value)} aria-invalid={missing.includes(field)} /> : field === 'target_members' ?

@@ -3,11 +3,12 @@
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { MemoryRouter, Route, Routes, useNavigate } from 'react-router-dom'
-import { getExploreActivity, setActivityFavorite } from '@/api/explore'
+import { getExploreActivity, listRelatedGroups, setActivityFavorite } from '@/api/explore'
 import { getTopicCollaborators } from '@/api/management'
 import { ToastProvider } from '@/components/Toast'
 import { useAuthStore } from '@/store/authStore'
 import TopicDetail from './TopicDetail'
+import { attachPublicUpload, uploadTopicCover } from '@/api/publish'
 import {
   activityDetailFixture,
   discussionGroup,
@@ -17,6 +18,7 @@ import {
 
 vi.mock('@/api/explore', () => ({
   getExploreActivity: vi.fn(),
+  listRelatedGroups: vi.fn(),
   setActivityFavorite: vi.fn(),
 }))
 vi.mock('@/api/management', () => ({
@@ -24,6 +26,7 @@ vi.mock('@/api/management', () => ({
   inviteTopicCollaborator: vi.fn(),
   revokeTopicCollaborator: vi.fn(),
 }))
+vi.mock('@/api/publish', () => ({ attachPublicUpload: vi.fn(), uploadTopicCover: vi.fn() }))
 
 function deferred<T>() {
   let resolve!: (value: T) => void
@@ -55,6 +58,10 @@ beforeEach(() => {
   vi.resetAllMocks()
   useAuthStore.setState({ token: null, user: null, isAuthenticated: false })
   vi.mocked(getExploreActivity).mockResolvedValue(activityDetailFixture)
+  vi.mocked(listRelatedGroups).mockImplementation(async (_topicId, params = {}) => {
+    const list = activityDetailFixture.related_groups.filter((group) => !params.purpose || group.purpose === params.purpose)
+    return { list, total: list.length, page: 1, page_size: 8, pages: list.length ? 1 : 0 }
+  })
   vi.mocked(setActivityFavorite).mockResolvedValue({
     topic_id: activityDetailFixture.id,
     favorite: true,
@@ -64,6 +71,8 @@ beforeEach(() => {
   vi.mocked(getTopicCollaborators).mockResolvedValue({
     list: [], total: 0, page: 1, page_size: 20, pages: 0,
   })
+  vi.mocked(uploadTopicCover).mockResolvedValue('replacement-topic-cover')
+  vi.mocked(attachPublicUpload).mockResolvedValue({ upload_id: 'replacement-topic-cover', purpose: 'topic_cover', status: 'attached', target_id: activityDetailFixture.id })
   Object.defineProperty(navigator, 'share', { configurable: true, value: vi.fn().mockResolvedValue(undefined) })
   Object.defineProperty(navigator, 'clipboard', { configurable: true, value: undefined })
 })
@@ -71,6 +80,19 @@ beforeEach(() => {
 afterEach(() => cleanup())
 
 describe('TopicDetail activity experience', () => {
+  it('lets an activity manager upload a replacement cover', async () => {
+    useAuthStore.setState({ token: 'token', user: viewerFixture, isAuthenticated: true })
+    vi.mocked(getExploreActivity).mockResolvedValue({ ...activityDetailFixture, can_manage_collaborators: true })
+    renderTopic()
+    fireEvent.click(await screen.findByRole('button', { name: '编辑活动' }))
+
+    const file = new File(['cover'], 'activity.webp', { type: 'image/webp' })
+    fireEvent.change(screen.getByLabelText('更换活动封面'), { target: { files: [file] } })
+
+    await waitFor(() => expect(uploadTopicCover).toHaveBeenCalledWith(file))
+    expect(attachPublicUpload).toHaveBeenCalledWith('replacement-topic-cover', activityDetailFixture.id)
+  })
+
   it.each([
     ['open_team', '寻找队友', true],
     ['official_signup', '进入官方报名', false],
@@ -174,24 +196,27 @@ describe('TopicDetail activity experience', () => {
 
   it('keeps an empty related-groups section useful for the active participation mode', async () => {
     vi.mocked(getExploreActivity).mockResolvedValue({ ...activityDetailFixture, related_groups: [] })
+    vi.mocked(listRelatedGroups).mockResolvedValue({ list: [], total: 0, page: 1, page_size: 8, pages: 0 })
     renderTopic()
     expect(await screen.findByText('还没有相关组队，成为第一个发起人。')).toBeTruthy()
     expect(screen.getByRole('link', { name: '发布组队' }).getAttribute('href')).toBe('/publish?kind=topic_team&topic_id=activity-1')
   })
 
-  it.each([
-    ['open_team', '寻找前端同学一起参加机器人挑战赛', ['人工智能挑战赛官方报名', '挑战赛经验交流']],
-    ['official_signup', '人工智能挑战赛官方报名', ['寻找前端同学一起参加机器人挑战赛', '挑战赛经验交流']],
-    ['information_only', '挑战赛经验交流', ['寻找前端同学一起参加机器人挑战赛', '人工智能挑战赛官方报名']],
-  ] as const)('shows only the approved %s related-group purposes', async (mode, visibleTitle, hiddenTitles) => {
+  it('keeps every related-post category reachable instead of hiding recruitment posts', async () => {
     vi.mocked(getExploreActivity).mockResolvedValue({
       ...activityDetailFixture,
-      participation_mode: mode,
+      participation_mode: 'official_signup',
       related_groups: activityDetailFixture.related_groups,
     })
     renderTopic()
-    expect(await screen.findByRole('heading', { name: visibleTitle })).toBeTruthy()
-    for (const hiddenTitle of hiddenTitles) expect(screen.queryByRole('heading', { name: hiddenTitle })).toBeNull()
+
+    expect(await screen.findByRole('heading', { name: '人工智能挑战赛官方报名' })).toBeTruthy()
+    fireEvent.click(screen.getByRole('tab', { name: '组队招募' }))
+    expect(await screen.findByRole('heading', { name: '寻找前端同学一起参加机器人挑战赛' })).toBeTruthy()
+    expect(listRelatedGroups).toHaveBeenCalledWith(activityDetailFixture.id, expect.objectContaining({ purpose: 'team_recruitment' }))
+
+    fireEvent.click(screen.getByRole('tab', { name: '相关讨论' }))
+    expect(await screen.findByRole('heading', { name: '挑战赛经验交流' })).toBeTruthy()
   })
 
   it('offers keyboard actions in a labelled sticky bar and updates favorite/share state', async () => {

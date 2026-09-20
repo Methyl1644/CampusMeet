@@ -82,3 +82,9 @@ def test_post_requests_accept_policy_fields_but_not_post_cover_input():
     assert updated.join_mode == "none"
     with pytest.raises(ValidationError):
         PostCreateRequest(activity_name="No cover yet", cover_url="https://example.test/cover.jpg")
+
+
+def test_post_update_accepts_a_completed_cover_upload_reference():
+    updated = PostUpdateRequest(cover_upload_id="replacement-cover")
+
+    assert updated.cover_upload_id == "replacement-cover"

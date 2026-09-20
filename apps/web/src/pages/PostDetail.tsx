@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Archive, ArrowLeft, CalendarClock, Heart, ImagePlus, Link2, MapPin, RefreshCw, Settings, Share2, Trash2, UsersRound } from 'lucide-react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { getExploreGroup, joinExploreGroup, setGroupFavorite } from '@/api/explore'
 import { getMyTeams } from '@/api/teams'
 import ApplicationModal from '@/components/ApplicationModal'
@@ -11,10 +11,12 @@ import { useDetailResource, useRouteGeneration } from '@/components/details/useD
 import { useToast } from '@/components/Toast'
 import { archivePost, closePost, deletePost, regeneratePostCover, reopenPost, updatePost } from '@/api/posts'
 import { getApiErrorMessage } from '@/api/auth-feedback'
+import { uploadPostCover } from '@/api/publish'
 import { useAuthStore } from '@/store/authStore'
 import PostCollaboratorsPanel from '@/features/management/PostCollaboratorsPanel'
 import PostApplicationsPanel from '@/features/management/PostApplicationsPanel'
 import PostMatchPanel from '@/features/management/PostMatchPanel'
+import CampusOrLocationField from '@/components/forms/CampusOrLocationField'
 import type { ExploreGroupDetail } from '@shared/types'
 
 async function shareCurrentPage(title: string) {
@@ -38,6 +40,7 @@ const myTeamsPageSize = 100
 
 export default function PostDetail() {
   const { id = '' } = useParams()
+  const location = useLocation()
   const navigate = useNavigate()
   const { showToast } = useToast()
   const user = useAuthStore((state) => state.user)
@@ -53,7 +56,8 @@ export default function PostDetail() {
     status: 'loading' | 'unresolved'
   } | null>(null)
   const teamLookupGeneration = useRef(0)
-  const [showManagement, setShowManagement] = useState(false)
+  const managementRequested = new URLSearchParams(location.search).get('manage') === 'applications'
+  const [showManagement, setShowManagement] = useState(managementRequested)
   const [managementBusy, setManagementBusy] = useState(false)
   const [managementError, setManagementError] = useState('')
   const [edit, setEdit] = useState({ title: '', description: '', target_members: '1', needed_roles: '', weekly_hours: '', school_scope: '', deadline: '' })
@@ -91,6 +95,12 @@ export default function PostDetail() {
       }
     }
   }, [routeOwner])
+
+  useEffect(() => {
+    if (!managementRequested || !group) return
+    setEdit({ title: group.title, description: group.description || '', target_members: String(group.target_members), needed_roles: group.needed_roles.join('、'), weekly_hours: group.weekly_hours || '', school_scope: group.school_scope || '', deadline: group.deadline || '' })
+    setShowManagement(true)
+  }, [group, managementRequested])
 
   useEffect(() => {
     const routeGeneration = routeOwner.current.generation
@@ -198,6 +208,18 @@ export default function PostDetail() {
     finally { setManagementBusy(false) }
   }
 
+  const replaceCover = async (file: File) => {
+    if (!group) return
+    setManagementBusy(true); setManagementError('')
+    try {
+      const coverUploadId = await uploadPostCover(file)
+      await updatePost(group.id, { cover_upload_id: coverUploadId })
+      await retry()
+      showToast('封面已更换', 'success')
+    } catch (requestError) { setManagementError(getApiErrorMessage(requestError, '封面更换失败')) }
+    finally { setManagementBusy(false) }
+  }
+
   if (loading) {
     return <div role="status" aria-label="正在加载组队详情" className="py-24 text-center text-sm text-ink-muted">正在加载组队详情...</div>
   }
@@ -272,11 +294,11 @@ export default function PostDetail() {
               <label className="text-sm font-medium">目标人数<input type="number" min={1} max={100} className="input-base mt-1.5" value={edit.target_members} onChange={(event) => setEdit({ ...edit, target_members: event.target.value })} /></label>
               <label className="text-sm font-medium">所需角色<input className="input-base mt-1.5" placeholder="用顿号分隔" value={edit.needed_roles} onChange={(event) => setEdit({ ...edit, needed_roles: event.target.value })} /></label>
               <label className="text-sm font-medium">每周投入<input className="input-base mt-1.5" value={edit.weekly_hours} onChange={(event) => setEdit({ ...edit, weekly_hours: event.target.value })} /></label>
-              <label className="text-sm font-medium">参与范围<input className="input-base mt-1.5" value={edit.school_scope} onChange={(event) => setEdit({ ...edit, school_scope: event.target.value })} /></label>
+              <CampusOrLocationField id="post-edit-school-scope" label="参与范围" value={edit.school_scope} onChange={(school_scope) => setEdit({ ...edit, school_scope })} />
               <label className="text-sm font-medium sm:col-span-2">截止时间<input className="input-base mt-1.5" value={edit.deadline} onChange={(event) => setEdit({ ...edit, deadline: event.target.value })} /></label>
             </div>}
             {managementError && <p role="alert" className="rounded-card border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{managementError}</p>}
-            {(canEditPost || canManagePost) && <div className="flex flex-wrap gap-2">{canEditPost && <><button type="button" className="btn-primary" disabled={managementBusy} onClick={() => void savePost()}>保存修改</button><button type="button" className="btn-secondary" disabled={managementBusy} onClick={() => void regenerateCover()}><ImagePlus aria-hidden="true" className="size-4" />{group.cover_url ? '重新生成封面' : '生成封面'}</button></>}{canManagePost && <>{group.status === 'closed' ? <button type="button" className="btn-secondary" disabled={managementBusy} onClick={() => void transitionPost('reopen')}>重新开放</button> : <button type="button" className="btn-secondary" disabled={managementBusy} onClick={() => void transitionPost('close')}>关闭招募</button>}<button type="button" className="btn-secondary" disabled={managementBusy} onClick={() => void transitionPost('archive')}><Archive aria-hidden="true" className="size-4" />归档</button><button type="button" className="btn-danger" disabled={managementBusy} onClick={() => void transitionPost('delete')}><Trash2 aria-hidden="true" className="size-4" />删除</button></>}</div>}
+            {(canEditPost || canManagePost) && <div className="flex flex-wrap gap-2">{canEditPost && <><button type="button" className="btn-primary" disabled={managementBusy} onClick={() => void savePost()}>保存修改</button><label className={`btn-secondary min-h-11 cursor-pointer ${managementBusy ? 'pointer-events-none opacity-50' : ''}`}><ImagePlus aria-hidden="true" className="size-4" />上传新封面<input type="file" className="sr-only" accept="image/jpeg,image/png,image/webp" aria-label="更换帖子封面" disabled={managementBusy} onChange={(event) => { const file = event.target.files?.[0]; if (file) void replaceCover(file); event.target.value = '' }} /></label><button type="button" className="btn-secondary" disabled={managementBusy} onClick={() => void regenerateCover()}><ImagePlus aria-hidden="true" className="size-4" />{group.cover_url ? '重新生成封面' : '生成封面'}</button></>}{canManagePost && <>{group.status === 'closed' ? <button type="button" className="btn-secondary" disabled={managementBusy} onClick={() => void transitionPost('reopen')}>重新开放</button> : <button type="button" className="btn-secondary" disabled={managementBusy} onClick={() => void transitionPost('close')}>关闭招募</button>}<button type="button" className="btn-secondary" disabled={managementBusy} onClick={() => void transitionPost('archive')}><Archive aria-hidden="true" className="size-4" />归档</button><button type="button" className="btn-danger" disabled={managementBusy} onClick={() => void transitionPost('delete')}><Trash2 aria-hidden="true" className="size-4" />删除</button></>}</div>}
             {group.join_state === 'owner' && <div className="border-t border-stone pt-6"><PostMatchPanel postId={group.id} /></div>}
             {canManageApplications && <div className="border-t border-stone pt-6"><PostApplicationsPanel postId={group.id} /></div>}
             {canManagePost && <div className="border-t border-stone pt-6"><PostCollaboratorsPanel postId={group.id} /></div>}
