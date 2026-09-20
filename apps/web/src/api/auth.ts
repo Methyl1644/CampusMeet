@@ -26,6 +26,14 @@ export function login(data: LoginRequest) {
   return post<AuthResponse>(API_PATHS.auth.login, data)
 }
 
+export function getQuickExperienceStatus() {
+  return get<{ available: boolean }>(API_PATHS.auth.quickExperienceStatus)
+}
+
+export function quickExperience() {
+  return post<AuthResponse>(API_PATHS.auth.quickExperience)
+}
+
 /** 通过邮箱验证码重置密码 */
 export function resetPassword(data: PasswordResetRequest) {
   return post<null>(API_PATHS.auth.resetPassword, data)
@@ -55,4 +63,11 @@ export function changePassword(currentPassword: string, newPassword: string) {
 
 export function deactivateAccount(currentPassword: string) {
   return post<null>(API_PATHS.auth.deactivate, { current_password: currentPassword })
+}
+
+export function requestAccountAction(requestType: 'data_export' | 'account_deletion') {
+  return post<{ id: string; request_type: string; status: string }>(
+    API_PATHS.auth.accountRequests,
+    { request_type: requestType },
+  )
 }

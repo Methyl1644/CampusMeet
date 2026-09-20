@@ -92,6 +92,8 @@ export const API_PATHS = {
     sendCode: '/api/auth/send-code',
     register: '/api/auth/register',
     login: '/api/auth/login',
+    quickExperienceStatus: '/api/auth/quick-experience/status',
+    quickExperience: '/api/auth/quick-experience',
     verifyEmail: '/api/auth/verify-email',
     profile: '/api/auth/profile',
     logout: '/api/auth/logout',
@@ -139,6 +141,7 @@ export const API_PATHS = {
   },
   messages: {
     conversations: '/api/messages/conversations',
+    conversation: '/api/messages/conversations/:conversationId',
     messages: '/api/messages/:conversationId',
     send: '/api/messages/:conversationId/send',
     confirmTeam: '/api/messages/:conversationId/confirm-team',
@@ -196,7 +199,7 @@ export const API_PATHS = {
     reviewUrl: '/api/uploads/:id/review-url',
   },
   operations: {
-    auditLogs: '/api/operations/audit-logs',
-    metrics: '/api/operations/metrics',
+    auditLogs: '/api/operators/audit-logs',
+    metrics: '/api/operators/metrics',
   },
 } as const

@@ -15,6 +15,11 @@ from storage.database.shared.model import Base
 from utils.auth import hash_password, verify_password, verify_token
 
 
+@pytest.fixture(autouse=True)
+def _configured_test_jwt_secret(monkeypatch):
+    monkeypatch.setenv("JWT_SECRET", "test-jwt-secret-with-at-least-32-characters")
+
+
 def _factory():
     engine = create_engine("sqlite+pysqlite:///:memory:")
     Base.metadata.create_all(engine)

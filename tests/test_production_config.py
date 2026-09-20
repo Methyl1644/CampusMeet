@@ -24,6 +24,26 @@ def test_local_environment_does_not_require_production_credentials():
     assert production_config_errors({}) == []
 
 
+def test_token_signing_refuses_a_missing_or_known_default_secret(monkeypatch):
+    from utils.auth import generate_token
+
+    monkeypatch.delenv("JWT_SECRET", raising=False)
+    with pytest.raises(RuntimeError, match="JWT_SECRET"):
+        generate_token(1)
+
+    monkeypatch.setenv("JWT_SECRET", "campusmate_default_secret_2026")
+    with pytest.raises(RuntimeError, match="JWT_SECRET"):
+        generate_token(1)
+
+
+def test_agent_runtime_logs_metadata_without_request_bodies():
+    from pathlib import Path
+
+    source = (Path(__file__).parents[1] / "src" / "main.py").read_text(encoding="utf-8")
+
+    assert 'f"body={body_text}"' not in source
+
+
 def test_production_environment_rejects_unsafe_defaults_and_missing_delivery():
     from utils.runtime import production_config_errors
 
@@ -52,6 +72,33 @@ def test_production_environment_accepts_explicit_safe_configuration():
     from utils.runtime import production_config_errors
 
     assert production_config_errors(SAFE_PRODUCTION_ENV) == []
+
+
+def test_production_disables_interactive_api_documentation():
+    from utils.runtime import fastapi_documentation_urls
+
+    assert fastapi_documentation_urls({"APP_ENV": "production"}) == {
+        "docs_url": None,
+        "redoc_url": None,
+        "openapi_url": None,
+    }
+    assert fastapi_documentation_urls({"APP_ENV": "development"}) == {
+        "docs_url": "/docs",
+        "redoc_url": "/redoc",
+        "openapi_url": "/openapi.json",
+    }
+
+
+def test_api_security_headers_include_browser_and_transport_controls():
+    from utils.runtime import api_security_headers
+
+    headers = api_security_headers({"APP_ENV": "production"})
+
+    assert headers["Strict-Transport-Security"].startswith("max-age=")
+    assert headers["X-Content-Type-Options"] == "nosniff"
+    assert headers["X-Frame-Options"] == "DENY"
+    assert "frame-ancestors 'none'" in headers["Content-Security-Policy"]
+    assert headers["Referrer-Policy"] == "no-referrer"
 
 
 def test_production_allowlist_mode_requires_at_least_one_email():

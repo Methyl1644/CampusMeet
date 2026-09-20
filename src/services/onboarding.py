@@ -79,6 +79,7 @@ PROFILE_VISIBILITY_FIELDS = frozenset(
         "contact",
         "activities",
         "groups",
+        "matching",
     }
 )
 DEFAULT_PROFILE_VISIBILITY = {
@@ -90,6 +91,7 @@ DEFAULT_PROFILE_VISIBILITY = {
     "contact": False,
     "activities": False,
     "groups": False,
+    "matching": False,
 }
 NOTIFICATION_PREFERENCE_FIELDS = frozenset(DEFAULT_NOTIFICATION_PREFERENCES)
 PROFILE_UPDATE_FIELDS = frozenset(

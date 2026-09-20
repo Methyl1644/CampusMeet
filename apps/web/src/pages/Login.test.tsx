@@ -3,7 +3,14 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
-import { login, register, resetPassword, sendCode } from '@/api/auth'
+import {
+  getQuickExperienceStatus,
+  login,
+  quickExperience,
+  register,
+  resetPassword,
+  sendCode,
+} from '@/api/auth'
 import { ToastProvider } from '@/components/Toast'
 import { useAuthStore } from '@/store/authStore'
 import type { User } from '@shared/types'
@@ -11,6 +18,8 @@ import Login from './Login'
 
 vi.mock('@/api/auth', () => ({
   login: vi.fn(),
+  getQuickExperienceStatus: vi.fn(),
+  quickExperience: vi.fn(),
   register: vi.fn(),
   resetPassword: vi.fn(),
   sendCode: vi.fn(),
@@ -61,6 +70,8 @@ beforeEach(() => {
   localStorage.clear()
   useAuthStore.setState({ token: null, user: null, isAuthenticated: false })
   vi.mocked(login).mockResolvedValue({ token: 'token', user })
+  vi.mocked(getQuickExperienceStatus).mockResolvedValue({ available: true })
+  vi.mocked(quickExperience).mockResolvedValue({ token: 'review-token', user })
   vi.mocked(register).mockResolvedValue({
     token: 'token',
     user: { ...user, onboarding_completed: false, onboarding_step: 1 },
@@ -102,6 +113,7 @@ describe('Login keyboard submission', () => {
     fireEvent.change(await screen.findByLabelText('验证码'), { target: { value: '123456' } })
     const password = await screen.findByLabelText('设置密码')
     fireEvent.change(password, { target: { value: 'Password2026' } })
+    fireEvent.click(screen.getByRole('checkbox'))
 
     submitFrom(password)
 
@@ -141,5 +153,15 @@ describe('Login keyboard submission', () => {
     expect(screen.queryAllByRole('tab')).toEqual([])
     expect(screen.getAllByRole('button', { name: '登录' })).toHaveLength(2)
     expect(screen.getByRole('button', { name: '注册' })).toBeTruthy()
+  })
+
+  it('enters the product through the configured reviewer account', async () => {
+    renderLogin()
+
+    fireEvent.click(await screen.findByRole('button', { name: '快速体验' }))
+
+    expect(await screen.findByRole('heading', { name: 'Home destination' })).toBeTruthy()
+    expect(quickExperience).toHaveBeenCalledTimes(1)
+    expect(useAuthStore.getState().token).toBe('review-token')
   })
 })

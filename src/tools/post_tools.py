@@ -351,6 +351,8 @@ def list_posts(
     try:
         session = get_session()
         try:
+            page = max(1, int(page))
+            page_size = min(40, max(1, int(page_size)))
             query = select(Post).where(Post.status.in_(PUBLIC_POST_STATUSES))
 
             if kind in {"topic_team", "casual_invitation"}:

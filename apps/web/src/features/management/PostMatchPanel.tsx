@@ -1,28 +1,22 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { RefreshCw, Sparkles } from 'lucide-react'
-import type { PublicProfile } from '@shared/types'
+import type { MatchResult } from '@shared/types'
 import { matchPosts } from '@/api/agent'
-import { getPublicProfile } from '@/api/personal'
 import { getApiErrorMessage } from '@/api/auth-feedback'
 
-type Candidate = {
-  id: string
-  score: number
-  reason: string
-  profile: PublicProfile | null
-}
+type Candidate = MatchResult & { id: string }
 
 function candidateName(candidate: Candidate) {
-  return candidate.profile?.nickname?.trim() || '站内用户'
+  return candidate.nickname?.trim() || '站内用户'
 }
 
 function candidateDetail(candidate: Candidate) {
-  return [candidate.profile?.major, candidate.profile?.grade].filter(Boolean).join(' · ') || '校园伙伴'
+  return [candidate.major, candidate.grade].filter(Boolean).join(' · ') || '校园伙伴'
 }
 
 function candidateSkills(candidate: Candidate) {
-  return (candidate.profile?.skills ?? []).filter((skill) => skill.trim()).slice(0, 6)
+  return (candidate.skills ?? []).filter((skill) => skill.trim()).slice(0, 6)
 }
 
 export default function PostMatchPanel({ postId }: { postId: string }) {
@@ -34,15 +28,10 @@ export default function PostMatchPanel({ postId }: { postId: string }) {
     setBusy(true); setError('')
     try {
       const response = await matchPosts(postId)
-      const matches = response?.matches ?? []
-      const resolved = await Promise.all(matches.map(async (match) => {
+      const resolved = (response?.matches ?? []).map((match) => {
         const id = match.user_id ?? match.candidate_id ?? ''
-        let profile: PublicProfile | null = null
-        if (id) {
-          try { profile = await getPublicProfile(id) } catch { profile = null }
-        }
-        return { id, score: match.score, reason: match.reason ?? match.summary ?? '', profile }
-      }))
+        return { ...match, id, reason: match.reason ?? match.summary ?? '' }
+      })
       setCandidates(resolved.filter((candidate) => candidate.id))
     } catch (requestError) {
       setError(getApiErrorMessage(requestError, 'AI 匹配暂时不可用，请稍后重试'))
@@ -53,11 +42,11 @@ export default function PostMatchPanel({ postId }: { postId: string }) {
     <div className="flex flex-wrap items-start justify-between gap-3">
       <div>
         <h3 id="post-match-title" className="text-lg font-bold text-ink">AI 推荐队友</h3>
-        <p className="mt-1 text-sm text-ink-muted">AI 按「所需角色」从站内已认证用户中筛选匹配的人。推荐结果不含联系方式，是否联系由你自行决定。</p>
+        <p className="mt-1 text-sm text-ink-muted">仅匹配已主动授权的认证用户，并只使用对方允许用于推荐的资料。推荐结果不含联系方式。</p>
       </div>
       <button type="button" className="btn-secondary shrink-0" disabled={busy} onClick={() => void run()}>
         {busy ? <RefreshCw aria-hidden="true" className="size-4 animate-spin" /> : <Sparkles aria-hidden="true" className="size-4" />}
-        {busy ? '正在筛选…' : candidates ? '重新匹配' : 'AI 匹配队友'}
+        {busy ? '匹配中...' : candidates ? '重新推荐' : '推荐队友'}
       </button>
     </div>
     {error && <p role="alert" className="mt-3 text-sm text-red-700">{error}</p>}
@@ -80,7 +69,7 @@ export default function PostMatchPanel({ postId }: { postId: string }) {
             {candidateSkills(candidate).length > 0 && <ul className="mt-2 flex flex-wrap gap-1.5">{candidateSkills(candidate).map((skill) => <li key={skill} className="tag-chip">{skill}</li>)}</ul>}
           </div>
           <div className="flex items-center gap-3 sm:flex-col sm:items-end">
-            <span className="inline-flex items-center rounded-full border border-[#E6D9BC] bg-[#FBF6EC] px-2.5 py-1 text-xs font-bold text-campus-gold">匹配度 {candidate.score}</span>
+            <span className="inline-flex items-center rounded-full border border-[#E6D9BC] bg-[#FBF6EC] px-2.5 py-1 text-xs font-bold text-campus-gold">{Math.round(candidate.score)}% 匹配</span>
             <Link to={`/users/${candidate.id}`} className="btn-secondary min-h-10 px-3">查看主页</Link>
           </div>
         </article>)}</div>}

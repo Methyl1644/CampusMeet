@@ -17,6 +17,8 @@ def _fresh_sqlite_database(monkeypatch, tmp_path):
     database_url = f"sqlite:///{(tmp_path / 'campusmate-test.db').as_posix()}"
     monkeypatch.setenv("DATABASE_URL", database_url)
     monkeypatch.setenv("APP_ENV", "test")
+    monkeypatch.setenv("AUTH_TEST_MODE", "true")
+    monkeypatch.setenv("JWT_SECRET", "test-jwt-secret-with-at-least-32-characters")
 
     import storage.database.db as db
 
@@ -212,7 +214,7 @@ def test_production_verification_code_is_hashed_at_rest(monkeypatch, tmp_path):
     from storage.database.models import VerificationCode
 
     monkeypatch.setenv("AUTH_TEST_MODE", "false")
-    monkeypatch.setenv("JWT_SECRET", "test-jwt-secret")
+    monkeypatch.setenv("JWT_SECRET", "test-jwt-secret-with-at-least-32-characters")
     monkeypatch.setattr(auth_tools, "get_session", db.get_session)
     monkeypatch.setattr(
         auth_tools,

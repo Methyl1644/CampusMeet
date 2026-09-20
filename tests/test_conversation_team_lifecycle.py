@@ -59,7 +59,7 @@ def _factory():
     return factory
 
 
-def test_message_pagination_and_read_state(monkeypatch):
+def test_latest_message_page_marks_only_returned_messages_as_read(monkeypatch):
     factory = _factory()
     monkeypatch.setattr(message_tools, "get_session", factory)
     for index in range(3):
@@ -75,17 +75,51 @@ def test_message_pagination_and_read_state(monkeypatch):
 
     page = json.loads(
         message_tools.get_messages.invoke(
-            {"user_id": "2", "conversation_id": "1", "page": 1, "page_size": 2}
+            {
+                "user_id": "2",
+                "conversation_id": "1",
+                "page": 1,
+                "page_size": 2,
+                "latest": True,
+            }
         )
     )
     assert page["total"] == 3
-    assert len(page["list"]) == 2
+    assert [message["content"] for message in page["list"]] == ["训练消息 1", "训练消息 2"]
     assert page["pagination"] == {"page": 1, "page_size": 2, "total": 3, "pages": 2}
 
     after = json.loads(message_tools.get_conversations.invoke({"user_id": "2", "page": 1, "page_size": 20}))
-    assert after["list"][0]["unread_count"] == 0
+    assert after["list"][0]["unread_count"] == 1
     with factory() as session:
-        assert all(message.read_at is not None for message in session.scalars(select(Message)))
+        messages = list(session.scalars(select(Message).order_by(Message.id)))
+        assert messages[0].read_at is None
+        assert all(message.read_at is not None for message in messages[1:])
+
+
+def test_message_cursor_fetches_only_messages_after_the_last_seen_id(monkeypatch):
+    factory = _factory()
+    monkeypatch.setattr(message_tools, "get_session", factory)
+    sent_ids = []
+    for index in range(3):
+        result = json.loads(
+            message_tools.send_message.invoke(
+                {"user_id": "1", "conversation_id": "1", "content": f"增量消息 {index}"}
+            )
+        )
+        sent_ids.append(result["message"]["id"])
+
+    page = json.loads(
+        message_tools.get_messages.invoke(
+            {
+                "user_id": "2",
+                "conversation_id": "1",
+                "page_size": 50,
+                "after_id": sent_ids[0],
+            }
+        )
+    )
+
+    assert [message["id"] for message in page["list"]] == sent_ids[1:]
 
 
 def test_team_members_can_create_complete_and_delete_tasks(monkeypatch):
@@ -124,6 +158,48 @@ def test_team_members_can_create_complete_and_delete_tasks(monkeypatch):
     )
     assert deleted["success"] is True
     assert deleted["team"]["task_list"] == []
+
+
+def test_team_members_cannot_modify_tasks_assigned_to_someone_else(monkeypatch):
+    factory = _factory()
+    monkeypatch.setattr(team_tools, "get_session", factory)
+    created = json.loads(
+        team_tools.create_team_task.invoke(
+            {
+                "user_id": "1",
+                "team_id": "1",
+                "title": "队长任务",
+                "assignee_id": "1",
+                "due_at": "2026-09-20",
+            }
+        )
+    )
+    task_id = created["task"]["id"]
+
+    completed = json.loads(
+        team_tools.update_team_task.invoke(
+            {"user_id": "2", "team_id": "1", "task_id": task_id, "done": True}
+        )
+    )
+    edited = json.loads(
+        team_tools.edit_team_task.invoke(
+            {
+                "user_id": "2",
+                "team_id": "1",
+                "task_id": task_id,
+                "title": "被越权修改",
+            }
+        )
+    )
+    reordered = json.loads(
+        team_tools.reorder_team_tasks.invoke(
+            {"user_id": "2", "team_id": "1", "task_ids": task_id}
+        )
+    )
+
+    assert completed == {"success": False, "message": "只能更新分配给自己的任务"}
+    assert edited == {"success": False, "message": "仅队长可以编辑团队任务"}
+    assert reordered == {"success": False, "message": "仅队长可以调整任务顺序"}
 
 
 def test_team_task_creation_refuses_to_grow_persisted_json_past_the_limit(monkeypatch):

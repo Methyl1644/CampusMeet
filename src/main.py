@@ -38,8 +38,10 @@ from storage.database.db import ensure_compatibility_columns, get_session, get_e
 from storage.memory.memory_saver import get_memory_saver
 from storage.database.shared.model import Base
 from utils.runtime import (
+    api_security_headers,
     agent_runtime_access_allowed,
     assert_production_config,
+    fastapi_documentation_urls,
     get_allowed_origins,
     production_config_errors,
     should_start_agent_runtime,
@@ -340,7 +342,7 @@ async def lifespan(app: FastAPI):
     if async_runtime is not None:
         await async_runtime.shutdown()
 
-app = FastAPI(lifespan=lifespan)
+app = FastAPI(lifespan=lifespan, **fastapi_documentation_urls())
 install_observability(app)
 
 _AGENT_RUNTIME_PATHS = {
@@ -364,8 +366,12 @@ async def protect_agent_runtime_routes(request: Request, call_next):
     if is_runtime_path and not agent_runtime_access_allowed(
         None, request.headers.get("x-agent-runtime-token")
     ):
-        return JSONResponse(status_code=404, content={"detail": "Not found"})
-    return await call_next(request)
+        response = JSONResponse(status_code=404, content={"detail": "Not found"})
+    else:
+        response = await call_next(request)
+    for name, value in api_security_headers().items():
+        response.headers.setdefault(name, value)
+    return response
 app.add_middleware(
     CORSMiddleware,
     allow_origins=get_allowed_origins(),
@@ -474,14 +480,6 @@ HEADER_X_RUN_ID = "x-run-id"
 @app.post("/run")
 async def http_run(request: Request) -> Dict[str, Any]:
     global result
-    raw_body = await request.body()
-    try:
-        body_text = raw_body.decode("utf-8")
-    except Exception as e:
-        body_text = str(raw_body)
-        raise HTTPException(status_code=400,
-                            detail=f"Invalid JSON format: {body_text}, traceback: {traceback.format_exc()}, error: {e}")
-
     ctx = new_context(method="run", headers=request.headers)
     # 优先使用上游指定的 run_id，保证 cancel 能精确匹配
     upstream_run_id = request.headers.get(HEADER_X_RUN_ID)
@@ -493,8 +491,7 @@ async def http_run(request: Request) -> Dict[str, Any]:
     logger.info(
         f"Received request for /run: "
         f"run_id={run_id}, "
-        f"query={dict(request.query_params)}, "
-        f"body={body_text}"
+        f"query={dict(request.query_params)}"
     )
 
     try:
@@ -569,21 +566,13 @@ async def http_stream_run(request: Request):
     workflow_stream_mode = request.headers.get(HEADER_X_WORKFLOW_STREAM_MODE, "").lower()
     workflow_debug = workflow_stream_mode == "debug"
     request_context.set(ctx)
-    raw_body = await request.body()
-    try:
-        body_text = raw_body.decode("utf-8")
-    except Exception as e:
-        body_text = str(raw_body)
-        raise HTTPException(status_code=400,
-                            detail=f"Invalid JSON format: {body_text}, traceback: {extract_core_stack()}, error: {e}")
     run_id = ctx.run_id
     is_agent = graph_helper.is_agent_proj()
     logger.info(
         f"Received request for /stream_run: "
         f"run_id={run_id}, "
         f"is_agent_project={is_agent}, "
-        f"query={dict(request.query_params)}, "
-        f"body={body_text}"
+        f"query={dict(request.query_params)}"
     )
     try:
         payload = await request.json()
@@ -633,18 +622,11 @@ async def http_cancel(run_id: str, request: Request):
 
 @app.post(path="/node_run/{node_id}")
 async def http_node_run(node_id: str, request: Request):
-    raw_body = await request.body()
-    try:
-        body_text = raw_body.decode("utf-8")
-    except UnicodeDecodeError:
-        body_text = str(raw_body)
-        raise HTTPException(status_code=400, detail=f"Invalid JSON format: {body_text}")
     ctx = new_context(method="node_run", headers=request.headers)
     request_context.set(ctx)
     logger.info(
         f"Received request for /node_run/{node_id}: "
-        f"query={dict(request.query_params)}, "
-        f"body={body_text}",
+        f"query={dict(request.query_params)}",
     )
 
     try:

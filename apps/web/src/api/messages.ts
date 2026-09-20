@@ -7,9 +7,22 @@ export async function getConversations() {
   return (await get<PaginatedResponse<Conversation>>(API_PATHS.messages.conversations)).list
 }
 
+/** 获取单个会话的最新状态，供当前聊天轻量轮询。 */
+export function getConversation(conversationId: string) {
+  return get<Conversation>(
+    API_PATHS.messages.conversation.replace(':conversationId', conversationId),
+  )
+}
+
 /** 获取某个会话的消息列表 */
-export async function getMessages(conversationId: string) {
-  return (await get<PaginatedResponse<Message>>(API_PATHS.messages.messages.replace(':conversationId', conversationId))).list
+export async function getMessages(
+  conversationId: string,
+  options: { latest?: boolean; before_id?: string; after_id?: string; page_size?: number } = {},
+) {
+  return get<PaginatedResponse<Message>>(
+    API_PATHS.messages.messages.replace(':conversationId', conversationId),
+    options,
+  )
 }
 
 /** 发送消息 */
@@ -19,7 +32,12 @@ export function sendMessage(conversationId: string, content: string) {
 
 /** 确认组队 */
 export function confirmTeam(conversationId: string) {
-  return post<{ confirmed: boolean }>(API_PATHS.messages.confirmTeam.replace(':conversationId', conversationId))
+  return post<{
+    confirmed: boolean
+    waiting_for_other?: boolean
+    contact_unlocked?: boolean
+    team_id?: string
+  }>(API_PATHS.messages.confirmTeam.replace(':conversationId', conversationId))
 }
 
 /** 结束对话 */

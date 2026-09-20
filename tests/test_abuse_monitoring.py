@@ -185,3 +185,45 @@ def test_registration_submissions_apply_an_independent_network_cooldown():
     assert all(decision.action == "allow" for decision in decisions[:5])
     assert decisions[5].action == "cooldown"
     assert decisions[5].retry_after_seconds == 600
+
+
+def test_login_attempts_are_limited_by_account_and_network():
+    session = _session()
+    now = datetime.datetime.now(datetime.timezone.utc)
+
+    decisions = [
+        abuse_monitoring.check_and_record(
+            session,
+            user_id=None,
+            event_type="login",
+            target_id="account",
+            content="student@nju.edu.cn",
+            network_identifier="203.0.113.42",
+            now=now + datetime.timedelta(seconds=index),
+        )
+        for index in range(11)
+    ]
+
+    assert all(decision.action == "allow" for decision in decisions[:10])
+    assert decisions[10].action == "cooldown"
+    assert decisions[10].retry_after_seconds == 900
+
+
+def test_ai_calls_share_a_per_user_quota_across_agent_surfaces():
+    session = _session()
+    now = datetime.datetime.now(datetime.timezone.utc)
+
+    decisions = [
+        abuse_monitoring.check_and_record(
+            session,
+            user_id=1,
+            event_type="agent",
+            target_id=f"surface:{index % 4}",
+            now=now + datetime.timedelta(seconds=index),
+        )
+        for index in range(21)
+    ]
+
+    assert all(decision.action == "allow" for decision in decisions[:20])
+    assert decisions[20].action == "cooldown"
+    assert decisions[20].retry_after_seconds == 600

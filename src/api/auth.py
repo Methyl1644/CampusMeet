@@ -1,3 +1,5 @@
+import datetime
+import os
 from typing import Any
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request
@@ -27,6 +29,7 @@ from services.auth_lifecycle import (
     utcnow,
 )
 from services.identity import identity_summary
+from services.operators import has_platform_role
 from services.onboarding import (
     complete_onboarding,
     onboarding_to_dict,
@@ -45,8 +48,50 @@ from tools.auth_tools import (
     verify_campus_email,
 )
 from utils.auth import verify_password, verify_token
+from utils.request_client import client_network_identifier
 
 router = APIRouter(prefix="/auth", tags=["auth"])
+
+
+def _review_demo_window_open() -> bool:
+    enabled = os.getenv("REVIEW_DEMO_ENABLED", "").strip().lower()
+    if enabled not in {"1", "true", "yes", "on"}:
+        return False
+    raw_expiry = os.getenv("REVIEW_DEMO_EXPIRES_AT", "").strip()
+    if not raw_expiry:
+        return False
+    try:
+        expires_at = datetime.datetime.fromisoformat(raw_expiry.replace("Z", "+00:00"))
+    except ValueError:
+        return False
+    if expires_at.tzinfo is None:
+        expires_at = expires_at.replace(tzinfo=datetime.timezone.utc)
+    return expires_at > datetime.datetime.now(datetime.timezone.utc)
+
+
+def _review_demo_user(session):
+    email = os.getenv("REVIEW_DEMO_EMAIL", "").strip().casefold()
+    if not email:
+        return None
+    user = session.scalar(select(User).where(func.lower(User.email) == email))
+    if (
+        user is None
+        or user.account_status != "active"
+        or user.auth_status not in {"verified", "organization", "campus_verified"}
+        or user.onboarding_completed_at is None
+        or not auth_email_is_allowed(email)
+        or not has_platform_role(session, user)
+    ):
+        return None
+    return user
+
+
+def _review_demo_ttl_seconds() -> int:
+    try:
+        configured = int(os.getenv("REVIEW_DEMO_SESSION_TTL_SECONDS", "7200"))
+    except ValueError:
+        configured = 7200
+    return min(7200, max(900, configured))
 
 
 def _auth_success(data: dict[str, Any], message: str) -> dict[str, Any]:
@@ -78,7 +123,7 @@ def send_code(body: SendCodeRequest, request: Request) -> dict[str, Any]:
             {
                 "account": body.account,
                 "purpose": body.purpose,
-                "network_identifier": request.client.host if request.client else "",
+                "network_identifier": client_network_identifier(request),
             },
         )
     )
@@ -92,7 +137,7 @@ def register(body: RegisterRequest, request: Request) -> dict[str, Any]:
             "account": body.account,
             "code": body.code,
             "password": body.password,
-            "network_identifier": request.client.host if request.client else "",
+            "network_identifier": client_network_identifier(request),
         },
     )
     data = unwrap_data(raw)
@@ -106,11 +151,41 @@ def login(body: LoginRequest, request: Request) -> dict[str, Any]:
         {
             "account": body.account,
             "password": body.password,
-            "network_identifier": request.client.host if request.client else "",
+            "network_identifier": client_network_identifier(request),
         },
     )
     data = unwrap_data(raw)
     return _auth_success(data, "ok")
+
+
+@router.get("/quick-experience/status")
+def review_demo_status() -> dict[str, Any]:
+    if not _review_demo_window_open():
+        return api_ok({"available": False})
+    session = get_session()
+    try:
+        return api_ok({"available": _review_demo_user(session) is not None})
+    finally:
+        session.close()
+
+
+@router.post("/quick-experience")
+def quick_experience() -> dict[str, Any]:
+    if not _review_demo_window_open():
+        raise HTTPException(status_code=404, detail="快速体验暂未开放")
+    session = get_session()
+    try:
+        user = _review_demo_user(session)
+        if user is None:
+            raise HTTPException(status_code=503, detail="游客账号尚未完成配置")
+        from services.auth_lifecycle import issue_access_token
+
+        token = issue_access_token(session, user.id, ttl_seconds=_review_demo_ttl_seconds())
+        payload = {"token": token, "user": _user_to_dict(user)}
+        session.commit()
+    finally:
+        session.close()
+    return _auth_success(payload, "已进入快速体验")
 
 
 @router.post("/verify-email")

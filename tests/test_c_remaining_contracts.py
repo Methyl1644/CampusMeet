@@ -102,7 +102,8 @@ def test_classify_review_sends_cleaned_text_to_ai(monkeypatch):
     import api.agent as agent
 
     importlib.reload(agent)
-    monkeypatch.setattr(agent, "_require_verified_user", lambda *_: None)
+    monkeypatch.setattr(agent, "_require_verified_user", lambda *_: SimpleNamespace(id=1))
+    monkeypatch.setattr(agent, "_require_agent_quota", lambda *_: None)
     result = agent.classify_review(
         {"title": "美赛招募", "description": "联系微信 abcdef123456"},
         user_id="1",

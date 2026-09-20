@@ -57,4 +57,21 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    raise RuntimeError("Upload audit records are intentionally retained.")
+    inspector = inspect(op.get_bind())
+    if "uploads" not in inspector.get_table_names():
+        return
+
+    index_names = {index["name"] for index in inspector.get_indexes("uploads")}
+    if "ix_uploads_cloudinary_public_id" in index_names:
+        op.drop_index("ix_uploads_cloudinary_public_id", table_name="uploads")
+
+    existing = {column["name"] for column in inspector.get_columns("uploads")}
+    removable = [name for name, _column_type in CLOUDINARY_COLUMNS if name in existing]
+    if "provider" in existing:
+        removable.append("provider")
+    if not removable:
+        return
+
+    with op.batch_alter_table("uploads") as batch_op:
+        for name in removable:
+            batch_op.drop_column(name)

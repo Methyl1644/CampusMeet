@@ -4,6 +4,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testi
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { MemoryRouter, Route, Routes, useNavigate } from 'react-router-dom'
 import { createApplication } from '@/api/applications'
+import { matchPosts } from '@/api/agent'
 import { getExploreGroup, joinExploreGroup, setGroupFavorite } from '@/api/explore'
 import { getMyTeams, type MyTeamSummary } from '@/api/teams'
 import { ToastProvider } from '@/components/Toast'
@@ -11,6 +12,7 @@ import PostDetail from './PostDetail'
 import { groupDetailFixture } from './detailTestFixtures'
 
 vi.mock('@/api/applications', () => ({ createApplication: vi.fn() }))
+vi.mock('@/api/agent', () => ({ matchPosts: vi.fn() }))
 vi.mock('@/api/explore', () => ({
   getExploreGroup: vi.fn(),
   joinExploreGroup: vi.fn(),
@@ -78,6 +80,11 @@ beforeEach(() => {
     role_wanted: '前端开发', experience: '有项目经验', available_time: '', reason: '希望一起参赛',
     status: 'pending', created_at: '2026-09-13T08:00:00+08:00',
   })
+  vi.mocked(matchPosts).mockResolvedValue({ matches: [{
+    user_id: 'candidate-1', nickname: '林同学', score: 86,
+    reason: '公开技能与帖子所需角色存在直接匹配',
+    skills: ['前端开发'], goals: ['比赛组队'],
+  }] })
   Object.defineProperty(navigator, 'share', { configurable: true, value: vi.fn().mockResolvedValue(undefined) })
   Object.defineProperty(navigator, 'clipboard', { configurable: true, value: undefined })
 })
@@ -85,6 +92,19 @@ beforeEach(() => {
 afterEach(() => cleanup())
 
 describe('PostDetail group experience', () => {
+  it('lets the owner request privacy-safe teammate recommendations from management', async () => {
+    vi.mocked(getExploreGroup).mockResolvedValue({ ...groupDetailFixture, join_state: 'owner' })
+    renderPost()
+
+    fireEvent.click(await screen.findByRole('button', { name: '编辑与管理' }))
+    fireEvent.click(screen.getByRole('button', { name: '推荐队友' }))
+
+    await waitFor(() => expect(matchPosts).toHaveBeenCalledWith(groupDetailFixture.id))
+    expect(await screen.findByText('林同学')).toBeTruthy()
+    expect(screen.getByText('86% 匹配')).toBeTruthy()
+    expect(screen.getByText(/公开技能与帖子所需角色存在直接匹配/)).toBeTruthy()
+  })
+
   it.each([
     ['owner', '管理组队'],
     ['pending', '申请审核中'],

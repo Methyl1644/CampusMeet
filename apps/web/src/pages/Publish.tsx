@@ -40,6 +40,7 @@ function PublishSession({ userId, kind, topicId, canPublishActivity }: { userId:
   const [cover, setCover] = useState<{ file: File; preview: string; id?: string } | null>(null)
   const [uploading, setUploading] = useState(false)
   const [result, setResult] = useState<string | null>(null)
+  const [publishingSeconds, setPublishingSeconds] = useState(0)
   const [restorable, setRestorable] = useState(false)
   const requestId = useRef<string>(crypto.randomUUID())
   const busy = useRef(false)
@@ -83,6 +84,26 @@ function PublishSession({ userId, kind, topicId, canPublishActivity }: { userId:
   useEffect(() => useAuthStore.subscribe((next) => {
     if (!next.isAuthenticated) { try { sessionStorage.removeItem(storageKey) } catch { /* Optional storage. */ } }
   }), [storageKey])
+  useEffect(() => {
+    if (phase !== 'publishing') {
+      setPublishingSeconds(0)
+      return
+    }
+    const startedAt = Date.now()
+    const timer = window.setInterval(() => {
+      setPublishingSeconds(Math.floor((Date.now() - startedAt) / 1000))
+    }, 1000)
+    return () => window.clearInterval(timer)
+  }, [phase])
+  useEffect(() => {
+    if (phase !== 'publishing') return
+    const protectSubmission = (event: BeforeUnloadEvent) => {
+      event.preventDefault()
+      event.returnValue = ''
+    }
+    window.addEventListener('beforeunload', protectSubmission)
+    return () => window.removeEventListener('beforeunload', protectSubmission)
+  }, [phase])
 
   const updateField = (field: keyof PostDraft, value: string | number | string[]) => {
     setDraft((old) => ({ ...old, [field]: value }))
@@ -187,7 +208,7 @@ function PublishSession({ userId, kind, topicId, canPublishActivity }: { userId:
   return <div className="publish-experience py-6 sm:py-10">
     <header className="flex items-center justify-between gap-4 mb-5 px-1">
       <div><p className="text-sm text-gray-500 mb-1">和小蓝鲸一起</p><h1 className="text-2xl sm:text-3xl font-bold">让想法找到伙伴</h1></div>
-      <div className="flex items-center gap-2">{canPublishActivity && <Link className="btn-secondary" to="/publish/activity"><CalendarPlus size={17} />正式活动</Link>}<button className="publish-icon" title="重新开始" aria-label="重新开始" disabled={locked} onClick={reset}><RotateCcw size={20} /></button></div>
+      <div className="flex items-center gap-2">{canPublishActivity && <Link aria-disabled={locked} onClick={(event) => { if (locked) event.preventDefault() }} className={`btn-secondary ${locked ? 'pointer-events-none opacity-50' : ''}`} to="/publish/activity"><CalendarPlus size={17} />正式活动</Link>}<button className="publish-icon" title="重新开始" aria-label="重新开始" disabled={locked} onClick={reset}><RotateCcw size={20} /></button></div>
     </header>
     {context.activity && <div className="publish-context mb-4"><span>关联活动</span><Link to={`/topics/${context.activity.id}`} className="font-semibold">{context.activity.title}</Link></div>}
     {context.allowed_purposes.length > 1 && <div className="flex flex-wrap gap-2 mb-5" role="group" aria-label="发布用途">{context.allowed_purposes.map((item) => <button key={item} className={`publish-purpose ${purpose === item ? 'is-active' : ''}`} aria-pressed={purpose === item} disabled={locked || phase === 'published' || restorable} onClick={() => { setPurpose(item); setPhase('conversation'); setError(''); retryMessage.current = '' }}>{purposeLabels[item]}</button>)}</div>}
@@ -195,7 +216,7 @@ function PublishSession({ userId, kind, topicId, canPublishActivity }: { userId:
     <div className="publish-dialog" aria-busy={locked}>
       <div className="publish-dialog-content">
         {phase === 'published' ? <div className="text-center py-16 px-6"><Check size={42} className="mx-auto mb-4 text-emerald-600" /><h2 className="text-2xl font-bold mb-3">发布成功，等伙伴来相遇</h2><div className="flex gap-3 justify-center flex-wrap"><Link className="btn btn-primary" to={`/posts/${result}`}>查看帖子</Link><Link className="btn btn-secondary" to="/my/groups">我的组队</Link></div></div> : reviewing ?
-          <PublishReview headingRef={reviewRef} draft={draft} states={states} context={context} purpose={purpose} updateField={updateField} tags={tags} setTags={setTags} candidates={candidates} cover={cover} upload={upload} removeCover={() => { uploadSequence.current++; setCover(null); setUploading(false) }} uploading={uploading} locked={locked} publish={() => void publish()} back={() => { setPhase('conversation'); setError('') }} /> : <>
+          <PublishReview headingRef={reviewRef} draft={draft} states={states} context={context} purpose={purpose} updateField={updateField} tags={tags} setTags={setTags} candidates={candidates} cover={cover} upload={upload} removeCover={() => { uploadSequence.current++; setCover(null); setUploading(false) }} uploading={uploading} locked={locked} publishingSeconds={publishingSeconds} publish={() => void publish()} back={() => { setPhase('conversation'); setError('') }} /> : <>
             <div className="publish-messages" ref={historyRef} role="log" aria-label="发布对话" aria-live="polite">
               <div className="flex items-center gap-2 mb-3"><div style={{ width: 42 }}><Whale /></div><span className="font-semibold text-sm">小蓝鲸</span></div>
               <div className="publish-bubble publish-bubble-assistant mb-4">{purpose === 'discussion' ? '想请教经验，还是分享一个新发现？和我说说吧。' : purpose === 'official_signup' ? '介绍一下这场活动，我来帮你整理报名信息。' : '你想做什么，想遇见怎样的伙伴？先从一句话开始吧。'}</div>

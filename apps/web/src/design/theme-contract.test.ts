@@ -5,6 +5,8 @@ import { fileURLToPath } from 'node:url'
 
 const sourcePath = fileURLToPath(new URL('../', import.meta.url))
 const indexCss = readFileSync(new URL('../index.css', import.meta.url), 'utf8')
+const indexHtml = readFileSync(new URL('../../index.html', import.meta.url), 'utf8')
+const mainSource = readFileSync(new URL('../main.tsx', import.meta.url), 'utf8')
 const tailwindConfig = readFileSync(
   new URL('../../tailwind.config.js', import.meta.url),
   'utf8',
@@ -73,8 +75,9 @@ const topicDetailSource = readFileSync(new URL('../pages/TopicDetail.tsx', impor
 test('theme sources define the approved campus identity tokens', () => {
   assert.match(themeSources, /#5B2A86/i, `${sourcePath} must define NJU purple`)
   assert.match(themeSources, /#175C4A/i, `${sourcePath} must define campus green`)
-  assert.match(themeSources, /Noto Serif SC/, `${sourcePath} must define the title font`)
-  assert.match(themeSources, /Noto Sans SC/, `${sourcePath} must define the UI font`)
+  assert.match(themeSources, /Songti SC/, `${sourcePath} must define the title font`)
+  assert.match(themeSources, /system-ui/, `${sourcePath} must define the zero-download UI font`)
+  assert.doesNotMatch(mainSource, /@fontsource/, 'The entry point must not download full Chinese font packages')
   assert.match(
     tailwindConfig,
     /borderRadius\s*:\s*\{[\s\S]*?card\s*:\s*['"]8px['"]/,
@@ -94,6 +97,11 @@ test('global styles preserve keyboard focus and reduced-motion access', () => {
     /@media\s*\(prefers-reduced-motion:\s*reduce\)[\s\S]*?\.group:hover[\s\S]*?transform:\s*none\s*!important/,
     'Reduced-motion mode must disable card hover transforms',
   )
+})
+
+test('the viewport allows user zoom', () => {
+  assert.match(indexHtml, /width=device-width, initial-scale=1\.0/)
+  assert.doesNotMatch(indexHtml, /user-scalable=no|maximum-scale=1/)
 })
 
 test('navbar preserves the five-route campus identity and accessible logout', () => {

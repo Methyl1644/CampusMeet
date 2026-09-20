@@ -948,7 +948,7 @@ def test_explore_participation_migration_preserves_legacy_rows_and_is_reversible
         ).scalar_one()
     assert tuple(topic) == ("Legacy activity", None, "open_team")
     assert tuple(post) == ("Legacy group", "team_recruitment", "application")
-    assert revision == "20260914_18"
+    assert revision == "20260914_20"
 
     with engine.begin() as connection:
         connection.execute(
@@ -1031,7 +1031,7 @@ def test_deadline_normalization_migration_streams_and_round_trips_legacy_rows(tm
         revision = connection.execute(
             text("SELECT version_num FROM alembic_version")
         ).scalar_one()
-    assert revision == "20260914_18"
+    assert revision == "20260914_20"
     assert [row.deadline for row in normalized] == [
         "2026-09-13T12:30:00Z",
         "2026-09-13T13:00:00+02:00",
@@ -1069,7 +1069,7 @@ def test_deadline_normalization_migration_streams_and_round_trips_legacy_rows(tm
         ).scalar_one() == "2026-09-13 11:00:00.000000"
         assert connection.execute(
             text("SELECT version_num FROM alembic_version")
-        ).scalar_one() == "20260914_18"
+        ).scalar_one() == "20260914_20"
 
 
 def test_explore_participation_migration_sanitizes_legacy_values_before_checks(tmp_path):
@@ -1383,4 +1383,4 @@ def test_topic_manager_backfill_grants_legacy_activity_creators_without_overwrit
         (10, 1, "manager", "active", 1),
         (11, 2, "editor", "active", 1),
     ]
-    assert revision == "20260914_18"
+    assert revision == "20260914_20"

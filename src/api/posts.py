@@ -101,8 +101,8 @@ def _moderate_post(body: dict[str, Any], user_id: str, *, title: str, descriptio
 @router.get("")
 def posts(
     tab: str = "recommend",
-    page: int = 1,
-    page_size: int = 10,
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=10, ge=1, le=40),
     category: str = "",
     tags: str = "",
     keyword: str = "",

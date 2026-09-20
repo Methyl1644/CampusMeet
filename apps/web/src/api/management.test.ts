@@ -37,6 +37,11 @@ beforeEach(() => {
 })
 
 describe('management API contracts', () => {
+  it('uses the backend operator routes for audit data', () => {
+    expect(API_PATHS.operations.auditLogs).toBe('/api/operators/audit-logs')
+    expect(API_PATHS.operations.metrics).toBe('/api/operators/metrics')
+  })
+
   it('loads permissions, roles, reviews, organizations, members, and collaborators', async () => {
     await getManagementPermissions()
     await getPlatformRoles()

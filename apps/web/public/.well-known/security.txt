@@ -1,0 +1,5 @@
+Contact: https://github.com/Methyl1644/EL_CampusMate/issues
+Policy: https://github.com/Methyl1644/EL_CampusMate/security/policy
+Preferred-Languages: zh-CN, en
+Canonical: https://campusmate-web.onrender.com/.well-known/security.txt
+Expires: 2027-09-20T00:00:00Z

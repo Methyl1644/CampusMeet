@@ -729,14 +729,15 @@ def test_home_endpoint_requires_auth_wraps_contract_and_rejects_missing_users(fa
         app.dependency_overrides[current_user_id] = lambda: "1"
         with factory() as session:
             session.add(User(id=1, email="home@nju.edu.cn", password_hash="hash", nickname="首页用户"))
+            endpoint_now = datetime.datetime.now(datetime.timezone.utc)
             topic = _topic(
                 session,
                 topic_id=1,
                 title="首页活动",
-                deadline=UTC_NOW + datetime.timedelta(days=3),
+                deadline=endpoint_now + datetime.timedelta(days=3),
                 tags=(("activity_ai", "人工智能"),),
             )
-            session.add(TopicFollow(topic_id=topic.id, user_id=1, created_at=UTC_NOW))
+            session.add(TopicFollow(topic_id=topic.id, user_id=1, created_at=endpoint_now))
             session.commit()
         response = client.get("/api/home")
 
