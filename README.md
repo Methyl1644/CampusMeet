@@ -1,4 +1,4 @@
-# CampusMate AI
+# CampusMeet AI
 
 > A trustworthy AI-powered campus team-matching platform that helps university students go from "want to participate" to "actually forming a team."
 
