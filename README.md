@@ -2,7 +2,7 @@
 
 > A trustworthy AI-powered campus team-matching platform that helps university students go from "want to participate" to "actually forming a team."
 
-CampusMate AI 不只是一个带 AI 审核的校园论坛，而是由智能体负责理解需求、合理分类、补全信息、匹配队友、辅助沟通并推动团队真正组建的可信组队平台。
+CampusMeet AI 不只是一个带 AI 审核的校园论坛，而是由智能体负责理解需求、合理分类、补全信息、匹配队友、辅助沟通并推动团队真正组建的可信组队平台。
 
 ## ✨ 核心功能
 
@@ -27,7 +27,7 @@ CampusMate AI 不只是一个带 AI 审核的校园论坛，而是由智能体�
 ## 📁 仓库结构
 
 ```
-campusmate/
+campusmeet/
 ├── apps/
 │   └── web/              # 前端：React + Vite 响应式界面
 ├── packages/
@@ -65,7 +65,7 @@ campusmate/
 
 ```bash
 git clone <仓库地址>
-cd campusmate
+cd campusmeet
 git checkout dev
 git pull origin dev
 ```
