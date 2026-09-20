@@ -69,6 +69,14 @@ services:
         value: https://sbs68xhstz.coze.site/run
       - key: COZE_COVER_API_TOKEN
         sync: false
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
+        sync: false
+      - key: CLOUDINARY_ROOT_FOLDER
+        value: campusmeet
       - key: OBJECT_STORAGE_ENDPOINT
         sync: false
       - key: OBJECT_STORAGE_REGION

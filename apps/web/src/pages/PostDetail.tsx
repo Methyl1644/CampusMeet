@@ -14,7 +14,7 @@ import { getApiErrorMessage } from '@/api/auth-feedback'
 import { useAuthStore } from '@/store/authStore'
 import PostCollaboratorsPanel from '@/features/management/PostCollaboratorsPanel'
 import PostApplicationsPanel from '@/features/management/PostApplicationsPanel'
-import TeammateMatchesPanel from '@/features/management/TeammateMatchesPanel'
+import PostMatchPanel from '@/features/management/PostMatchPanel'
 import type { ExploreGroupDetail } from '@shared/types'
 
 async function shareCurrentPage(title: string) {
@@ -277,8 +277,8 @@ export default function PostDetail() {
             </div>}
             {managementError && <p role="alert" className="rounded-card border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{managementError}</p>}
             {(canEditPost || canManagePost) && <div className="flex flex-wrap gap-2">{canEditPost && <><button type="button" className="btn-primary" disabled={managementBusy} onClick={() => void savePost()}>保存修改</button><button type="button" className="btn-secondary" disabled={managementBusy} onClick={() => void regenerateCover()}><ImagePlus aria-hidden="true" className="size-4" />{group.cover_url ? '重新生成封面' : '生成封面'}</button></>}{canManagePost && <>{group.status === 'closed' ? <button type="button" className="btn-secondary" disabled={managementBusy} onClick={() => void transitionPost('reopen')}>重新开放</button> : <button type="button" className="btn-secondary" disabled={managementBusy} onClick={() => void transitionPost('close')}>关闭招募</button>}<button type="button" className="btn-secondary" disabled={managementBusy} onClick={() => void transitionPost('archive')}><Archive aria-hidden="true" className="size-4" />归档</button><button type="button" className="btn-danger" disabled={managementBusy} onClick={() => void transitionPost('delete')}><Trash2 aria-hidden="true" className="size-4" />删除</button></>}</div>}
+            {group.join_state === 'owner' && <div className="border-t border-stone pt-6"><PostMatchPanel postId={group.id} /></div>}
             {canManageApplications && <div className="border-t border-stone pt-6"><PostApplicationsPanel postId={group.id} /></div>}
-            {group.join_state === 'owner' && <div className="border-t border-stone pt-6"><TeammateMatchesPanel postId={group.id} /></div>}
             {canManagePost && <div className="border-t border-stone pt-6"><PostCollaboratorsPanel postId={group.id} /></div>}
           </div>}
         </section>}

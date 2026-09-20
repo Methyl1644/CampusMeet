@@ -417,6 +417,7 @@ export default function Login() {
                               : '获取验证码'}
                         </button>
                       </div>
+                      <p className="mt-1.5 text-xs text-ink-muted">长时间未收到邮箱验证码请翻阅邮件垃圾箱</p>
                     </div>
                   )}
 

@@ -30,3 +30,11 @@ class UploadRecord(Base):
     created_at: Mapped[datetime.datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
+    provider: Mapped[str] = mapped_column(Text, nullable=False, default="s3", server_default="s3")
+    cloudinary_asset_id: Mapped[str | None] = mapped_column(Text)
+    cloudinary_public_id: Mapped[str | None] = mapped_column(Text)
+    cloudinary_resource_type: Mapped[str | None] = mapped_column(Text)
+    cloudinary_delivery_type: Mapped[str | None] = mapped_column(Text)
+    cloudinary_format: Mapped[str | None] = mapped_column(Text)
+    cloudinary_version: Mapped[int | None] = mapped_column(Integer)
+    cloudinary_secure_url: Mapped[str | None] = mapped_column(Text)

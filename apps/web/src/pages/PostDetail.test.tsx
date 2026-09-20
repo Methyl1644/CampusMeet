@@ -102,7 +102,7 @@ describe('PostDetail group experience', () => {
     await waitFor(() => expect(matchPosts).toHaveBeenCalledWith(groupDetailFixture.id))
     expect(await screen.findByText('林同学')).toBeTruthy()
     expect(screen.getByText('86% 匹配')).toBeTruthy()
-    expect(screen.getByText('公开技能与帖子所需角色存在直接匹配')).toBeTruthy()
+    expect(screen.getByText(/公开技能与帖子所需角色存在直接匹配/)).toBeTruthy()
   })
 
   it.each([

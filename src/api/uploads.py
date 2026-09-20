@@ -5,7 +5,8 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException
 
 from api.common import api_ok, current_user_id
-from api.schemas.uploads import UploadAttachRequest, UploadCreateRequest
+from api.schemas.uploads import UploadAttachRequest, UploadCompleteRequest, UploadCreateRequest
+from services.rate_limit import upload_ticket_limiter
 from services.uploads import (
     attach_public_upload,
     complete_upload,
@@ -37,6 +38,12 @@ def start_upload(
         user = session.get(User, int(user_id))
         if not user:
             raise HTTPException(status_code=401, detail="登录状态已失效")
+        if not upload_ticket_limiter.allow(str(user.id)):
+            raise HTTPException(
+                status_code=429,
+                detail="上传请求过于频繁，请稍后再试",
+                headers={"Retry-After": str(upload_ticket_limiter.retry_after_seconds(str(user.id)))},
+            )
         try:
             record, instruction = create_upload(
                 session,
@@ -62,14 +69,19 @@ def start_upload(
 
 
 @router.post("/{upload_id}/complete")
-def finish_upload(upload_id: str, user_id: str = Depends(current_user_id)) -> dict[str, Any]:
+def finish_upload(
+    upload_id: str,
+    body: UploadCompleteRequest | None = None,
+    user_id: str = Depends(current_user_id),
+) -> dict[str, Any]:
     session = get_session()
     try:
         user = session.get(User, int(user_id))
         if not user:
             raise HTTPException(status_code=401, detail="登录状态已失效")
         try:
-            record = complete_upload(session, _storage(), user, upload_id)
+            claimed = body.model_dump(exclude_none=True) if body is not None else {}
+            record = complete_upload(session, _storage(), user, upload_id, claimed=claimed)
             session.commit()
         except PermissionError as exc:
             session.rollback()
@@ -77,6 +89,9 @@ def finish_upload(upload_id: str, user_id: str = Depends(current_user_id)) -> di
         except ValueError as exc:
             session.rollback()
             raise HTTPException(status_code=400, detail=str(exc)) from exc
+        except RuntimeError as exc:
+            session.rollback()
+            raise HTTPException(status_code=503, detail=str(exc)) from exc
         return api_ok(
             {
                 "upload_id": record.id,

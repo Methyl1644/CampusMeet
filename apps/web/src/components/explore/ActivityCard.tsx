@@ -41,7 +41,7 @@ export default function ActivityCard({ activity, favoritePending, onFavorite, fa
   )).slice(0, 2)
 
   return (
-    <article aria-label={activity.title} className="group flex h-[432px] min-w-0 flex-col overflow-hidden rounded-card border border-stone bg-paper shadow-panel transition duration-feedback motion-safe:hover:-translate-y-0.5 hover:border-primary-300 hover:shadow-md">
+    <article aria-label={activity.title} className="group relative flex h-[432px] min-w-0 flex-col overflow-hidden rounded-card border border-stone bg-paper shadow-panel transition duration-feedback motion-safe:hover:-translate-y-0.5 hover:border-primary-300 hover:shadow-md">
       <div data-testid="activity-media" className="relative aspect-[16/9] w-full shrink-0 overflow-hidden rounded-t-[12px] bg-[#EDF1F4]">
         {showCover ? (
           <img src={activity.cover_url ?? undefined} alt={`${activity.title}封面`} onError={() => setFailedCoverUrl(activity.cover_url)} className="size-full object-cover transition-transform duration-feedback motion-safe:group-hover:scale-[1.02]" />
@@ -54,7 +54,7 @@ export default function ActivityCard({ activity, favoritePending, onFavorite, fa
           title={favorite ? '取消收藏' : '收藏'}
           disabled={favoritePending}
           onClick={() => onFavorite(activity.id, !favorite)}
-          className="absolute right-2.5 top-2.5 inline-flex size-10 items-center justify-center rounded-full border border-white/80 bg-paper/95 text-primary-700 shadow-panel transition-colors duration-feedback hover:bg-primary-50"
+          className="absolute right-2.5 top-2.5 z-10 inline-flex size-10 items-center justify-center rounded-full border border-white/80 bg-paper/95 text-primary-700 shadow-panel transition-colors duration-feedback hover:bg-primary-50"
         >
           <Heart aria-hidden="true" className="size-[18px]" fill={favorite ? 'currentColor' : 'none'} />
         </button>}
@@ -79,7 +79,7 @@ export default function ActivityCard({ activity, favoritePending, onFavorite, fa
           <span className="flex shrink-0 items-center gap-1"><UsersRound aria-hidden="true" className="size-3.5" />{activity.participant_count} 人参加</span>
         </div>
         <div className="mt-auto border-t border-stone pt-3">
-          <Link to={`/topics/${activity.id}`} aria-label="查看活动详情" className="inline-flex min-h-9 items-center text-sm font-semibold text-primary-700 transition-colors duration-feedback hover:text-primary-800">查看活动详情</Link>
+          <Link to={`/topics/${activity.id}`} aria-label="查看活动详情" className="inline-flex min-h-9 items-center text-sm font-semibold text-primary-700 transition-colors duration-feedback after:absolute after:inset-0 after:content-[''] hover:text-primary-800">查看活动详情</Link>
         </div>
       </div>
     </article>

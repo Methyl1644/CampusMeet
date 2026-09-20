@@ -864,16 +864,32 @@ export interface Appeal {
   reviewed_at?: string | null;
 }
 
+export interface S3UploadInstruction {
+  provider?: 's3';
+  url: string;
+  method: 'PUT';
+  headers: Record<string, string>;
+  max_size: number;
+}
+
+export interface CloudinaryUploadInstruction {
+  provider: 'cloudinary';
+  url: string;
+  method: 'POST';
+  encoding: 'multipart/form-data';
+  file_field: string;
+  /** Signed params; `api_secret` is never included. */
+  fields: Record<string, string>;
+  max_size: number;
+}
+
+export type UploadInstruction = S3UploadInstruction | CloudinaryUploadInstruction;
+
 export interface UploadTicket {
   upload_id: string;
   purpose: 'avatar' | 'topic_cover' | 'post_cover' | 'organization_evidence';
   expires_at: string;
-  upload: {
-    url: string;
-    method: 'PUT';
-    headers: Record<string, string>;
-    max_size: number;
-  };
+  upload: UploadInstruction;
 }
 
 export interface AccountRequest {
