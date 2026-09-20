@@ -79,6 +79,9 @@ def test_http_application_chat_confirmation_and_contacts(http_flow, post_id):
 
     accepted = ok(client.post(f"/api/applications/{created['id']}/accept", headers=owner))
     conversation_id = accepted["conversation_id"]
+    with factory() as session:
+        assert session.scalar(select(TeamMember).where(TeamMember.user_id == 2)) is None
+        assert session.get(Post, 3).current_members == 1
     repeated = ok(client.post(f"/api/applications/{created['id']}/accept", headers=owner))
     assert repeated["conversation_id"] == conversation_id
     for headers in ({}, owner):
@@ -117,3 +120,26 @@ def test_http_application_keeps_validation_and_business_errors(http_flow):
     own_post = client.post("/api/applications", json=payload(3), headers={"X-Test-User": "1"})
     assert own_post.status_code == 400
     assert "自己的帖子" in own_post.json()["message"]
+
+
+def test_http_rejected_application_notifies_applicant(http_flow):
+    client, factory = http_flow
+    owner = {"X-Test-User": "1"}
+    created = ok(client.post("/api/applications", json=payload(3)))
+
+    rejected = ok(client.post(f"/api/applications/{created['id']}/reject", headers=owner))
+    assert rejected["rejected"] is True
+
+    with factory() as session:
+        application = session.get(Application, created["id"])
+        notification = session.scalar(
+            select(Notification).where(
+                Notification.user_id == 2,
+                Notification.event_type == "application.rejected",
+            )
+        )
+        assert application.status == "rejected"
+        assert notification is not None
+        assert notification.title == "你的申请被拒绝"
+        assert notification.target_type == "post"
+        assert notification.target_id == "3"

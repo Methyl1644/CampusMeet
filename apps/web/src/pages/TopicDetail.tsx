@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ArrowLeft, ExternalLink, Heart, MessageCircle, Pencil, Plus, RefreshCw, Share2, UserCog, UsersRound } from 'lucide-react'
+import { ArrowLeft, ExternalLink, Heart, Image, MessageCircle, Pencil, Plus, RefreshCw, Share2, UserCog, UsersRound } from 'lucide-react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { getExploreActivity, setActivityFavorite } from '@/api/explore'
 import ActivityFacts from '@/components/details/ActivityFacts'
@@ -14,6 +14,8 @@ import { publicUserId } from '@/features/identity/publicUserId'
 import type { ExploreActivityDetail } from '@shared/types'
 import { updateTopic } from '@/api/content'
 import { getApiErrorMessage } from '@/api/auth-feedback'
+import { NJU_CAMPUSES } from '@/features/location/campuses'
+import { attachPublicUpload, uploadTopicCover } from '@/api/publish'
 
 function dateTimeLocal(value: string | null) {
   if (!value) return ''
@@ -94,6 +96,18 @@ export default function TopicDetail() {
       await updateTopic(activity.id, { ...edit, registration_deadline: isoOrNull(edit.registration_deadline), activity_start_at: isoOrNull(edit.activity_start_at), activity_end_at: isoOrNull(edit.activity_end_at), location_name: edit.location_name.trim() || '暂无', capacity: edit.capacity ? Number(edit.capacity) : null })
       await retry(); setShowEdit(false); showToast('活动信息已更新', 'success')
     } catch (requestError) { setEditError(getApiErrorMessage(requestError, '活动信息保存失败')) }
+    finally { setEditBusy(false) }
+  }
+
+  const replaceActivityCover = async (file: File) => {
+    if (!activity) return
+    setEditBusy(true); setEditError('')
+    try {
+      const uploadId = await uploadTopicCover(file)
+      await attachPublicUpload(uploadId, activity.id)
+      await retry()
+      showToast('活动封面已更换', 'success')
+    } catch (requestError) { setEditError(getApiErrorMessage(requestError, '活动封面更换失败')) }
     finally { setEditBusy(false) }
   }
 
@@ -180,9 +194,10 @@ export default function TopicDetail() {
             <label className="text-sm font-medium">活动开始<input type="datetime-local" className="input-base mt-1.5" value={edit.activity_start_at} onChange={(event) => setEdit({ ...edit, activity_start_at: event.target.value })} /></label>
             <label className="text-sm font-medium">活动结束<input type="datetime-local" className="input-base mt-1.5" value={edit.activity_end_at} onChange={(event) => setEdit({ ...edit, activity_end_at: event.target.value })} /></label>
             <label className="text-sm font-medium">地点<input className="input-base mt-1.5" value={edit.location_name} onChange={(event) => setEdit({ ...edit, location_name: event.target.value })} /></label>
-            <label className="text-sm font-medium">校区<input className="input-base mt-1.5" value={edit.campus_scope} onChange={(event) => setEdit({ ...edit, campus_scope: event.target.value })} /></label>
+            <label className="text-sm font-medium">校区<select className="input-base mt-1.5" value={edit.campus_scope} onChange={(event) => setEdit({ ...edit, campus_scope: event.target.value })}><option value="">请选择校区</option>{NJU_CAMPUSES.map((campus) => <option key={campus} value={campus}>{campus}</option>)}</select></label>
             <label className="text-sm font-medium">人数上限<input type="number" min={1} max={100000} className="input-base mt-1.5" value={edit.capacity} onChange={(event) => setEdit({ ...edit, capacity: event.target.value })} /></label>
             <label className="text-sm font-medium">参与方式<select className="input-base mt-1.5" value={edit.participation_mode} onChange={(event) => setEdit({ ...edit, participation_mode: event.target.value as ExploreActivityDetail['participation_mode'] })}><option value="official_signup">官方报名</option><option value="open_team">允许组队</option><option value="information_only">仅展示信息</option></select></label>
+            <label className={`btn-secondary min-h-11 cursor-pointer self-end ${editBusy ? 'pointer-events-none opacity-50' : ''}`}><Image aria-hidden="true" className="size-4" />上传新封面<input type="file" className="sr-only" accept="image/jpeg,image/png,image/webp" aria-label="更换活动封面" disabled={editBusy} onChange={(event) => { const file = event.target.files?.[0]; if (file) void replaceActivityCover(file); event.target.value = '' }} /></label>
           </div>
           {editError && <p role="alert" className="mt-3 rounded-card border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{editError}</p>}
           <button type="button" className="btn-primary mt-4" disabled={editBusy} onClick={() => void saveActivity()}>{editBusy ? '保存中...' : '保存活动信息'}</button>
@@ -193,7 +208,7 @@ export default function TopicDetail() {
             <TopicCollaboratorsPanel suggestedTopicId={activity.id} embedded />
           </section>
         )}
-        <RelatedGroups groups={activity.related_groups} mode={activity.participation_mode} />
+        <RelatedGroups topicId={activity.id} groups={activity.related_groups} mode={activity.participation_mode} />
       </main>
 
       <StickyActions label="活动操作">
@@ -223,7 +238,7 @@ function ActivityPrimaryActions({ activity }: { activity: ExploreActivityDetail 
     const signup = activity.related_groups.find((group) => group.purpose === 'official_signup')
     return signup
       ? <Link to={`/posts/${signup.id}`} className="btn-primary min-h-11">进入官方报名</Link>
-      : <span className="flex min-h-11 items-center px-3 text-sm font-semibold text-ink-muted">报名入口待发布</span>
+      : <a href="#related-groups" className="btn-primary min-h-11">查看报名入口</a>
   }
 
   return <a href="#related-groups" className="btn-primary min-h-11"><MessageCircle aria-hidden="true" className="size-4" />查看相关讨论</a>

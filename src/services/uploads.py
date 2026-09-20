@@ -424,6 +424,16 @@ def attach_new_post_cover(session, actor, post, upload_id: str) -> None:
         raise ValueError("请使用自己上传的帖子封面")
     if record.status != "completed":
         raise ValueError("封面未完成上传或已用于其他帖子")
+    previous = session.scalars(
+        select(UploadRecord).where(
+            UploadRecord.attached_to_type == "post_cover",
+            UploadRecord.attached_to_id == str(post.id),
+            UploadRecord.status == "attached",
+            UploadRecord.id != record.id,
+        )
+    ).all()
+    for old_record in previous:
+        old_record.status = "replaced"
     post.cover_url = public_url_for(record)
     record.status = "attached"
     record.attached_to_type = "post_cover"

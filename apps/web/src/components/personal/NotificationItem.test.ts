@@ -13,4 +13,16 @@ describe('authorization notification targets', () => {
       created_at: '2026-09-14T00:00:00Z',
     })).toBe('/authorizations')
   })
+
+  it('opens a new application directly in the post management area', () => {
+    expect(notificationTarget({
+      id: '2',
+      event_type: 'application.created',
+      title: '收到新申请',
+      body: '申请加入组队',
+      target_type: 'post',
+      target_id: '42',
+      created_at: '2026-09-20T00:00:00Z',
+    })).toBe('/posts/42?manage=applications#post-management')
+  })
 })

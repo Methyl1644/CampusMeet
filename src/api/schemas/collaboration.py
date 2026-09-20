@@ -70,6 +70,7 @@ class PostUpdateRequest(RequestModel):
     purpose: Literal["team_recruitment", "official_signup", "discussion"] | None = None
     join_mode: Literal["application", "direct", "none"] | None = None
     tag_ids: list[TagId] | None = Field(default=None, max_length=8)
+    cover_upload_id: str | None = Field(default=None, max_length=64)
 
     @model_validator(mode="after")
     def require_change(self) -> "PostUpdateRequest":

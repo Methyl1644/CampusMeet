@@ -27,11 +27,11 @@ function pickCloudinaryResult(payload: unknown): Record<string, unknown> {
   return picked
 }
 
-export async function uploadPostCover(file: File): Promise<string> {
+async function uploadPublicImage(file: File, purpose: 'post_cover' | 'topic_cover'): Promise<string> {
   if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || file.size > 10 * 1024 * 1024) {
     throw new Error('请选择 10MB 以内的 JPG、PNG 或 WebP 图片')
   }
-  const ticket = await post<UploadTicket>('/api/uploads', { purpose: 'post_cover', filename: file.name, mime_type: file.type, size: file.size })
+  const ticket = await post<UploadTicket>('/api/uploads', { purpose, filename: file.name, mime_type: file.type, size: file.size })
 
   if (ticket.upload.provider === 'cloudinary') {
     const { url, fields, file_field: fileField } = ticket.upload
@@ -49,4 +49,16 @@ export async function uploadPostCover(file: File): Promise<string> {
   if (!response.ok) throw new Error(`封面上传失败（存储返回 ${response.status}）`)
   await post(`/api/uploads/${ticket.upload_id}/complete`)
   return ticket.upload_id
+}
+
+export function uploadPostCover(file: File): Promise<string> {
+  return uploadPublicImage(file, 'post_cover')
+}
+
+export function uploadTopicCover(file: File): Promise<string> {
+  return uploadPublicImage(file, 'topic_cover')
+}
+
+export function attachPublicUpload(uploadId: string, targetId: string) {
+  return post<{ upload_id: string; purpose: string; status: string; target_id: string }>(`/api/uploads/${uploadId}/attach`, { target_id: Number(targetId) })
 }

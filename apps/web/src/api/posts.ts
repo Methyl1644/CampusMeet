@@ -39,7 +39,7 @@ export function getMyPosts() {
   return get<Post[]>(API_PATHS.posts.myPosts)
 }
 
-export function updatePost(id: string, data: Partial<Post>) {
+export function updatePost(id: string, data: Partial<Post> & { cover_upload_id?: string }) {
   return patch<Post>(API_PATHS.posts.detail.replace(':id', id), data)
 }
 

@@ -7,6 +7,8 @@ import { createApplication } from '@/api/applications'
 import { matchPosts } from '@/api/agent'
 import { getExploreGroup, joinExploreGroup, setGroupFavorite } from '@/api/explore'
 import { getMyTeams, type MyTeamSummary } from '@/api/teams'
+import { updatePost } from '@/api/posts'
+import { uploadPostCover } from '@/api/publish'
 import { ToastProvider } from '@/components/Toast'
 import PostDetail from './PostDetail'
 import { groupDetailFixture } from './detailTestFixtures'
@@ -19,6 +21,10 @@ vi.mock('@/api/explore', () => ({
   setGroupFavorite: vi.fn(),
 }))
 vi.mock('@/api/teams', () => ({ getMyTeams: vi.fn() }))
+vi.mock('@/api/posts', () => ({
+  archivePost: vi.fn(), closePost: vi.fn(), deletePost: vi.fn(), regeneratePostCover: vi.fn(), reopenPost: vi.fn(), updatePost: vi.fn(),
+}))
+vi.mock('@/api/publish', () => ({ uploadPostCover: vi.fn() }))
 
 function deferred<T>() {
   let resolve!: (value: T) => void
@@ -51,9 +57,9 @@ function RouteChange() {
   )
 }
 
-function renderPost() {
+function renderPost(initialEntry = '/posts/group-1') {
   return render(
-    <MemoryRouter initialEntries={['/posts/group-1']} future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+    <MemoryRouter initialEntries={[initialEntry]} future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       <ToastProvider>
         <RouteChange />
         <Routes><Route path="/posts/:id" element={<PostDetail />} /></Routes>
@@ -85,6 +91,8 @@ beforeEach(() => {
     reason: '公开技能与帖子所需角色存在直接匹配',
     skills: ['前端开发'], goals: ['比赛组队'],
   }] })
+  vi.mocked(updatePost).mockResolvedValue({} as Awaited<ReturnType<typeof updatePost>>)
+  vi.mocked(uploadPostCover).mockResolvedValue('replacement-cover')
   Object.defineProperty(navigator, 'share', { configurable: true, value: vi.fn().mockResolvedValue(undefined) })
   Object.defineProperty(navigator, 'clipboard', { configurable: true, value: undefined })
 })
@@ -92,6 +100,26 @@ beforeEach(() => {
 afterEach(() => cleanup())
 
 describe('PostDetail group experience', () => {
+  it('lets the owner upload a replacement cover while editing the post', async () => {
+    vi.mocked(getExploreGroup).mockResolvedValue({ ...groupDetailFixture, join_state: 'owner' })
+    renderPost()
+    fireEvent.click(await screen.findByRole('button', { name: '编辑与管理' }))
+
+    const file = new File(['cover'], 'cover.png', { type: 'image/png' })
+    fireEvent.change(screen.getByLabelText('更换帖子封面'), { target: { files: [file] } })
+
+    await waitFor(() => expect(uploadPostCover).toHaveBeenCalledWith(file))
+    expect(updatePost).toHaveBeenCalledWith(groupDetailFixture.id, { cover_upload_id: 'replacement-cover' })
+  })
+
+  it('opens application management from a notification deep link', async () => {
+    vi.mocked(getExploreGroup).mockResolvedValue({ ...groupDetailFixture, join_state: 'owner' })
+    renderPost('/posts/group-1?manage=applications#post-management')
+
+    expect(await screen.findByRole('heading', { name: '加入申请' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: '收起管理' })).toBeTruthy()
+  })
+
   it('lets the owner request privacy-safe teammate recommendations from management', async () => {
     vi.mocked(getExploreGroup).mockResolvedValue({ ...groupDetailFixture, join_state: 'owner' })
     renderPost()
